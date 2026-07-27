@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b1020" />
+    <title>Classic Nine — Replay</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./replay.css" />
+  </head>
+  <body>
+    <main class="shell replay-shell">
+      <header class="hero replay-hero">
+        <div>
+          <p class="eyebrow">Super Slot Studio · Read-only record</p>
+          <h1>Bet <span>Replay</span></h1>
+          <p class="lede">Review a completed Classic Nine result.</p>
+        </div>
+        <div class="status replay-status"><i></i><span>Replay mode</span></div>
+      </header>
+
+      <section class="replay-summary" aria-label="Replay result summary">
+        <article><span>Bet mode</span><strong>Base</strong></article>
+        <article><span>Replay bet</span><strong>USD 1.25</strong></article>
+        <article><span>Cost</span><strong>1.00×</strong></article>
+        <article>
+          <span>Payout</span><strong class="accent">3.00×</strong>
+        </article>
+      </section>
+
+      <section class="cabinet replay-cabinet" aria-labelledby="replay-title">
+        <div class="cabinet-top">
+          <div>
+            <p class="label">Recorded event · #55</p>
+            <h2 id="replay-title">Classic Nine</h2>
+          </div>
+          <p id="replay-state" class="state-pill" aria-live="polite">
+            Loading replay
+          </p>
+        </div>
+
+        <div
+          id="grid"
+          class="grid replay-grid"
+          aria-live="polite"
+          aria-label="Recorded three by three symbol grid"
+        ></div>
+
+        <div class="replay-action">
+          <p id="replay-message">Loading the recorded result…</p>
+          <button id="play-replay" class="primary" type="button" disabled>
+            Loading…
+          </button>
+        </div>
+      </section>
+
+      <aside class="replay-notice">
+        <strong>Read-only replay</strong>
+        <span
+          >No balance, bet controls, wallet calls, or session required.</span
+        >
+      </aside>
+
+      <footer>
+        Public replay fixture ·
+        <a href="./index.html">Return to contract preview</a>
+      </footer>
+    </main>
+    <script type="module" src="./replay.js"></script>
+  </body>
+</html>

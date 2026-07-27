@@ -242,4 +242,4 @@ Status: **application and transport foundation complete; UI pending**.
 - [x] Disable wagering structurally through a replay-only application API.
 - [x] Retain validated state for deterministic replay again.
 - [x] Suppress late loads after disposal and expose failure state.
-- [ ] Add the dedicated replay presentation controls and result summary.
+- [x] Add dedicated replay presentation controls and a result summary fixture.
