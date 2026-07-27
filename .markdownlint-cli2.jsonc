@@ -1,0 +1,6 @@
+{
+  "config": {
+    // Tables and immutable source permalinks are intentionally long.
+    "MD013": false,
+  },
+}
