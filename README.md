@@ -1,6 +1,6 @@
 # Super Slot Studio
 
-[![CI](https://github.com/iamendless777/superslotstudio/actions/workflows/ci.yml/badge.svg)](https://github.com/iamendless777/superslotstudio/actions/workflows/ci.yml)
+[![CI](https://github.com/realitybeast/superslotstudio/actions/workflows/ci.yml/badge.svg)](https://github.com/realitybeast/superslotstudio/actions/workflows/ci.yml)
 
 Dependency-free Stake Engine domain foundation. The current implementation owns
 only local contracts, validation, recovery decisions, adapters, and test doubles;
