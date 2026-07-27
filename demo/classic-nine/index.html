@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#111127" />
+    <title>Classic Nine — Presentation Preview</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Super Slot Studio · Contract Preview</p>
+          <h1>Classic <span>Nine</span></h1>
+          <p class="lede">
+            A deterministic view of externally supplied events.
+          </p>
+        </div>
+        <div class="status"><i></i><span>Local fixture</span></div>
+      </header>
+
+      <section class="cabinet" aria-labelledby="preview-title">
+        <div class="cabinet-top">
+          <div>
+            <p class="label">Presentation sequence</p>
+            <h2 id="preview-title">Book <span id="book-number">01</span></h2>
+          </div>
+          <div class="counter">
+            <span id="step">0</span><small>/ 2 events</small>
+          </div>
+        </div>
+
+        <div
+          id="grid"
+          class="grid"
+          aria-live="polite"
+          aria-label="Three by three symbol grid"
+        ></div>
+
+        <div class="controls">
+          <button id="reset" class="secondary" type="button">Reset</button>
+          <button id="advance" class="primary" type="button">
+            Reveal grid
+          </button>
+          <button id="next-book" class="secondary" type="button">
+            Next book
+          </button>
+        </div>
+      </section>
+
+      <section class="contract" aria-label="Contract guarantees">
+        <article><b>3 × 3</b><span>Strict grid</span></article>
+        <article><b>v1</b><span>Event schema</span></article>
+        <article><b>0</b><span>Local RNG calls</span></article>
+      </section>
+
+      <footer>
+        Presentation-only fixture · No wager, wallet, payout calculation, or
+        approval claim
+      </footer>
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
