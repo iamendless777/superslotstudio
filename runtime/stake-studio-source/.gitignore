@@ -1,0 +1,10 @@
+.DS_Store
+.env.local
+dist/
+node_modules/
+tmp/
+*.log
+*.pyc
+__pycache__/
+*.codex-*
+test/*.test.??????

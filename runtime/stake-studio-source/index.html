@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StakeStudio — Slot Game Development Engine</title>
+  <link rel="stylesheet" href="/src/styles.css?v=morpheus-orchestration-20260812-23">
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    (() => {
+      const report = (kind, value) => {
+        const message = String(value?.stack || value?.message || value || 'Unknown startup error');
+        fetch('/__stake_studio/errors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ errors: [{ signature: `${kind}:${message}`, kind, message, at: new Date().toISOString() }] }),
+        }).catch(() => {});
+      };
+      window.addEventListener('error', event => report('startup.error', event.error || event.message));
+      window.addEventListener('unhandledrejection', event => report('startup.rejection', event.reason));
+    })();
+  </script>
+  <script type="module" src="/src/app.js?v=morpheus-orchestration-20260813-35"></script>
+</body>
+</html>
