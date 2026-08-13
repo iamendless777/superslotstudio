@@ -7,4 +7,3 @@ tmp/
 *.pyc
 __pycache__/
 *.codex-*
-test/*.test.??????
