@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#080b18" />
+    <title>WIZARD CRAFT — Pixel Forge</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p>SUPER SLOT STUDIO · ASSET WORKBENCH</p>
+        <h1>PIXEL <span>FORGE</span></h1>
+      </div>
+      <div class="history-controls">
+        <button id="undo" type="button" title="Undo (⌘/Ctrl+Z)">↶ Undo</button>
+        <button id="redo" type="button" title="Redo (⌘/Ctrl+Shift+Z)">↷ Redo</button>
+        <button id="reset-view" type="button">Fit view</button>
+      </div>
+    </header>
+
+    <main class="workbench">
+      <aside class="panel tools-panel">
+        <section>
+          <h2>Tools</h2>
+          <div class="tool-grid" role="toolbar" aria-label="Pixel tools">
+            <button class="tool active" data-tool="pencil" type="button">✎<span>Pencil</span></button>
+            <button class="tool" data-tool="eraser" type="button">⌫<span>Eraser</span></button>
+            <button class="tool" data-tool="picker" type="button">◎<span>Picker</span></button>
+            <button class="tool" data-tool="pan" type="button">✥<span>Pan</span></button>
+          </div>
+        </section>
+
+        <section>
+          <h2>Brush</h2>
+          <label class="field">
+            <span>Size <output id="brush-output">1 px</output></span>
+            <input id="brush-size" type="range" min="1" max="16" value="1" />
+          </label>
+          <label class="color-field">
+            <span>Color</span>
+            <input id="color" type="color" value="#f7fbff" />
+            <code id="color-value">#f7fbff</code>
+          </label>
+          <div class="palette" id="palette" aria-label="Wizard Craft palette"></div>
+        </section>
+
+        <section>
+          <h2>View</h2>
+          <label class="field">
+            <span>Zoom <output id="zoom-output">100%</output></span>
+            <input id="zoom" type="range" min="25" max="1600" step="25" value="100" />
+          </label>
+          <label class="check"><input id="grid" type="checkbox" checked /> Pixel grid</label>
+          <label class="check"><input id="onion" type="checkbox" /> Dim inactive layers</label>
+          <div class="background-switch" role="group" aria-label="Preview background">
+            <button class="active" data-bg="checker" type="button">Alpha</button>
+            <button data-bg="black" type="button">Black</button>
+            <button data-bg="green" type="button">Green</button>
+          </div>
+        </section>
+      </aside>
+
+      <section class="stage-panel">
+        <div class="stage-toolbar">
+          <div>
+            <strong id="document-name">Wizard left-hand workspace</strong>
+            <span id="document-size">1254 × 1254</span>
+          </div>
+          <p id="status" role="status">Sleeve loaded. Import a glove or draw a new layer.</p>
+        </div>
+        <div class="viewport checker" id="viewport">
+          <canvas id="canvas" width="1254" height="1254" aria-label="Pixel editing canvas"></canvas>
+          <div class="cursor-preview" id="cursor-preview"></div>
+        </div>
+        <div class="coordinates">
+          <span id="coordinates">x 0 · y 0</span>
+          <span>Wheel: zoom · Space/hand: pan · Arrows: nudge layer</span>
+        </div>
+      </section>
+
+      <aside class="panel layers-panel">
+        <section>
+          <div class="section-title">
+            <h2>Layers</h2>
+            <button id="new-layer" type="button" title="New empty layer">＋</button>
+          </div>
+          <div class="layer-actions">
+            <label class="file-button">
+              Import image
+              <input id="import-image" type="file" accept="image/png,image/jpeg,image/webp" multiple />
+            </label>
+            <button id="duplicate-layer" type="button">Duplicate</button>
+          </div>
+          <ol id="layers" class="layer-list"></ol>
+          <div class="layer-order">
+            <button id="layer-up" type="button">Move up</button>
+            <button id="layer-down" type="button">Move down</button>
+            <button id="delete-layer" class="danger" type="button">Delete</button>
+          </div>
+        </section>
+
+        <section>
+          <h2>Transform active layer</h2>
+          <div class="transform-grid">
+            <label>X <input id="layer-x" type="number" step="1" /></label>
+            <label>Y <input id="layer-y" type="number" step="1" /></label>
+            <label>Scale % <input id="layer-scale" type="number" min="1" max="1000" step="1" /></label>
+            <label>Rotate ° <input id="layer-rotation" type="number" min="-360" max="360" step="1" /></label>
+          </div>
+          <div class="transform-buttons">
+            <button id="flip-x" type="button">Flip horizontal</button>
+            <button id="flip-y" type="button">Flip vertical</button>
+            <button id="bake-transform" type="button">Bake transform</button>
+          </div>
+          <label class="field">
+            <span>Opacity <output id="opacity-output">100%</output></span>
+            <input id="layer-opacity" type="range" min="0" max="100" value="100" />
+          </label>
+        </section>
+
+        <section>
+          <h2>Chroma removal</h2>
+          <label class="color-field">
+            <span>Key</span>
+            <input id="key-color" type="color" value="#00ff00" />
+            <code id="key-value">#00ff00</code>
+          </label>
+          <label class="field">
+            <span>Tolerance <output id="tolerance-output">48</output></span>
+            <input id="tolerance" type="range" min="0" max="255" value="48" />
+          </label>
+          <button id="remove-chroma" class="wide" type="button">Remove key from active layer</button>
+        </section>
+
+        <section>
+          <h2>Export</h2>
+          <div class="export-grid">
+            <button id="export-layer" type="button">Active layer PNG</button>
+            <button id="export-composite" class="primary" type="button">Composite PNG</button>
+          </div>
+          <small>Exports preserve transparency and the document’s native pixel dimensions.</small>
+        </section>
+      </aside>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

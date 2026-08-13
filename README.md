@@ -2,9 +2,10 @@
 
 [![CI](https://github.com/realitybeast/superslotstudio/actions/workflows/ci.yml/badge.svg)](https://github.com/realitybeast/superslotstudio/actions/workflows/ci.yml)
 
-Dependency-free Stake Engine domain foundation. The current implementation owns
-only local contracts, validation, recovery decisions, adapters, and test doubles;
-it does not implement an RGS, wallet, RNG service, remote gaming server, or game UI.
+Dependency-free foundation for a multi-game Stake Engine slot studio. The current
+implementation owns local contracts, validation, recovery decisions, adapters,
+math evidence, and a reference-game preview; it does not implement an RGS, wallet,
+RNG service, or remote gaming server.
 
 ## Current boundaries
 
@@ -39,7 +40,16 @@ it does not implement an RGS, wallet, RNG service, remote gaming server, or game
   rate, definition identity, and maximum win, but cannot grant production approval.
 
 See the accepted [architecture decisions](docs/adr/) and the
-[upstream contract ledger](docs/upstream/README.md).
+[upstream contract ledger](docs/upstream/README.md). The
+[studio architecture](docs/studio-architecture.md) defines what is shared across
+games and what must remain unique to each game. The
+[initial concept portfolio](docs/game-concept-portfolio.md) and
+[definition shortlist](docs/concept-definition-shortlist.md) preserve the concept
+selection history. Recovered WIZARD CRAFT source includes its typed event,
+runtime, presentation, information, browser, Pixi, audio, and control contracts,
+plus the official-SDK math implementation and recorded math evidence. Its former
+standalone concept, art-bible, visual-acceptance, and browser-demo documents were
+not present in the recovered repository and are therefore not claimed here.
 
 ## Commands
 
@@ -57,3 +67,14 @@ The test command builds the strict TypeScript project and runs the compiled test
 with Node's built-in test runner.
 The demo command serves the deterministic Classic Nine presentation preview at
 `http://127.0.0.1:4173` after building the library.
+
+The working Signal Nine math-sdk game is under `math/classic_nine`. Copy that
+folder to `games/classic_nine` in the pinned official math-sdk checkout, run the
+SDK setup, and execute:
+
+```sh
+env/bin/python -m unittest discover -s games/classic_nine -p 'test_*.py' -v
+```
+
+Simulation, optimization, analysis, and format checks are intentionally disabled
+in its `run.py` until exploratory math review begins.

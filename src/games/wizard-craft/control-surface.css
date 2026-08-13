@@ -1,0 +1,313 @@
+:root {
+  --wc-void: #090711;
+  --wc-iron: #171321;
+  --wc-iron-hi: #382e48;
+  --wc-edge: #665578;
+  --wc-gold: #d5a552;
+  --wc-parchment: #f3e8cf;
+  --wc-muted: #afa2ba;
+  --wc-dragon: #e54d3e;
+  --wc-dragon-dark: #661c2b;
+  --wc-wizard: #5acfff;
+  --wc-wizard-dark: #173f72;
+  --wc-focus: #fff0a8;
+}
+
+.wizard-craft-controls {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(150px, .72fr) minmax(280px, 1.55fr) auto;
+  grid-template-areas:
+    "status status balance"
+    "settings settings actions";
+  gap: 8px 12px;
+  width: min(100%, 1180px);
+  min-height: 112px;
+  padding: 10px 13px 12px;
+  border: 3px solid #0b0910;
+  border-radius: 5px 5px 18px 18px;
+  background:
+    linear-gradient(90deg, #3f1824 0 4px, transparent 4px calc(100% - 4px), #173b63 calc(100% - 4px)),
+    linear-gradient(180deg, #33283f 0, #15111d 42%, #0a0810 100%);
+  box-shadow:
+    inset 0 1px #7b6989,
+    inset 0 -4px #050408,
+    inset 0 0 0 6px #191420,
+    0 12px 30px #000a;
+  color: var(--wc-parchment);
+  font: 600 12px/1.25 ui-monospace, "SFMono-Regular", Menlo, monospace;
+  isolation: isolate;
+}
+
+.wizard-craft-controls::before,
+.wizard-craft-controls::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 9px;
+  width: 2px;
+  opacity: .72;
+  pointer-events: none;
+}
+.wizard-craft-controls::before {
+  left: 7px;
+  background: linear-gradient(transparent, var(--wc-dragon), transparent);
+  box-shadow: 0 0 10px var(--wc-dragon);
+}
+.wizard-craft-controls::after {
+  right: 7px;
+  background: linear-gradient(transparent, var(--wc-wizard), transparent);
+  box-shadow: 0 0 10px var(--wc-wizard);
+}
+
+.wizard-craft-controls button,
+.wizard-craft-controls select {
+  min-height: 36px;
+  border: 1px solid var(--wc-edge);
+  border-radius: 3px;
+  background: linear-gradient(#332a40, #17131e 58%, #0e0b13);
+  box-shadow: inset 0 1px #746481, inset 0 -2px #08060c;
+  color: var(--wc-parchment);
+  font: inherit;
+}
+.wizard-craft-controls button {
+  position: relative;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.wizard-craft-controls button:hover:not(:disabled) {
+  border-color: var(--wc-gold);
+  filter: brightness(1.13);
+}
+.wizard-craft-controls button:focus-visible,
+.wizard-craft-controls select:focus-visible,
+.wizard-craft-controls input:focus-visible {
+  outline: 2px solid var(--wc-focus);
+  outline-offset: 2px;
+}
+.wizard-craft-controls button:disabled,
+.wizard-craft-controls select:disabled {
+  cursor: default;
+  filter: grayscale(.55);
+  opacity: .48;
+}
+
+.wizard-craft-controls .wc-status {
+  grid-area: status;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  padding: 3px 7px;
+  color: var(--wc-muted);
+}
+.wizard-craft-controls .wc-status strong {
+  flex: 0 0 auto;
+  color: var(--wc-gold);
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+.wizard-craft-controls .wc-status span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wizard-craft-controls .wc-balance {
+  grid-area: balance;
+  align-self: center;
+  justify-self: end;
+  color: var(--wc-parchment);
+  font-variant-numeric: tabular-nums;
+}
+
+.wizard-craft-controls > fieldset {
+  grid-area: settings;
+  display: flex;
+  align-items: end;
+  gap: 9px;
+  min-width: 0;
+  margin: 0;
+  padding: 7px 9px 8px;
+  border: 1px solid #47394f;
+  background: #0d0a12a8;
+}
+.wizard-craft-controls > fieldset > legend {
+  padding: 0 5px;
+  color: var(--wc-muted);
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.wizard-craft-controls label {
+  display: grid;
+  gap: 4px;
+  min-width: 90px;
+  color: var(--wc-muted);
+  font-size: 9px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.wizard-craft-controls select { padding: 6px 26px 6px 8px; }
+.wizard-craft-controls > fieldset fieldset {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.wizard-craft-controls > fieldset fieldset legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.wizard-craft-controls > fieldset fieldset label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: auto;
+  padding: 7px 8px;
+  border: 1px solid #3d3148;
+  background: #16101e;
+  color: var(--wc-parchment);
+  white-space: nowrap;
+}
+.wizard-craft-controls input[type="radio"] { accent-color: #a875d5; }
+
+.wizard-craft-controls .wc-actions {
+  grid-area: actions;
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.wizard-craft-controls .wc-play {
+  min-width: 66px;
+  border-color: #c8984d;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 40% 30%, #fff4cf 0 4%, transparent 5%),
+    linear-gradient(145deg, #426f9e, #233d62 52%, #172038);
+  box-shadow:
+    inset 0 2px #82a8ce,
+    inset 0 -4px #101729,
+    0 0 0 3px #9a7b4d,
+    0 4px 12px #000a;
+  color: #fff8dd;
+  font-weight: 900;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.wc-effects,
+.wc-music {
+  position: relative;
+  min-width: 88px;
+  padding-left: 27px !important;
+  overflow: hidden;
+}
+.wc-effects::before,
+.wc-music::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border: 1px solid #07060a;
+  border-radius: 1px;
+  transform: translateY(-50%) rotate(45deg);
+  transition: opacity .15s, filter .15s;
+}
+.wc-effects::before {
+  background: linear-gradient(135deg, var(--wc-dragon), #b360cf 50%, var(--wc-wizard));
+  box-shadow: -2px 2px 6px var(--wc-dragon), 2px -2px 6px var(--wc-wizard);
+}
+.wc-music::before {
+  background: #eafaff;
+  box-shadow: 0 0 4px #fff, 0 0 9px var(--wc-wizard);
+  animation: wc-pixel-star 1.9s steps(2, end) infinite;
+}
+.wc-effects[aria-pressed="true"]::before,
+.wc-music[aria-pressed="false"]::before {
+  background: #423a48;
+  box-shadow: none;
+  opacity: .56;
+  animation: none;
+}
+.wc-music[aria-pressed="true"] {
+  border-color: #4f9dd0;
+  background: linear-gradient(#243d5d, #121a2c);
+}
+
+@keyframes wc-pixel-star {
+  0%, 76%, 100% { transform: translateY(-50%) rotate(45deg) scale(.72); filter: brightness(.9); }
+  82%, 90% { transform: translateY(-50%) rotate(45deg) scale(1.18); filter: brightness(1.55); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wc-music::before { animation: none; }
+}
+
+.wizard-craft-controls .wc-dialog {
+  max-width: min(680px, calc(100vw - 24px));
+  max-height: min(78vh, 720px);
+  overflow: auto;
+  border: 2px solid var(--wc-edge);
+  background: #100c18;
+  color: var(--wc-parchment);
+  box-shadow: 0 20px 80px #000d;
+}
+.wizard-craft-controls .wc-dialog::backdrop {
+  background: #07050bd1;
+  backdrop-filter: blur(3px);
+}
+
+@media (max-width: 760px) {
+  .wizard-craft-controls {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "status balance"
+      "settings settings"
+      "actions actions";
+  }
+  .wizard-craft-controls > fieldset {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .wizard-craft-controls .wc-actions { justify-content: center; }
+}
+
+@media (max-width: 480px), (max-height: 430px) {
+  .wizard-craft-controls {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "status"
+      "actions";
+    min-height: 64px;
+    padding: 7px 10px 9px;
+  }
+  .wizard-craft-controls .wc-balance,
+  .wizard-craft-controls > fieldset {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .wizard-craft-controls .wc-status { font-size: 10px; }
+  .wizard-craft-controls .wc-actions {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(48px, 1fr));
+  }
+  .wizard-craft-controls .wc-actions button {
+    min-width: 0;
+    min-height: 40px;
+    padding: 6px !important;
+    font-size: 9px;
+  }
+  .wizard-craft-controls .wc-play { border-radius: 7px; }
+  .wc-effects::before,
+  .wc-music::before { display: none; }
+}

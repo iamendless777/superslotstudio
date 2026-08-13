@@ -7,7 +7,12 @@ const types = {
   ".css": "text/css",
   ".html": "text/html",
   ".js": "text/javascript",
+  ".mjs": "text/javascript",
+  ".json": "application/json",
   ".map": "application/json",
+  ".png": "image/png",
+  ".wav": "audio/wav",
+  ".mp3": "audio/mpeg",
 };
 const server = createServer((request, response) => {
   const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
@@ -27,6 +32,7 @@ const server = createServer((request, response) => {
       "Content-Type",
       types[extname(file)] ?? "application/octet-stream",
     );
+    response.setHeader("Cache-Control", "no-store");
     createReadStream(file).pipe(response);
   } catch {
     response.writeHead(404).end("Not found");

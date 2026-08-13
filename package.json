@@ -7,6 +7,14 @@
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
     "demo": "npm run build && node scripts/serve-demo.mjs",
+    "explore:wizard-craft": "npm run build && node dist/tools/math/wizard-craft-exploratory.js",
+    "review:wizard-craft": "node scripts/review-wizard-craft-replays.mjs",
+    "review:wizard-craft:visual": "python3 scripts/review-wizard-craft-visuals.py",
+    "bundle:wizard-craft": "npm run build && python3 scripts/build-wizard-craft-stake-bundle.py && python3 scripts/verify-wizard-craft-stake-bundle.py",
+    "verify:wizard-craft:release": "python3 scripts/verify-wizard-craft-stake-bundle.py",
+    "verify:wizard-craft:submission": "python3 scripts/verify-wizard-craft-submission.py",
+    "stage:wizard-craft": "npm run bundle:wizard-craft && python3 scripts/stage-wizard-craft-uploads.py",
+    "bundle:wizard-craft:review": "npm run build && python3 scripts/build-wizard-craft-stake-bundle.py --allow-review-build --output dist/wizard-craft-review",
     "test": "npm run build && node --test dist/test/*.test.js"
   },
   "devDependencies": {
@@ -15,5 +23,8 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "pixi.js": "^8.13.2"
   }
 }
