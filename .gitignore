@@ -1,6 +1,6 @@
 dist/
 node_modules/
-reference/
+reference
 .DS_Store
 .env.local
 .codex-work/
