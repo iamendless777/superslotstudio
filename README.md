@@ -68,6 +68,26 @@ with Node's built-in test runner.
 The demo command serves the deterministic Classic Nine presentation preview at
 `http://127.0.0.1:4173` after building the library.
 
+### WIZARD CRAFT recovery status
+
+The deterministic WIZARD CRAFT replay fixtures under
+`demo/wizard-craft/replays` are regenerated from the selected books in the
+surviving official-SDK publish library. The original production image and audio
+files referenced by the runtime manifest were not present in the recovered
+workspace or GitHub history. WIZARD CRAFT is therefore not visually or
+acoustically release-ready.
+
+Ordinary CI continues to verify the complete typed asset manifest and runtime
+loading behavior without inventing replacement media. After the original
+production files are restored under `art-src/wizard-craft`, run the filesystem,
+audio-uniqueness, and mobile-payload certification gates explicitly:
+
+```sh
+WIZARD_CRAFT_PRODUCTION_ASSET_AUDIT=1 npm test
+```
+
+Those gates intentionally fail when any required production file is missing.
+
 The working Signal Nine math-sdk game is under `math/classic_nine`. Copy that
 folder to `games/classic_nine` in the pinned official math-sdk checkout, run the
 SDK setup, and execute:

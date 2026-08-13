@@ -1,0 +1,82 @@
+[
+  {
+    "slug": "base-tier-three",
+    "label": "Base Tier Three",
+    "mode": "baseBattle",
+    "eventId": 67170,
+    "payoutMultiplier": 5000,
+    "file": "./replays/base-tier-three.json"
+  },
+  {
+    "slug": "base-near-miss",
+    "label": "Base Near Miss",
+    "mode": "baseBattle",
+    "eventId": 5,
+    "payoutMultiplier": 0,
+    "file": "./replays/base-near-miss.json"
+  },
+  {
+    "slug": "rune-tier-one",
+    "label": "Rune Tier One",
+    "mode": "runeSpark",
+    "eventId": 42822,
+    "payoutMultiplier": 5000,
+    "file": "./replays/rune-tier-one.json"
+  },
+  {
+    "slug": "base-tier-two-no-sticky",
+    "label": "Base Tier Two No Sticky",
+    "mode": "baseBattle",
+    "eventId": 52068,
+    "payoutMultiplier": 4980,
+    "file": "./replays/base-tier-two-no-sticky.json"
+  },
+  {
+    "slug": "rune-tier-two-sticky",
+    "label": "Rune Tier Two Sticky",
+    "mode": "runeSpark",
+    "eventId": 16512,
+    "payoutMultiplier": 5010,
+    "file": "./replays/rune-tier-two-sticky.json"
+  },
+  {
+    "slug": "grimoire-sticky-upgrade",
+    "label": "Grimoire Sticky Upgrade",
+    "mode": "openGrimoire",
+    "eventId": 49253,
+    "payoutMultiplier": 5000,
+    "file": "./replays/grimoire-sticky-upgrade.json"
+  },
+  {
+    "slug": "siege-retrigger",
+    "label": "Siege Retrigger",
+    "mode": "siegeSigns",
+    "eventId": 1646,
+    "payoutMultiplier": 5010,
+    "file": "./replays/siege-retrigger.json"
+  },
+  {
+    "slug": "grimoire-max-win",
+    "label": "Grimoire Max Win",
+    "mode": "openGrimoire",
+    "eventId": 60552,
+    "payoutMultiplier": 2500000,
+    "file": "./replays/grimoire-max-win.json"
+  },
+  {
+    "slug": "siege-large-win",
+    "label": "Siege Large Win",
+    "mode": "siegeSigns",
+    "eventId": 24680,
+    "payoutMultiplier": 100040,
+    "file": "./replays/siege-large-win.json"
+  },
+  {
+    "slug": "grimoire-large-win",
+    "label": "Grimoire Large Win",
+    "mode": "openGrimoire",
+    "eventId": 83497,
+    "payoutMultiplier": 1000600,
+    "file": "./replays/grimoire-large-win.json"
+  }
+]
