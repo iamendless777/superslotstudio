@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "gameID": "classic_nine",
+  "gameVersion": "1.0.0",
+  "workingName": "Classic Nine: Signal Nine",
+  "frozenAt": "2026-07-28",
+  "status": "local-candidate-not-uploaded",
+  "selectedTrials": {
+    "base": {
+      "trial": 1,
+      "sourceSha256": "e4cad31b8d7deb1b28793c2faf4cc704df96846212dd138257c94bfeb0019dcb"
+    },
+    "bonus": {
+      "trial": 9,
+      "sourceSha256": "408e0b56109790a85e5e1b2844aed224033f0f0868206d435ad029f94459192a"
+    }
+  },
+  "upstream": {
+    "mathSdkCommit": "600a37657c75d67c0412bf3952a01d7e7ee99987",
+    "webSdkCommit": "1843d60cedb94b390e641b563f32ad64353bec5e",
+    "tsClientCommit": "df9e126d79b3fe1ef353f4fac9c1699cd79a4d3e"
+  },
+  "modes": {
+    "base": {
+      "cost": 1,
+      "outcomes": 999906,
+      "rtp": 0.965,
+      "normalizedStd": 5.916,
+      "cvar": 102.317,
+      "totalWeight": "1125899906496760"
+    },
+    "bonus": {
+      "cost": 100,
+      "outcomes": 999906,
+      "rtp": 0.965,
+      "normalizedStd": 1.21811,
+      "cvar": 639.995,
+      "totalWeight": "1125899906342359"
+    }
+  },
+  "artifacts": [
+    {
+      "path": "library/publish_files/books_base.jsonl.zst",
+      "bytes": 96399080,
+      "sha256": "a0eaab2ce6ad4eaf757c777dec952576df10c3f436a6a176d4fdd36e93c92ed0"
+    },
+    {
+      "path": "library/publish_files/books_bonus.jsonl.zst",
+      "bytes": 620763569,
+      "sha256": "40c875678dd0c8e36d9c8db901a2472ee8de90780ffc5d5a63c8931090fc4161"
+    },
+    {
+      "path": "library/publish_files/lookUpTable_base_0.csv",
+      "bytes": 20169558,
+      "sha256": "0fbe7e68a0ae3615840362fc570700b45a8d2398ac560e3ce3ad098c3f37cb47"
+    },
+    {
+      "path": "library/publish_files/lookUpTable_bonus_0.csv",
+      "bytes": 22643502,
+      "sha256": "a4d2f7833345e7e08fbb208e73cb82afd8059a30b1a822df3e69f26fdb700a9b"
+    },
+    {
+      "path": "library/publish_files/index.json",
+      "bytes": 364,
+      "sha256": "63c64048508a35940aa5fc5124489ceb9d1c774737411b3bd726779babb85107"
+    },
+    {
+      "path": "library/configs/config.json",
+      "bytes": 2284,
+      "sha256": "48fccca7bb7df05774328d25b2a47f867b0100a98f92b0c6944635820e7c5e9d"
+    },
+    {
+      "path": "library/configs/config_fe_classic_nine.json",
+      "bytes": 2537,
+      "sha256": "9ca7b50f99a978f5637aa4d3414d8a5017e3e6855d6433d924a462d61bfa57ba"
+    },
+    {
+      "path": "library/configs/math_config.json",
+      "bytes": 5015,
+      "sha256": "42524c9fb15ffae6786a143becdac205094f743175d11e3b659afe42313d1517"
+    },
+    {
+      "path": "library/forces/force.json",
+      "bytes": 1006,
+      "sha256": "fb5fcb0a72c8f406df96e6626186165dd85ebf5b537f8c9be8b2c36575670588"
+    },
+    {
+      "path": "library/forces/force_record_base.json",
+      "bytes": 27149904,
+      "sha256": "a391c3dc44870fbff27b5d5f9d954e5da83663f1211f45d13ba03bd1c823293b"
+    },
+    {
+      "path": "library/forces/force_record_bonus.json",
+      "bytes": 197982170,
+      "sha256": "ad068de58e7f1d8c2859bbdca2011e67abd7bda871dcd480272307e3d6df1c18"
+    }
+  ]
+}

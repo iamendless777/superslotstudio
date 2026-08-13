@@ -10,6 +10,7 @@ export * from "./domain/money.js";
 export * from "./domain/rgs.js";
 export * from "./events/schema.js";
 export * from "./games/classic-nine/events.js";
+export * from "./games/classic-nine/information.js";
 export * from "./games/classic-nine/presentation.js";
 export * from "./orchestration/orchestrator.js";
 export * from "./recovery/machine.js";

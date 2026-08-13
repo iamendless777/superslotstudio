@@ -32,6 +32,12 @@ export type RecoveryState<TState = unknown> =
       readonly session: SessionSnapshot;
       readonly round: Round<TState>;
       readonly resumed: boolean;
+      /**
+       * Normal paid wins are settled immediately after /wallet/play, matching
+       * web-sdk createPrimaryMachines. The credited balance is deliberately
+       * held here until presentation finishes.
+       */
+      readonly settledBalance?: Balance;
     }
   | {
       readonly value: "ending";
@@ -64,13 +70,17 @@ export type RecoveryEvent<TState = unknown> =
   | { readonly type: "END_ROUND_SUCCEEDED"; readonly balance: Balance }
   | { readonly type: "END_ROUND_REJECTED"; readonly failure: RgsFailure }
   | { readonly type: "END_ROUND_AMBIGUOUS" }
+  | { readonly type: "REFRESH_BALANCE" }
+  | { readonly type: "BALANCE_SUCCEEDED"; readonly balance: Balance }
+  | { readonly type: "BALANCE_FAILED" }
   | { readonly type: "INVALID_RESPONSE"; readonly failure: RgsFailure };
 
 export type RecoveryCommand =
   | { readonly type: "AUTHENTICATE" }
   | { readonly type: "PLAY"; readonly request: PlayRequest }
   | { readonly type: "CHECKPOINT"; readonly event: string }
-  | { readonly type: "END_ROUND" };
+  | { readonly type: "END_ROUND" }
+  | { readonly type: "BALANCE" };
 
 export interface Transition<TState = unknown> {
   readonly state: RecoveryState<TState>;
@@ -163,7 +173,27 @@ export function transition<TState>(
     };
   }
 
+  if (event.type === "REFRESH_BALANCE" && state.value === "idle") {
+    return { state, commands: [{ type: "BALANCE" }] };
+  }
+
+  if (event.type === "BALANCE_SUCCEEDED" && state.value === "idle") {
+    return {
+      state: {
+        ...state,
+        session: { ...state.session, balance: event.balance },
+      },
+      commands: [],
+    };
+  }
+
+  if (event.type === "BALANCE_FAILED" && state.value === "idle") {
+    return { state, commands: [] };
+  }
+
   if (event.type === "PLAY_SUCCEEDED" && state.value === "starting") {
+    const settleNormalWin =
+      !event.round.active && event.round.payoutMultiplier > 0;
     return {
       state: {
         value: "active",
@@ -171,6 +201,14 @@ export function transition<TState>(
         round: event.round,
         resumed: false,
       },
+      commands: settleNormalWin ? [{ type: "END_ROUND" }] : [],
+    };
+  }
+
+  if (event.type === "END_ROUND_SUCCEEDED" && state.value === "active") {
+    if (state.round.active || state.round.payoutMultiplier <= 0) return { state, commands: [] };
+    return {
+      state: { ...state, settledBalance: event.balance },
       commands: [],
     };
   }
@@ -202,7 +240,15 @@ export function transition<TState>(
 
   if (event.type === "PRESENTATION_COMPLETED" && state.value === "active") {
     if (!state.round.active) {
-      return { state: { value: "idle", session: state.session }, commands: [] };
+      return {
+        state: {
+          value: "idle",
+          session: state.settledBalance === undefined
+            ? state.session
+            : { ...state.session, balance: state.settledBalance },
+        },
+        commands: [],
+      };
     }
     return {
       state: { value: "ending", session: state.session, round: state.round },
@@ -227,7 +273,18 @@ export function transition<TState>(
     };
   }
 
+  if (event.type === "END_ROUND_REJECTED" && state.value === "active") {
+    return {
+      state: { value: "failed-closed", failure: event.failure },
+      commands: [],
+    };
+  }
+
   if (event.type === "END_ROUND_AMBIGUOUS" && state.value === "ending") {
+    return reconcile<TState>("end-round");
+  }
+
+  if (event.type === "END_ROUND_AMBIGUOUS" && state.value === "active") {
     return reconcile<TState>("end-round");
   }
 

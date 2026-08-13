@@ -92,10 +92,26 @@ export function parseBetConfig(value: unknown, path = "config"): BetConfig {
     ),
   };
 
-  if (parsed.stepBet === 0 || parsed.minBet > parsed.maxBet) {
+  if (
+    parsed.stepBet === 0 ||
+    parsed.minBet > parsed.maxBet ||
+    parsed.defaultBetLevel < parsed.minBet ||
+    parsed.defaultBetLevel > parsed.maxBet ||
+    parsed.defaultBetLevel % parsed.stepBet !== 0 ||
+    parsed.betLevels.some(
+      (level) =>
+        level < parsed.minBet ||
+        level > parsed.maxBet ||
+        level % parsed.stepBet !== 0,
+    ) ||
+    (
+      parsed.betLevels.length > 0 &&
+      !parsed.betLevels.includes(parsed.defaultBetLevel)
+    )
+  ) {
     throw new InvalidRgsResponseError(
       path,
-      "coherent min/max/non-zero step configuration",
+      "coherent min/max/step/default/list configuration",
     );
   }
   return parsed;
@@ -161,6 +177,7 @@ export function parseJurisdiction(
 export function parseRound<TState = unknown>(
   value: unknown,
   path = "round",
+  parseState?: (value: unknown) => TState,
 ): Round<TState> {
   const input = record(value, path);
   if (!("state" in input)) {
@@ -169,6 +186,18 @@ export function parseRound<TState = unknown>(
   const event = input.event;
   if (event !== null && typeof event !== "string") {
     throw new InvalidRgsResponseError(`${path}.event`, "string or null");
+  }
+
+  let state: TState;
+  try {
+    state = parseState === undefined
+      ? input.state as TState
+      : parseState(input.state);
+  } catch (error) {
+    throw new InvalidRgsResponseError(
+      `${path}.state`,
+      error instanceof Error ? `valid game state (${error.message})` : "valid game state",
+    );
   }
 
   return {
@@ -182,12 +211,13 @@ export function parseRound<TState = unknown>(
     active: boolean(input.active, `${path}.active`),
     mode: string(input.mode, `${path}.mode`),
     event,
-    state: input.state as TState,
+    state,
   };
 }
 
 export function parseAuthenticateResult<TState = unknown>(
   value: unknown,
+  parseState?: (value: unknown) => TState,
 ): AuthenticateResult<TState> {
   const input = record(value, "response");
   const config = record(input.config, "response.config");
@@ -201,17 +231,18 @@ export function parseAuthenticateResult<TState = unknown>(
     round:
       input.round === null || input.round === undefined
         ? null
-        : parseRound<TState>(input.round, "response.round"),
+        : parseRound<TState>(input.round, "response.round", parseState),
   };
 }
 
 export function parsePlayResult<TState = unknown>(
   value: unknown,
+  parseState?: (value: unknown) => TState,
 ): PlayResult<TState> {
   const input = record(value, "response");
   return {
     balance: parseBalance(input.balance, "response.balance"),
-    round: parseRound<TState>(input.round, "response.round"),
+    round: parseRound<TState>(input.round, "response.round", parseState),
   };
 }
 

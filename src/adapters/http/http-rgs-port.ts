@@ -10,6 +10,7 @@ import type {
   EventResult,
   PlayRequest,
   PlayResult,
+  Round,
   RgsPort,
 } from "../../domain/rgs.js";
 import {
@@ -46,10 +47,12 @@ export class HttpRgsTransportError extends Error {
   }
 }
 
-export interface HttpRgsPortOptions {
+export interface HttpRgsPortOptions<TState = unknown> {
   readonly launch: LaunchConfiguration;
   readonly fetch?: typeof fetch;
   readonly timeoutMs?: number;
+  readonly parseState?: (value: unknown) => TState;
+  readonly validateRound?: (round: Round<TState>) => void;
 }
 
 /** Dependency-free adapter for the documented RGS wallet/event endpoints. */
@@ -57,8 +60,10 @@ export class HttpRgsPort<TState = unknown> implements RgsPort<TState> {
   readonly #launch: LaunchConfiguration;
   readonly #fetch: typeof fetch;
   readonly #timeoutMs: number;
+  readonly #parseState: ((value: unknown) => TState) | undefined;
+  readonly #validateRound: ((round: Round<TState>) => void) | undefined;
 
-  constructor(options: HttpRgsPortOptions) {
+  constructor(options: HttpRgsPortOptions<TState>) {
     if (
       !Number.isSafeInteger(options.timeoutMs ?? 10_000) ||
       (options.timeoutMs ?? 10_000) <= 0
@@ -68,6 +73,12 @@ export class HttpRgsPort<TState = unknown> implements RgsPort<TState> {
     this.#launch = options.launch;
     this.#fetch = options.fetch ?? fetch;
     this.#timeoutMs = options.timeoutMs ?? 10_000;
+    this.#parseState = options.parseState as
+      | ((value: unknown) => TState)
+      | undefined;
+    this.#validateRound = options.validateRound as
+      | ((round: Round<TState>) => void)
+      | undefined;
   }
 
   async authenticate(): Promise<AuthenticateResult<TState>> {
@@ -75,9 +86,11 @@ export class HttpRgsPort<TState = unknown> implements RgsPort<TState> {
       sessionID: this.#launch.sessionID,
       language: this.#launch.language,
     });
-    return this.#parse("authenticate", () =>
-      parseAuthenticateResult<TState>(body),
-    );
+    return this.#parse("authenticate", () => {
+      const result = parseAuthenticateResult<TState>(body, this.#parseState);
+      if (result.round !== null) this.#validate(result.round, "response.round");
+      return result;
+    });
   }
 
   async play(request: PlayRequest): Promise<PlayResult<TState>> {
@@ -86,7 +99,11 @@ export class HttpRgsPort<TState = unknown> implements RgsPort<TState> {
       amount: request.amount,
       mode: request.mode,
     });
-    return this.#parse("play", () => parsePlayResult<TState>(body));
+    return this.#parse("play", () => {
+      const result = parsePlayResult<TState>(body, this.#parseState);
+      this.#validate(result.round, "response.round");
+      return result;
+    });
   }
 
   async checkpoint(event: string): Promise<EventResult> {
@@ -102,6 +119,13 @@ export class HttpRgsPort<TState = unknown> implements RgsPort<TState> {
       sessionID: this.#launch.sessionID,
     });
     return this.#parse("end-round", () => parseEndRoundResult(body));
+  }
+
+  async balance(): Promise<EndRoundResult> {
+    const body = await this.#post("balance", "/wallet/balance", {
+      sessionID: this.#launch.sessionID,
+    });
+    return this.#parse("balance", () => parseEndRoundResult(body));
   }
 
   async #post(
@@ -179,6 +203,19 @@ export class HttpRgsPort<TState = unknown> implements RgsPort<TState> {
         });
       }
       throw error;
+    }
+  }
+
+  #validate(round: Round<TState>, path: string): void {
+    try {
+      this.#validateRound?.(round);
+    } catch (error) {
+      throw new InvalidRgsResponseError(
+        path,
+        error instanceof Error
+          ? `valid game round (${error.message})`
+          : "valid game round",
+      );
     }
   }
 

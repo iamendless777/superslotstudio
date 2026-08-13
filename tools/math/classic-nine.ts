@@ -52,9 +52,9 @@ export interface ClassicNineEvaluation {
 
 function assertCell(cell: ClassicNineCell, path: string): void {
   if (
-    !Number.isInteger(cell.column) ||
-    cell.column < 0 ||
-    cell.column > 2 ||
+    !Number.isInteger(cell.reel) ||
+    cell.reel < 0 ||
+    cell.reel > 2 ||
     !Number.isInteger(cell.row) ||
     cell.row < 0 ||
     cell.row > 2
@@ -75,7 +75,7 @@ export function validateClassicNineMathDefinition(
     const seen = new Set<string>();
     for (const [cellIndex, cell] of line.entries()) {
       assertCell(cell, `paylines[${lineIndex}][${cellIndex}]`);
-      const key = `${cell.column}:${cell.row}`;
+      const key = `${cell.reel}:${cell.row}`;
       if (seen.has(key))
         throw new RangeError(`Payline ${lineIndex} repeats ${key}`);
       seen.add(key);
@@ -106,7 +106,7 @@ export function evaluateClassicNineGrid(
   for (const [lineIndex, cells] of definition.paylines.entries()) {
     const symbols = cells.map((cell) => {
       const row = grid[cell.row];
-      const symbol = row?.[cell.column];
+      const symbol = row?.[cell.reel];
       if (symbol === undefined)
         throw new RangeError("Payline references an invalid grid cell");
       return symbol;
@@ -133,21 +133,58 @@ export function buildClassicNinePresentationBook(
   grid: ClassicNineGrid,
 ): readonly ClassicNineEvent[] {
   const evaluation = evaluateClassicNineGrid(definition, grid);
-  const cells = new Map<string, ClassicNineCell>();
-  for (const win of evaluation.wins) {
-    for (const cell of win.cells) cells.set(`${cell.column}:${cell.row}`, cell);
-  }
-  const events: unknown[] = [
-    { schemaVersion: 1, index: 0, type: "reveal", payload: { grid } },
-  ];
-  if (cells.size > 0) {
+  const board = [0, 1, 2].map((reel) =>
+    [0, 1, 2].map((row) => {
+      const name = grid[row]![reel]!;
+      return {
+        name,
+        ...(name === "core" ? { wild: true } : {}),
+        ...(name === "portal" ? { scatter: true } : {}),
+      };
+    }),
+  );
+  const events: unknown[] = [{
+    schemaVersion: 1,
+    index: 0,
+    type: "reveal",
+    payload: {
+      board,
+      gameType: "basegame",
+      anticipation: [0, 0, 0],
+    },
+  }];
+  if (evaluation.wins.length > 0) {
+    const wins = evaluation.wins.map((win) => {
+      const amount = Math.floor(win.multiplier / 10_000);
+      return {
+        symbol: win.symbol,
+        kind: 3,
+        win: amount,
+        positions: win.cells,
+        meta: {
+          lineIndex: win.lineIndex,
+          multiplier: 1,
+          winWithoutMult: amount,
+          globalMult: 1,
+        },
+      };
+    });
     events.push({
       schemaVersion: 1,
       index: 1,
-      type: "highlight",
-      payload: { cells: [...cells.values()] },
+      type: "winInfo",
+      payload: {
+        totalWin: wins.reduce((sum, win) => sum + win.win, 0),
+        wins,
+      },
     });
   }
+  events.push({
+    schemaVersion: 1,
+    index: events.length,
+    type: "finalWin",
+    payload: { amount: Math.floor(evaluation.totalMultiplier / 10_000) },
+  });
   return parseClassicNineBook(events);
 }
 
@@ -297,41 +334,42 @@ export function analyzeClassicNineBooks(
 }
 
 export const CLASSIC_NINE_DRAFT_MATH: ClassicNineMathDefinition = {
-  id: "classic-nine-draft-v1",
+  id: "signal-nine-working-v1",
   paylines: [
     [
-      { column: 0, row: 0 },
-      { column: 1, row: 0 },
-      { column: 2, row: 0 },
+      { reel: 0, row: 0 },
+      { reel: 1, row: 0 },
+      { reel: 2, row: 0 },
     ],
     [
-      { column: 0, row: 1 },
-      { column: 1, row: 1 },
-      { column: 2, row: 1 },
+      { reel: 0, row: 1 },
+      { reel: 1, row: 1 },
+      { reel: 2, row: 1 },
     ],
     [
-      { column: 0, row: 2 },
-      { column: 1, row: 2 },
-      { column: 2, row: 2 },
+      { reel: 0, row: 2 },
+      { reel: 1, row: 2 },
+      { reel: 2, row: 2 },
     ],
     [
-      { column: 0, row: 0 },
-      { column: 1, row: 1 },
-      { column: 2, row: 2 },
+      { reel: 0, row: 0 },
+      { reel: 1, row: 1 },
+      { reel: 2, row: 2 },
     ],
     [
-      { column: 0, row: 2 },
-      { column: 1, row: 1 },
-      { column: 2, row: 0 },
+      { reel: 0, row: 2 },
+      { reel: 1, row: 1 },
+      { reel: 2, row: 0 },
     ],
   ],
   triplePaytable: {
-    cherry: multiplierMicros(2_000_000),
-    lemon: multiplierMicros(3_000_000),
-    orange: multiplierMicros(4_000_000),
-    plum: multiplierMicros(5_000_000),
-    bell: multiplierMicros(8_000_000),
-    seven: multiplierMicros(15_000_000),
-    wild: multiplierMicros(25_000_000),
+    pulse: multiplierMicros(500_000),
+    prism: multiplierMicros(800_000),
+    orbit: multiplierMicros(1_200_000),
+    beacon: multiplierMicros(2_000_000),
+    nova: multiplierMicros(4_000_000),
+    crown: multiplierMicros(8_000_000),
+    core: multiplierMicros(12_000_000),
+    portal: multiplierMicros(0),
   },
 };

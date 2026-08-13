@@ -142,6 +142,7 @@ test("calls documented endpoints with session-scoped bodies and validates result
     json({ balance: { amount: 9_000_000, currency: "USD" }, round }),
     json({ event: "2" }),
     json({ balance: { amount: 11_000_000, currency: "USD" } }),
+    json({ balance: { amount: 12_000_000, currency: "USD" } }),
   ];
   const fetchStub: typeof fetch = async (input, init) => {
     requests.push({
@@ -165,6 +166,7 @@ test("calls documented endpoints with session-scoped bodies and validates result
   );
   assert.equal((await port.checkpoint("2")).event, "2");
   assert.equal((await port.endRound()).balance.amount, 11_000_000);
+  assert.equal((await port.balance()).balance.amount, 12_000_000);
   assert.deepEqual(
     requests.map((request) => request.url),
     [
@@ -172,6 +174,7 @@ test("calls documented endpoints with session-scoped bodies and validates result
       "https://rgs.example/wallet/play",
       "https://rgs.example/bet/event",
       "https://rgs.example/wallet/end-round",
+      "https://rgs.example/wallet/balance",
     ],
   );
   assert.deepEqual(requests[1]?.body, {

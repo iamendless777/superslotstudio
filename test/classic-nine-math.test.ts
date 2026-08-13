@@ -14,15 +14,15 @@ import {
 } from "../tools/math/classic-nine.js";
 
 const losingGrid: ClassicNineGrid = [
-  ["cherry", "lemon", "orange"],
-  ["plum", "bell", "seven"],
-  ["wild", "cherry", "lemon"],
+  ["pulse", "prism", "orbit"],
+  ["beacon", "nova", "crown"],
+  ["core", "pulse", "prism"],
 ];
 
 const winningGrid: ClassicNineGrid = [
-  ["cherry", "cherry", "cherry"],
-  ["plum", "bell", "seven"],
-  ["wild", "lemon", "orange"],
+  ["pulse", "pulse", "pulse"],
+  ["beacon", "nova", "crown"],
+  ["core", "prism", "orbit"],
 ];
 
 test("evaluates configured paylines with exact integer multipliers", () => {
@@ -34,10 +34,10 @@ test("evaluates configured paylines with exact integer multipliers", () => {
     },
   );
   const result = evaluateClassicNineGrid(CLASSIC_NINE_DRAFT_MATH, winningGrid);
-  assert.equal(result.totalMultiplier, multiplierMicros(2_000_000));
+  assert.equal(result.totalMultiplier, multiplierMicros(500_000));
   assert.deepEqual(
     result.wins.map((win) => [win.lineIndex, win.symbol]),
-    [[0, "cherry"]],
+    [[0, "pulse"]],
   );
 });
 
@@ -48,7 +48,7 @@ test("builds presentation-only books from evaluated candidate grids", () => {
   );
   assert.deepEqual(
     events.map((event) => event.type),
-    ["reveal", "highlight"],
+    ["reveal", "winInfo", "finalWin"],
   );
   assert.equal("payout" in events[0]!.payload, false);
 });
@@ -62,10 +62,10 @@ test("analyzes weighted candidate books using exact bigint ratios", () => {
   assert.equal(analysis.hitWeight, 1n);
   assert.deepEqual(analysis.hitRatio, { numerator: 1n, denominator: 4n });
   assert.deepEqual(analysis.returnRatio, {
-    numerator: 2_000_000n,
+    numerator: 500_000n,
     denominator: 4_000_000n,
   });
-  assert.equal(analysis.maximumMultiplier, multiplierMicros(2_000_000));
+  assert.equal(analysis.maximumMultiplier, multiplierMicros(500_000));
 });
 
 test("creates a JSON-safe, reproducible review report", () => {
@@ -75,16 +75,16 @@ test("creates a JSON-safe, reproducible review report", () => {
   ]);
   assert.deepEqual(report, {
     schemaVersion: 1,
-    definitionId: "classic-nine-draft-v1",
+    definitionId: "signal-nine-working-v1",
     outcomeCount: 2,
     totalWeight: "4",
     hitWeight: "1",
-    weightedMultiplierMicros: "2000000",
-    returnRatio: ["1", "2"],
+    weightedMultiplierMicros: "500000",
+    returnRatio: ["1", "8"],
     hitRatio: ["1", "4"],
-    returnDecimal: "0.500000",
+    returnDecimal: "0.125000",
     hitDecimal: "0.250000",
-    maximumMultiplierMicros: 2_000_000,
+    maximumMultiplierMicros: 500_000,
   });
   assert.doesNotThrow(() => JSON.stringify(report));
 });
@@ -119,9 +119,9 @@ test("rejects invalid multipliers, definitions, weights, and empty analysis", ()
           ...CLASSIC_NINE_DRAFT_MATH,
           paylines: [
             [
-              { column: 0, row: 0 },
-              { column: 0, row: 0 },
-              { column: 2, row: 0 },
+              { reel: 0, row: 0 },
+              { reel: 0, row: 0 },
+              { reel: 2, row: 0 },
             ],
           ],
         },
@@ -132,7 +132,7 @@ test("rejects invalid multipliers, definitions, weights, and empty analysis", ()
   assert.throws(
     () =>
       evaluateClassicNineGrid(CLASSIC_NINE_DRAFT_MATH, [
-        ["unknown", "lemon", "orange"],
+        ["unknown", "prism", "orbit"],
         ...losingGrid.slice(1),
       ] as unknown as ClassicNineGrid),
     RangeError,

@@ -13,21 +13,21 @@ import {
 } from "../tools/math/review.js";
 
 const losingGrid: ClassicNineGrid = [
-  ["cherry", "lemon", "orange"],
-  ["plum", "bell", "seven"],
-  ["wild", "cherry", "lemon"],
+  ["pulse", "prism", "orbit"],
+  ["beacon", "nova", "crown"],
+  ["core", "pulse", "prism"],
 ];
 const winningGrid: ClassicNineGrid = [
-  ["cherry", "cherry", "cherry"],
-  ["plum", "bell", "seven"],
-  ["wild", "lemon", "orange"],
+  ["pulse", "pulse", "pulse"],
+  ["beacon", "nova", "crown"],
+  ["core", "prism", "orbit"],
 ];
 
 const criteria: ClassicNineReviewCriteria = {
   definitionId: CLASSIC_NINE_DRAFT_MATH.id,
-  returnRate: { minimum: rateMicros(490_000), maximum: rateMicros(510_000) },
+  returnRate: { minimum: rateMicros(120_000), maximum: rateMicros(130_000) },
   hitRate: { minimum: rateMicros(240_000), maximum: rateMicros(260_000) },
-  maximumMultiplier: multiplierMicros(2_000_000),
+  maximumMultiplier: multiplierMicros(500_000),
 };
 
 test("checks an exact analysis against explicit product criteria", () => {
@@ -59,9 +59,9 @@ test("reports every failed criterion instead of approving partial matches", () =
     {
       ...criteria,
       definitionId: "another-definition",
-      returnRate: { minimum: rateMicros(0), maximum: rateMicros(500_000) },
+      returnRate: { minimum: rateMicros(0), maximum: rateMicros(400_000) },
       hitRate: { minimum: rateMicros(0), maximum: rateMicros(500_000) },
-      maximumMultiplier: multiplierMicros(1_000_000),
+      maximumMultiplier: multiplierMicros(400_000),
     },
   );
   assert.equal(result.passed, false);

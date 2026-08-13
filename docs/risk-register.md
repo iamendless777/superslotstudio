@@ -16,5 +16,11 @@
 | R-012 | Internal testing described as approval                                  | compliance/reputation          | explicit language gate; only Stake Engine approves           | Controlled             |
 | R-013 | Branch lacked promised prior docs/review comments                       | missed decision/comment        | disclose baseline; locate earlier PR before M1               | Open                   |
 | R-014 | Polling interval has no disposal API                                    | leak/duplicate polling         | adapter lifecycle design or vendor fix                       | Open                   |
+| R-015 | Math verifier leaves high-cost standard deviation, CVaR, and ETL in raw base-bet units | false mode volatility warnings | independently normalize by cost; retain raw report; confirm before freeze | Controlled/open |
+| R-016 | Rust optimizer overwrites the publish lookup with its top trial           | accidental trial promotion     | evaluate non-destructively; restore from source lookup       | Controlled             |
+| R-017 | Neutral bonus CVaR reached 768.593 at the 999,906-outcome scale          | final weights could exceed 800 | tuned trial frozen at 639.995; invalidate on weight changes  | Controlled             |
+| R-018 | SDK batch quota flooring produced 999,906 of 1,000,000 requested books   | misleading counts/evidence     | report actual count; use aligned quotas or verify shortfall  | Controlled             |
+| R-019 | Optimizer's top score is not the lowest-risk valid tuned trial            | unsafe candidate auto-selected | trial 9 explicitly selected, verified, and checksummed       | Controlled             |
+| R-020 | Official client types expose `minimumRoundDuration` as a number but the checked repositories do not state its unit | round may settle too early or wait too long | isolate the field in the timing policy; currently interpret as milliseconds; confirm with Stake before release | Controlled/open |
 
 Review this register at every milestone gate and before every upstream upgrade.

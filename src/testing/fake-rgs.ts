@@ -11,7 +11,8 @@ export type FakeOperation =
   | "authenticate"
   | "play"
   | "checkpoint"
-  | "end-round";
+  | "end-round"
+  | "balance";
 
 export class FakeRgsPort<TState = unknown> implements RgsPort<TState> {
   readonly calls: Array<{
@@ -25,6 +26,7 @@ export class FakeRgsPort<TState = unknown> implements RgsPort<TState> {
       play: (request: PlayRequest) => Promise<PlayResult<TState>>;
       checkpoint: (event: string) => Promise<EventResult>;
       endRound: () => Promise<EndRoundResult>;
+      balance?: () => Promise<EndRoundResult>;
     },
   ) {}
 
@@ -46,5 +48,10 @@ export class FakeRgsPort<TState = unknown> implements RgsPort<TState> {
   endRound(): Promise<EndRoundResult> {
     this.calls.push({ operation: "end-round" });
     return this.handlers.endRound();
+  }
+
+  balance(): Promise<EndRoundResult> {
+    this.calls.push({ operation: "balance" });
+    return this.handlers.balance?.() ?? Promise.reject(new Error("balance handler unavailable"));
   }
 }

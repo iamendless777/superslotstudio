@@ -136,6 +136,16 @@ export class RecoveryOrchestrator<TState = unknown> {
             ? { type: "END_ROUND_REJECTED", failure }
             : { type: "END_ROUND_AMBIGUOUS" };
         }
+      case "BALANCE":
+        if (this.#options.port.balance === undefined) return null;
+        try {
+          const result = await this.#options.port.balance();
+          return { type: "BALANCE_SUCCEEDED", balance: result.balance };
+        } catch {
+          // Idle refresh is advisory. Wallet responses from authenticate,
+          // play, and end-round remain authoritative and unaffected.
+          return { type: "BALANCE_FAILED" };
+        }
     }
   }
 

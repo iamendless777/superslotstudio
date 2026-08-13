@@ -70,6 +70,7 @@ export interface RgsPort<TState = unknown> {
   play(request: PlayRequest): Promise<PlayResult<TState>>;
   checkpoint(event: string): Promise<EventResult>;
   endRound(): Promise<EndRoundResult>;
+  balance?(): Promise<EndRoundResult>;
 }
 
 export function isValidPlayRequest(
@@ -80,6 +81,7 @@ export function isValidPlayRequest(
     request.mode.length > 0 &&
     request.amount >= config.minBet &&
     request.amount <= config.maxBet &&
-    request.amount % config.stepBet === 0
+    request.amount % config.stepBet === 0 &&
+    (config.betLevels.length === 0 || config.betLevels.includes(request.amount))
   );
 }

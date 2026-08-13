@@ -10,7 +10,10 @@ import { GameSession, type GameSessionOptions } from "./game-session.js";
 
 export interface HttpGameSessionOptions<TState = unknown>
   extends ParseLaunchOptions,
-    Pick<HttpRgsPortOptions, "fetch" | "timeoutMs">,
+    Pick<
+      HttpRgsPortOptions<TState>,
+      "fetch" | "timeoutMs" | "parseState" | "validateRound"
+    >,
     Omit<GameSessionOptions<TState>, "port"> {}
 
 /**
@@ -36,6 +39,12 @@ export function createHttpGameSession<TState = unknown>(
     ...(options.timeoutMs === undefined
       ? {}
       : { timeoutMs: options.timeoutMs }),
+    ...(options.parseState === undefined
+      ? {}
+      : { parseState: options.parseState }),
+    ...(options.validateRound === undefined
+      ? {}
+      : { validateRound: options.validateRound }),
   });
   return new GameSession<TState>({
     port,

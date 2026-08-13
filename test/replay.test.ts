@@ -22,12 +22,20 @@ const book = [
     index: 0,
     type: "reveal",
     payload: {
-      grid: [
-        ["cherry", "cherry", "cherry"],
-        ["lemon", "orange", "plum"],
-        ["bell", "seven", "wild"],
+      board: [
+        [{ name: "pulse" }, { name: "prism" }, { name: "orbit" }],
+        [{ name: "beacon" }, { name: "core", wild: true }, { name: "nova" }],
+        [{ name: "crown" }, { name: "portal", scatter: true }, { name: "pulse" }],
       ],
+      gameType: "basegame",
+      anticipation: [0, 0, 1],
     },
+  },
+  {
+    schemaVersion: 1,
+    index: 1,
+    type: "finalWin",
+    payload: { amount: 0 },
   },
 ];
 

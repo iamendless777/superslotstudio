@@ -16,6 +16,7 @@ test("fake adapter records contract calls without importing an upstream SDK", as
     play: async () => ({ balance: debitedBalance, round: activeRound }),
     checkpoint: async (event) => ({ event }),
     endRound: async () => ({ balance: paidBalance }),
+    balance: async () => ({ balance: paidBalance }),
   });
 
   const request = { amount: rgsAmount(1_000_000), mode: "BASE" };
@@ -23,11 +24,13 @@ test("fake adapter records contract calls without importing an upstream SDK", as
   await fake.play(request);
   await fake.checkpoint("1");
   await fake.endRound();
+  await fake.balance();
 
   assert.deepEqual(fake.calls, [
     { operation: "authenticate" },
     { operation: "play", input: request },
     { operation: "checkpoint", input: "1" },
     { operation: "end-round" },
+    { operation: "balance" },
   ]);
 });

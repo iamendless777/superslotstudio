@@ -11,7 +11,7 @@ export type RgsErrorCode =
 
 export interface RgsFailure {
   readonly kind: "rejected" | "ambiguous" | "invalid-response";
-  readonly operation: "authenticate" | "play" | "checkpoint" | "end-round";
+  readonly operation: "authenticate" | "play" | "checkpoint" | "end-round" | "balance";
   readonly code: RgsErrorCode;
   readonly message: string;
 }

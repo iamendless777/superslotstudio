@@ -68,3 +68,27 @@ test("disposal clears listeners and rejects subsequent player intent", async () 
   assert.equal(notifications, 1);
   assert.equal(session.state.value, "uninitialized");
 });
+
+test("refreshes idle balance only from the authoritative wallet endpoint", async () => {
+  const port = new FakeRgsPort({
+    authenticate: async () => authenticated(),
+    play: async () => ({ balance: debitedBalance, round: activeRound }),
+    checkpoint: async (event) => ({ event }),
+    endRound: async () => ({ balance: paidBalance }),
+    balance: async () => ({ balance: paidBalance }),
+  });
+  const session = new GameSession({ port, balancePollMs: false });
+  await session.start();
+  await session.refreshBalance();
+
+  assert.equal(session.state.value, "idle");
+  assert.equal(
+    session.state.value === "idle" && session.state.session.balance.amount,
+    paidBalance.amount,
+  );
+  assert.deepEqual(port.calls.map((call) => call.operation), [
+    "authenticate",
+    "balance",
+  ]);
+  session.dispose();
+});

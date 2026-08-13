@@ -21,6 +21,7 @@ export interface HttpReplayPortOptions<TState> {
   readonly parseState: (value: unknown) => TState;
   readonly fetch?: typeof fetch;
   readonly timeoutMs?: number;
+  readonly validateResult?: (result: ReplayResult<TState>) => void;
 }
 
 /** Public, read-only replay transport. It never sends a player session. */
@@ -29,6 +30,7 @@ export class HttpReplayPort<TState> implements ReplayPort<TState> {
   readonly #parseState: (value: unknown) => TState;
   readonly #fetch: typeof fetch;
   readonly #timeoutMs: number;
+  readonly #validateResult: ((result: ReplayResult<TState>) => void) | undefined;
 
   constructor(options: HttpReplayPortOptions<TState>) {
     const timeoutMs = options.timeoutMs ?? 10_000;
@@ -39,6 +41,7 @@ export class HttpReplayPort<TState> implements ReplayPort<TState> {
     this.#parseState = options.parseState;
     this.#fetch = options.fetch ?? fetch;
     this.#timeoutMs = timeoutMs;
+    this.#validateResult = options.validateResult;
   }
 
   async load(): Promise<ReplayResult<TState>> {
@@ -68,7 +71,9 @@ export class HttpReplayPort<TState> implements ReplayPort<TState> {
         throw new HttpReplayError("Replay returned invalid JSON", error);
       }
       try {
-        return parseReplayResult(body, this.#parseState);
+        const result = parseReplayResult(body, this.#parseState);
+        this.#validateResult?.(result);
+        return result;
       } catch (error) {
         if (error instanceof InvalidReplayResponseError) {
           throw new HttpReplayError(error.message, error);

@@ -10,7 +10,10 @@ import { ReplaySession } from "./replay-session.js";
 
 export interface HttpReplaySessionOptions<TState>
   extends ParseReplayLaunchOptions,
-    Pick<HttpReplayPortOptions<TState>, "parseState" | "fetch" | "timeoutMs"> {}
+    Pick<
+      HttpReplayPortOptions<TState>,
+      "parseState" | "fetch" | "timeoutMs" | "validateResult"
+    > {}
 
 /** Builds a lazy, read-only public replay session with no wallet/session port. */
 export function createHttpReplaySession<TState>(
@@ -33,6 +36,9 @@ export function createHttpReplaySession<TState>(
       ...(options.timeoutMs === undefined
         ? {}
         : { timeoutMs: options.timeoutMs }),
+      ...(options.validateResult === undefined
+        ? {}
+        : { validateResult: options.validateResult }),
     }),
   );
 }

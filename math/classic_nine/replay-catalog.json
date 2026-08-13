@@ -1,0 +1,231 @@
+{
+  "schemaVersion": 1,
+  "game": "classic_nine",
+  "version": "1.0.0",
+  "status": "local-frozen-books-not-yet-deployed",
+  "scenarioDefinitions": {
+    "baseBigWin": "At least 100x base bet and below the win cap.",
+    "bonusBigWin": "At least 500x base bet (5x bonus cost) and below the win cap."
+  },
+  "routeTemplate": "/bet/replay/{game}/{version}/{mode}/{eventID}",
+  "modes": {
+    "base": {
+      "loss": {
+        "available": true,
+        "eventID": 0,
+        "weight": 1675747868,
+        "payoutMultiplier": 0.0,
+        "criteria": "0",
+        "eventCount": 3,
+        "eventTypes": [
+          "reveal",
+          "setTotalWin",
+          "finalWin"
+        ]
+      },
+      "normalWin": {
+        "available": true,
+        "eventID": 3,
+        "weight": 616348735,
+        "payoutMultiplier": 1.2,
+        "criteria": "basegame",
+        "eventCount": 5,
+        "eventTypes": [
+          "reveal",
+          "winInfo",
+          "setWin",
+          "setTotalWin",
+          "finalWin"
+        ]
+      },
+      "bigWin": {
+        "available": true,
+        "eventID": 8,
+        "weight": 3949441,
+        "payoutMultiplier": 159.7,
+        "criteria": "freegame",
+        "eventCount": 61,
+        "eventTypes": [
+          "reveal",
+          "winInfo",
+          "setWin",
+          "setTotalWin",
+          "freeSpinTrigger",
+          "enterBonus",
+          "updateFreeSpin",
+          "updateGlobalMult",
+          "freeSpinEnd",
+          "finalWin"
+        ]
+      },
+      "bonusTrigger": {
+        "available": true,
+        "eventID": 10,
+        "weight": 750108,
+        "payoutMultiplier": 190.2,
+        "criteria": "freegame",
+        "eventCount": 57,
+        "eventTypes": [
+          "reveal",
+          "setTotalWin",
+          "freeSpinTrigger",
+          "enterBonus",
+          "updateFreeSpin",
+          "winInfo",
+          "setWin",
+          "updateGlobalMult",
+          "freeSpinEnd",
+          "finalWin"
+        ]
+      },
+      "retrigger": {
+        "available": true,
+        "eventID": 53,
+        "weight": 1743984,
+        "payoutMultiplier": 285.0,
+        "criteria": "freegame",
+        "eventCount": 73,
+        "eventTypes": [
+          "reveal",
+          "winInfo",
+          "setWin",
+          "setTotalWin",
+          "freeSpinTrigger",
+          "enterBonus",
+          "updateFreeSpin",
+          "freeSpinRetrigger",
+          "updateGlobalMult",
+          "freeSpinEnd",
+          "finalWin"
+        ]
+      },
+      "winCap": {
+        "available": true,
+        "eventID": 4,
+        "weight": 112589,
+        "payoutMultiplier": 10000.0,
+        "criteria": "wincap",
+        "eventCount": 225,
+        "eventTypes": [
+          "reveal",
+          "setTotalWin",
+          "freeSpinTrigger",
+          "enterBonus",
+          "updateFreeSpin",
+          "winInfo",
+          "setWin",
+          "updateGlobalMult",
+          "freeSpinRetrigger",
+          "wincap",
+          "freeSpinEnd",
+          "finalWin"
+        ]
+      }
+    },
+    "bonus": {
+      "loss": {
+        "available": false,
+        "reason": "Every frozen bonus-mode outcome has a positive payout."
+      },
+      "normalWin": {
+        "available": true,
+        "eventID": 2,
+        "weight": 314687973,
+        "payoutMultiplier": 92.3,
+        "criteria": "freegame",
+        "eventCount": 45,
+        "eventTypes": [
+          "enterBonus",
+          "updateFreeSpin",
+          "reveal",
+          "winInfo",
+          "setWin",
+          "setTotalWin",
+          "updateGlobalMult",
+          "freeSpinEnd",
+          "finalWin"
+        ]
+      },
+      "bigWin": {
+        "available": true,
+        "eventID": 2613,
+        "weight": 1373222176,
+        "payoutMultiplier": 603.4,
+        "criteria": "freegame",
+        "eventCount": 70,
+        "eventTypes": [
+          "enterBonus",
+          "updateFreeSpin",
+          "reveal",
+          "winInfo",
+          "setWin",
+          "setTotalWin",
+          "updateGlobalMult",
+          "freeSpinRetrigger",
+          "freeSpinEnd",
+          "finalWin"
+        ]
+      },
+      "bonusTrigger": {
+        "available": true,
+        "eventID": 0,
+        "weight": 244895022,
+        "payoutMultiplier": 138.4,
+        "criteria": "freegame",
+        "eventCount": 54,
+        "eventTypes": [
+          "enterBonus",
+          "updateFreeSpin",
+          "reveal",
+          "winInfo",
+          "setWin",
+          "setTotalWin",
+          "updateGlobalMult",
+          "freeSpinEnd",
+          "finalWin"
+        ]
+      },
+      "retrigger": {
+        "available": true,
+        "eventID": 1,
+        "weight": 439564991,
+        "payoutMultiplier": 153.3,
+        "criteria": "freegame",
+        "eventCount": 61,
+        "eventTypes": [
+          "enterBonus",
+          "updateFreeSpin",
+          "reveal",
+          "winInfo",
+          "setWin",
+          "setTotalWin",
+          "updateGlobalMult",
+          "freeSpinRetrigger",
+          "freeSpinEnd",
+          "finalWin"
+        ]
+      },
+      "winCap": {
+        "available": true,
+        "eventID": 4,
+        "weight": 11258999,
+        "payoutMultiplier": 10000.0,
+        "criteria": "wincap",
+        "eventCount": 219,
+        "eventTypes": [
+          "enterBonus",
+          "updateFreeSpin",
+          "reveal",
+          "winInfo",
+          "setWin",
+          "setTotalWin",
+          "freeSpinRetrigger",
+          "updateGlobalMult",
+          "wincap",
+          "freeSpinEnd",
+          "finalWin"
+        ]
+      }
+    }
+  }
+}

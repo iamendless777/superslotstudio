@@ -10,24 +10,44 @@ const events = parseClassicNineBook([
     index: 0,
     type: "reveal",
     payload: {
-      grid: [
-        ["cherry", "cherry", "cherry"],
-        ["lemon", "wild", "plum"],
-        ["bell", "seven", "orange"],
+      board: [
+        [{ name: "pulse" }, { name: "prism" }, { name: "nova" }],
+        [{ name: "pulse" }, { name: "core", wild: true }, { name: "crown" }],
+        [{ name: "pulse" }, { name: "beacon" }, { name: "orbit" }],
       ],
+      gameType: "basegame",
+      anticipation: [0, 0, 0],
     },
   },
   {
     schemaVersion: 1,
     index: 1,
-    type: "highlight",
+    type: "winInfo",
     payload: {
-      cells: [
-        { column: 0, row: 0 },
-        { column: 1, row: 0 },
-        { column: 2, row: 0 },
-      ],
+      totalWin: 300,
+      wins: [{
+        symbol: "pulse",
+        kind: 3,
+        win: 300,
+        positions: [
+          { reel: 0, row: 0 },
+          { reel: 1, row: 0 },
+          { reel: 2, row: 0 },
+        ],
+        meta: {
+          lineIndex: 0,
+          multiplier: 1,
+          winWithoutMult: 300,
+          globalMult: 1,
+        },
+      }],
     },
+  },
+  {
+    schemaVersion: 1,
+    index: 2,
+    type: "finalWin",
+    payload: { amount: 300 },
   },
 ]);
 
@@ -39,13 +59,14 @@ const session = new ReplaySession({
 });
 
 const glyphs = {
-  cherry: "●",
-  lemon: "◆",
-  orange: "●",
-  plum: "⬟",
-  bell: "♟",
-  seven: "7",
-  wild: "★",
+  pulse: "●",
+  prism: "◆",
+  orbit: "◉",
+  beacon: "⌁",
+  nova: "✦",
+  crown: "♛",
+  core: "★",
+  portal: "◎",
 };
 const grid = document.querySelector("#grid");
 const button = document.querySelector("#play-replay");
@@ -56,8 +77,9 @@ let animation;
 
 function renderGrid() {
   const view = projectClassicNinePresentation(events, String(checkpoint));
-  const display =
-    view.grid ?? Array.from({ length: 3 }, () => Array(3).fill(null));
+  const display = view.board
+    ? [0, 1, 2].map((row) => [0, 1, 2].map((reel) => view.board[reel][row].name))
+    : Array.from({ length: 3 }, () => Array(3).fill(null));
   grid.replaceChildren();
   display.forEach((row, rowIndex) =>
     row.forEach((symbol, columnIndex) => {
@@ -103,7 +125,7 @@ function renderSession() {
 }
 
 function finishReplay() {
-  checkpoint = 2;
+  checkpoint = 3;
   session.complete();
   renderSession();
 }

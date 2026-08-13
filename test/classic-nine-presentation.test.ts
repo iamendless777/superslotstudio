@@ -9,42 +9,67 @@ const events = [
     index: 0,
     type: "reveal",
     payload: {
-      grid: [
-        ["cherry", "lemon", "orange"],
-        ["plum", "bell", "seven"],
-        ["wild", "cherry", "lemon"],
+      board: [
+        [{ name: "pulse" }, { name: "prism" }, { name: "orbit" }],
+        [{ name: "pulse" }, { name: "core", wild: true }, { name: "nova" }],
+        [{ name: "pulse" }, { name: "portal", scatter: true }, { name: "crown" }],
       ],
+      gameType: "basegame",
+      anticipation: [0, 0, 0],
     },
   },
   {
     schemaVersion: 1,
     index: 1,
-    type: "highlight",
+    type: "winInfo",
     payload: {
-      cells: [
-        { column: 0, row: 0 },
-        { column: 1, row: 1 },
-      ],
+      totalWin: 50,
+      wins: [{
+        symbol: "pulse",
+        kind: 3,
+        win: 50,
+        positions: [
+          { reel: 0, row: 0 },
+          { reel: 1, row: 0 },
+          { reel: 2, row: 0 },
+        ],
+        meta: {
+          lineIndex: 0,
+          multiplier: 1,
+          winWithoutMult: 50,
+          globalMult: 1,
+        },
+      }],
     },
+  },
+  {
+    schemaVersion: 1,
+    index: 2,
+    type: "finalWin",
+    payload: { amount: 50 },
   },
 ] as const;
 
-test("projects deterministic states at each presentation checkpoint", () => {
+test("projects deterministic Signal Nine state at each checkpoint", () => {
   const initial = projectClassicNinePresentation(events, "0");
-  assert.equal(initial.grid, null);
+  assert.equal(initial.board, null);
   assert.equal(initial.complete, false);
 
   const revealed = projectClassicNinePresentation(events, "1");
-  assert.deepEqual(revealed.grid, events[0].payload.grid);
+  assert.deepEqual(revealed.board, events[0].payload.board);
   assert.deepEqual([...revealed.highlightedCells], []);
-  assert.equal(revealed.remaining[0]?.type, "highlight");
+  assert.equal(revealed.remaining[0]?.type, "winInfo");
 
-  const complete = projectClassicNinePresentation(events, "2");
-  assert.deepEqual([...complete.highlightedCells], ["0:0", "1:1"]);
+  const won = projectClassicNinePresentation(events, "2");
+  assert.deepEqual([...won.highlightedCells], ["0:0", "1:0", "2:0"]);
+
+  const complete = projectClassicNinePresentation(events, "3");
+  assert.equal(complete.finalWin, 50);
+  assert.equal(complete.totalWin, 50);
   assert.equal(complete.complete, true);
 });
 
-test("projection remains presentation-only and rejects malformed books", () => {
+test("projection remains non-authoritative and rejects malformed books", () => {
   assert.throws(() =>
     projectClassicNinePresentation(
       [{ ...events[0], payload: { ...events[0].payload, payout: 10 } }],

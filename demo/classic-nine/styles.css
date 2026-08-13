@@ -82,6 +82,11 @@ h1 span {
   background: #71e0aa;
   box-shadow: 0 0 12px #71e0aa;
 }
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .cabinet {
   background: linear-gradient(
     145deg,
@@ -152,24 +157,27 @@ h2 {
   text-transform: uppercase;
   color: #8e87a8;
 }
-.symbol-cherry,
-.symbol-orange {
+.symbol-pulse,
+.symbol-nova {
   color: #ff647c;
 }
-.symbol-lemon {
+.symbol-prism {
   color: #ffcf4a;
 }
-.symbol-plum {
+.symbol-orbit {
   color: #b790ff;
 }
-.symbol-bell {
+.symbol-beacon {
   color: #f8ad4d;
 }
-.symbol-seven {
+.symbol-crown {
   color: #ff5d65;
 }
-.symbol-wild {
+.symbol-core {
   color: #70e0c0;
+}
+.symbol-portal {
+  color: #6fd3ff;
 }
 .symbol-hidden {
   color: #37334e;
@@ -199,6 +207,10 @@ button {
 button:focus-visible {
   outline: 3px solid #85d9ff;
   outline-offset: 3px;
+}
+.compact {
+  min-height: 39px;
+  padding: 8px 13px;
 }
 .secondary {
   background: #242139;
@@ -245,6 +257,102 @@ footer {
   font-size: 11px;
   margin-top: 22px;
 }
+dialog {
+  width: min(860px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px);
+  padding: 0;
+  color: #f7f4ff;
+  background: #121124;
+  border: 1px solid #4a416c;
+  border-radius: 22px;
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.72);
+}
+dialog::backdrop {
+  background: rgba(4, 3, 12, 0.78);
+  backdrop-filter: blur(7px);
+}
+.information-frame {
+  padding: clamp(20px, 4vw, 34px);
+}
+.information-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 20px;
+  padding-bottom: 18px;
+  background: #121124;
+  border-bottom: 1px solid #37314f;
+}
+.information-version {
+  margin: 7px 0 0;
+  color: #918aa7;
+  font-size: 12px;
+}
+.information-content {
+  display: grid;
+  gap: 12px;
+  padding-top: 18px;
+}
+.information-section {
+  padding: 18px;
+  background: #19172d;
+  border: 1px solid #37314f;
+  border-radius: 15px;
+}
+.information-section h3 {
+  margin: 0 0 12px;
+  color: #ffcf4a;
+}
+.information-section p,
+.information-section li,
+.information-section dd {
+  color: #c2bdd2;
+  line-height: 1.55;
+}
+.information-section p:last-child,
+.information-section ul {
+  margin-bottom: 0;
+}
+.information-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.information-table th,
+.information-table td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #393450;
+}
+.information-table th {
+  color: #aaa1c9;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.information-table td:last-child {
+  color: #f7f4ff;
+}
+.control-guide {
+  display: grid;
+  grid-template-columns: minmax(105px, 0.35fr) 1fr;
+  gap: 9px 16px;
+  margin: 0;
+}
+.control-guide dt {
+  color: #f7f4ff;
+  font-weight: 800;
+}
+.control-guide dd {
+  margin: 0;
+}
+.disclaimer {
+  border-color: #5a4b36;
+  background: #201b22;
+}
 @media (max-width: 620px) {
   .shell {
     padding-top: 28px;
@@ -252,6 +360,10 @@ footer {
   .hero {
     align-items: start;
     flex-direction: column;
+  }
+  .hero-actions {
+    width: 100%;
+    justify-content: space-between;
   }
   .cell {
     aspect-ratio: 1;
@@ -268,6 +380,18 @@ footer {
   }
   .contract article {
     padding: 12px 16px;
+  }
+  .information-section {
+    overflow-x: auto;
+  }
+  .mode-table {
+    min-width: 620px;
+  }
+  .control-guide {
+    grid-template-columns: 1fr;
+  }
+  .control-guide dd {
+    margin-bottom: 8px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

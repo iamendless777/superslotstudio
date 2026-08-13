@@ -17,7 +17,12 @@
             A deterministic view of externally supplied events.
           </p>
         </div>
-        <div class="status"><i></i><span>Local fixture</span></div>
+        <div class="hero-actions">
+          <div class="status"><i></i><span id="copy-status">Local fixture</span></div>
+          <button id="open-information" class="secondary compact" type="button">
+            Information
+          </button>
+        </div>
       </header>
 
       <section class="cabinet" aria-labelledby="preview-title">
@@ -27,7 +32,7 @@
             <h2 id="preview-title">Book <span id="book-number">01</span></h2>
           </div>
           <div class="counter">
-            <span id="step">0</span><small>/ 2 events</small>
+            <span id="step">0</span><small>/ 3 events</small>
           </div>
         </div>
 
@@ -60,6 +65,23 @@
         approval claim · <a href="./replay.html">Open replay preview</a>
       </footer>
     </main>
+    <dialog id="information-dialog" aria-labelledby="information-title">
+      <div class="information-frame">
+        <header class="information-header">
+          <div>
+            <p class="eyebrow">Rules and awards</p>
+            <h2 id="information-title">Classic Nine: Signal Nine</h2>
+            <p id="information-version" class="information-version"></p>
+          </div>
+          <form method="dialog">
+            <button class="secondary compact" type="submit" aria-label="Close information">
+              Close
+            </button>
+          </form>
+        </header>
+        <div id="information-content" class="information-content"></div>
+      </div>
+    </dialog>
     <script type="module" src="./app.js"></script>
   </body>
 </html>

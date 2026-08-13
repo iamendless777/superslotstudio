@@ -8,6 +8,7 @@ import {
   OrchestratorDisposedError,
   RecoveryOrchestrator,
 } from "../src/orchestration/orchestrator.js";
+import type { RecoveryState } from "../src/recovery/machine.js";
 import { FakeRgsPort } from "../src/testing/fake-rgs.js";
 import {
   activeRound,
@@ -67,6 +68,45 @@ test("orchestrates authenticate, play, checkpoint, and end-round in order", asyn
     "ending",
     "idle",
   ]);
+});
+
+test("matches web-sdk immediate settlement for a normal non-bonus win", async () => {
+  const normalWin = {
+    ...completedRound,
+    payout: rgsAmount(2_000_000),
+    payoutMultiplier: 2,
+  };
+  const fake = new FakeRgsPort<readonly string[]>({
+    authenticate: async () => authenticated(),
+    play: async () => ({ balance: debitedBalance, round: normalWin }),
+    checkpoint: async (event) => ({ event }),
+    endRound: async () => ({ balance: paidBalance }),
+  });
+  const orchestrator = new RecoveryOrchestrator({ port: fake });
+  await orchestrator.dispatch({ type: "BOOT" });
+  await orchestrator.dispatch({
+    type: "PLACE_BET",
+    request: { amount: rgsAmount(1_000_000), mode: "BASE" },
+  });
+
+  assert.equal(orchestrator.state.value, "active");
+  assert.deepEqual(fake.calls.map((call) => call.operation), [
+    "authenticate",
+    "play",
+    "end-round",
+  ]);
+  assert.equal(
+    orchestrator.state.value === "active" && orchestrator.state.session.balance.amount,
+    debitedBalance.amount,
+  );
+
+  await orchestrator.dispatch({ type: "PRESENTATION_COMPLETED" });
+  const completedState = orchestrator.state as unknown as RecoveryState<readonly string[]>;
+  assert.equal(completedState.value, "idle");
+  assert.equal(
+    completedState.value === "idle" && completedState.session.balance.amount,
+    paidBalance.amount,
+  );
 });
 
 test("reconciles a committed ambiguous play through Authenticate", async () => {

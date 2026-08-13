@@ -94,6 +94,40 @@ test("does not end an already completed round", () => {
   assert.deepEqual(completed.commands, []);
 });
 
+test("settles a normal win immediately but reveals its credited balance after presentation", () => {
+  const idle = bootToIdle();
+  const request = { amount: rgsAmount(1_000_000), mode: "BASE" };
+  const starting = transition(idle, { type: "PLACE_BET", request });
+  const normalWin = {
+    ...completedRound,
+    payout: rgsAmount(2_000_000),
+    payoutMultiplier: 2,
+  };
+  const active = transition(starting.state, {
+    type: "PLAY_SUCCEEDED",
+    balance: debitedBalance,
+    round: normalWin,
+  });
+  assert.deepEqual(active.commands, [{ type: "END_ROUND" }]);
+
+  const settled = transition(active.state, {
+    type: "END_ROUND_SUCCEEDED",
+    balance: paidBalance,
+  });
+  assert.equal(settled.state.value, "active");
+  assert.equal(
+    settled.state.value === "active" && settled.state.session.balance.amount,
+    debitedBalance.amount,
+  );
+
+  const presented = transition(settled.state, { type: "PRESENTATION_COMPLETED" });
+  assert.equal(presented.state.value, "idle");
+  assert.equal(
+    presented.state.value === "idle" && presented.state.session.balance.amount,
+    paidBalance.amount,
+  );
+});
+
 test("rejects bets outside authenticated constraints without issuing Play", () => {
   const idle = bootToIdle();
   for (const request of [
