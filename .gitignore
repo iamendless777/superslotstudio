@@ -1,4 +1,14 @@
 dist/
 node_modules/
+reference/
+.DS_Store
+.env.local
+.codex-work/
+.stake-studio-runtime/
+artifacts/
+output/
+tmp/
+__pycache__/
+*.py[cod]
 *.tsbuildinfo
 *.log
