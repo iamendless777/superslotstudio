@@ -16,6 +16,11 @@ import { compileFrontendProject } from './frontend-compiler.mjs';
 import { createVisualAssetFactory } from './visual-asset-factory.mjs';
 import { analyzeVisualAsset } from './visual-quality.mjs';
 import { normalizeStudioProfile } from '../src/engines/factory/StudioProfile.js';
+import {
+  appendCommandResult,
+  compactCommandResultLedger,
+  consumeCommandResult,
+} from './command-ledger.mjs';
 
 const MAX_BODY_BYTES = 80 * 1024 * 1024;
 const SPEECH_MAX_CHARACTERS = 800;
@@ -1282,6 +1287,9 @@ export function stakeStudioBridge(options = {}) {
 
   mkdirSync(gamesDir, { recursive: true });
   mkdirSync(runtimeDir, { recursive: true });
+  if (existsSync(resultsPath)) {
+    atomicWrite(resultsPath, JSON.stringify(compactCommandResultLedger(readJson(resultsPath, { results: [] })), null, 2));
+  }
 
   const projectPath = id => join(gamesDir, safeId(id), 'project.json');
   const projectMeta = id => {
@@ -1771,16 +1779,18 @@ export function stakeStudioBridge(options = {}) {
             if (!body.id) throw new Error('A command result id is required.');
             const results = readJson(resultsPath, { results: [] });
             const result = { ...body, completedAt: new Date().toISOString() };
-            const nextResults = [...(results.results || []).filter(item => item.id !== body.id), result].slice(-200);
-            atomicWrite(resultsPath, JSON.stringify({ results: nextResults }, null, 2));
+            atomicWrite(resultsPath, JSON.stringify(appendCommandResult(results, result), null, 2));
             return sendJson(res, 200, { ok: true });
           }
 
           const resultMatch = url.pathname.match(/^\/__stake_studio\/command-results\/([a-zA-Z0-9_-]+)$/);
           if (req.method === 'GET' && resultMatch) {
             const results = readJson(resultsPath, { results: [] });
-            const result = (results.results || []).find(item => item.id === resultMatch[1]);
-            return result ? sendJson(res, 200, result) : sendJson(res, 404, { pending: true });
+            const consumed = consumeCommandResult(results, resultMatch[1]);
+            if (consumed.status === 'missing') return sendJson(res, 404, { pending: true });
+            if (consumed.status === 'consumed') return sendJson(res, 410, { consumed: true });
+            atomicWrite(resultsPath, JSON.stringify(consumed.ledger, null, 2));
+            return sendJson(res, 200, consumed.result);
           }
 
           return sendJson(res, 404, { error: `Unknown StakeStudio bridge endpoint: ${url.pathname}` });
