@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self'; style-src 'self'; connect-src 'self' https: http:; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'self'">
+    <title>StakeStudio Game</title>
+    <link rel="stylesheet" href="./styles.css?v=__STAKE_STUDIO_FRONTEND_VERSION__">
+  </head>
+  <body>
+    <main id="app" aria-live="polite">
+      <section class="loading-screen" id="loadingScreen">
+        <div class="loader-mark" aria-hidden="true"></div>
+        <strong id="loadingTitle">Loading game</strong>
+        <span id="loadingStatus">Preparing secure session…</span>
+      </section>
+    </main>
+    <script type="module" src="./game-app.js?v=__STAKE_STUDIO_FRONTEND_VERSION__"></script>
+  </body>
+</html>

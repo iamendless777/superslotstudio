@@ -1,0 +1,23 @@
+{
+  "name": "stake-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/start-stake-studio.mjs",
+    "dev:live": "STAKE_STUDIO_LIVE_RELOAD=1 node scripts/start-stake-studio.mjs",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@esotericsoftware/spine-pixi-v8": "~4.3.0",
+    "gsap": "^3.15.0",
+    "howler": "^2.2.4",
+    "html2canvas": "^1.4.1",
+    "pixi.js": "^8.6.6"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  }
+}
