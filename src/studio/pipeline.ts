@@ -1,5 +1,9 @@
 import { assessGameShape, type Assessment, type GameShape } from "../motion/assess.js";
 import { planMotionTimeline, type MotionTimeline } from "../motion/timeline.js";
+import {
+  timelineToRuntimeCues,
+  type RuntimeCueSheet,
+} from "../motion/runtime-cues.js";
 import type { StyleId } from "../motion/styles.js";
 import { missingArt, type Blueprint } from "./blueprint.js";
 
@@ -9,8 +13,9 @@ export interface StudioPlan {
   readonly lockedStyleId: StyleId;
   readonly styleMatchesLocked: boolean;
   readonly timeline: MotionTimeline;
+  /** Cues for VisualEffectRuntime / TumbleChoreography. */
+  readonly cueSheet: RuntimeCueSheet;
   readonly missingArtIds: readonly string[];
-  /** True when art slots are filled and style is compatible. */
   readonly readyForArtReview: boolean;
   readonly readyForMotionPreview: boolean;
 }
@@ -28,7 +33,7 @@ export function shapeFromBlueprint(blueprint: Blueprint): GameShape {
 }
 
 /**
- * One call from recipe → assessment + motion plan.
+ * One call from recipe → assessment + motion plan + runtime cues.
  * This is the studio "recognize and attack" entry point.
  */
 export function planFromBlueprint(
@@ -46,6 +51,7 @@ export function planFromBlueprint(
     cascadeDepth: blueprint.cascadeDepth,
     winCells: options?.winCells ?? [],
   });
+  const cueSheet = timelineToRuntimeCues(timeline);
   const missingArtIds = missingArt(blueprint);
 
   return {
@@ -54,6 +60,7 @@ export function planFromBlueprint(
     lockedStyleId,
     styleMatchesLocked,
     timeline,
+    cueSheet,
     missingArtIds,
     readyForArtReview: missingArtIds.length > 0,
     readyForMotionPreview: true,
