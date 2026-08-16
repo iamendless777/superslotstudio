@@ -3,14 +3,10 @@
  *
  * Motion layer owns *when* (cue sheet times).
  * TumbleChoreography / AnimationEngine / VisualEffectRuntime own *how*.
- *
- * When runtime/stake-studio-source is merged, host.playCue should dispatch
- * using this table (or call createTumblePlan with book-derived positions).
  */
 
 import type { RuntimeCue, RuntimeCueName } from "../motion/runtime-cues.js";
 
-/** Actions emitted inside TumbleChoreography phase cues. */
 export type TumbleAction =
   | "recognize-clear-set"
   | "react-before-clear"
@@ -24,7 +20,6 @@ export type TumbleAction =
   | "confirm-destination-state"
   | "request-next-authoritative-evaluation";
 
-/** AnimationEngine / profile state names (character / reel layer). */
 export type StudioAnimState =
   | "spinStart"
   | "spinning"
@@ -45,11 +40,9 @@ export type TumblePhase =
 
 export interface CueBridgeTarget {
   readonly cue: RuntimeCueName;
-  /** Preferred tumble phase when this cue is part of a cascade depth. */
   readonly tumblePhase: TumblePhase | null;
   readonly tumbleAction: TumbleAction | null;
   readonly animState: StudioAnimState | null;
-  /** VisualEffectRuntime binding event hint (non-blocking FX). */
   readonly vfxEvent: string | null;
   readonly notes: string;
 }
@@ -93,7 +86,7 @@ export const CUE_BRIDGE: Readonly<Record<RuntimeCueName, CueBridgeTarget>> = {
     tumbleAction: "clear-tile",
     animState: null,
     vfxEvent: null,
-    notes: "Maps to TumbleChoreography clear phase; needs clearedPositions from book.",
+    notes: "TumbleChoreography clear; needs clearedPositions from book.",
   },
   "symbol.pop": {
     cue: "symbol.pop",
@@ -101,7 +94,7 @@ export const CUE_BRIDGE: Readonly<Record<RuntimeCueName, CueBridgeTarget>> = {
     tumbleAction: "react-before-clear",
     animState: null,
     vfxEvent: null,
-    notes: "Reaction beat before or with clear.",
+    notes: "Reaction / scale pop on hit cells.",
   },
   "cluster.fall": {
     cue: "cluster.fall",
@@ -175,18 +168,7 @@ export const CUE_BRIDGE: Readonly<Record<RuntimeCueName, CueBridgeTarget>> = {
     vfxEvent: null,
     notes: "Alternate clear presentation.",
   },
-  "symbol.pop": {
-    cue: "symbol.pop",
-    tumblePhase: "reaction",
-    tumbleAction: "react-before-clear",
-    animState: null,
-    vfxEvent: null,
-    notes: "Scale pop on hit cells.",
-  },
 };
-
-// Fix duplicate key - TypeScript Record can't have duplicate. Remove second symbol.pop
-// Actually I duplicated symbol.pop in the object - need to fix file.
 
 export function resolveCueBridge(cue: RuntimeCueName): CueBridgeTarget {
   const target = CUE_BRIDGE[cue];
