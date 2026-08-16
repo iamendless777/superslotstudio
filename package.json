@@ -9,7 +9,7 @@
     "demo": "npm run build && node scripts/serve-demo.mjs",
     "evidence:recovery": "tsc -p tsconfig.json && node dist/tools/evidence/recovery-cli.js",
     "studio": "npm run build && node dist/tools/studio/cli.js",
-    "test": "npm run build && node --test dist/test/*.test.js"
+    "test": "rm -rf dist && npm run build && node --test dist/test/*.test.js"
   },
   "devDependencies": {
     "@types/node": "20.19.9",
