@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Motion timeline preview</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Super Slot Studio · local fixture</p>
+        <h1>Motion timeline preview</h1>
+        <p class="lede">
+          Compare style profiles as ordered effects. No wallet, no RNG, no approval claim.
+          Pick a template, scrub the plan, then slot art against the same recipe.
+        </p>
+      </header>
+
+      <section class="controls">
+        <label>
+          Template
+          <select id="template"></select>
+        </label>
+        <label>
+          Style override
+          <select id="style"></select>
+        </label>
+        <button type="button" id="replay">Replay</button>
+      </section>
+
+      <section class="meta" id="meta"></section>
+      <section class="track" id="track" aria-live="polite"></section>
+      <ol class="log" id="log"></ol>
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
