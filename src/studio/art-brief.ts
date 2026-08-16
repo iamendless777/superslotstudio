@@ -1,9 +1,12 @@
-import type { Blueprint } from "./blueprint.js";
+import type { Blueprint, SymbolSlot } from "./blueprint.js";
 import { missingArt } from "./blueprint.js";
+
+export type ArtRole = "low" | "high" | "wild" | "scatter" | "special";
 
 export interface ArtSlotBrief {
   readonly symbolId: string;
-  readonly role: string;
+  readonly label: string;
+  readonly role: ArtRole;
   readonly artKey: string | null;
   readonly status: "missing" | "assigned";
   readonly guidance: string;
@@ -21,14 +24,20 @@ export interface ArtBrief {
   readonly readyToCommission: boolean;
 }
 
-function guidanceForRole(role: string, styleId: string): string {
+function roleForSymbol(symbol: SymbolSlot): ArtRole {
+  if (symbol.isWild) return "wild";
+  if (symbol.isScatter) return "scatter";
+  return "low";
+}
+
+function guidanceForRole(role: ArtRole, styleId: string): string {
   switch (role) {
     case "low":
       return "Simple readable icon; secondary in wins; keep silhouette clear at small size.";
     case "high":
       return "Hero symbol; stronger silhouette and color; supports win-pulse emphasis.";
     case "wild":
-      return styleId.includes("sticky")
+      return styleId.includes("sticky") || styleId === "sticky-lock"
         ? "Wild must read as lockable/sticky; distinct edge treatment for sticky-morph."
         : "Clear wild badge; works under win-pulse and line-trace.";
     case "scatter":
@@ -43,13 +52,17 @@ function guidanceForRole(role: string, styleId: string): string {
 /** Turn a blueprint into a commissionable art checklist. */
 export function buildArtBrief(blueprint: Blueprint): ArtBrief {
   const missing = new Set(missingArt(blueprint));
-  const slots = blueprint.symbols.map((s) => ({
-    symbolId: s.id,
-    role: s.role,
-    artKey: s.artKey,
-    status: (missing.has(s.id) ? "missing" : "assigned") as "missing" | "assigned",
-    guidance: guidanceForRole(s.role, blueprint.styleId),
-  }));
+  const slots = blueprint.symbols.map((s) => {
+    const role = roleForSymbol(s);
+    return {
+      symbolId: s.id,
+      label: s.label,
+      role,
+      artKey: s.artKey,
+      status: (missing.has(s.id) ? "missing" : "assigned") as "missing" | "assigned",
+      guidance: guidanceForRole(role, blueprint.styleId),
+    };
+  });
   return {
     gameId: blueprint.gameId,
     title: blueprint.title,
