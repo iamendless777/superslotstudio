@@ -12,7 +12,16 @@ const types = {
 const server = createServer((request, response) => {
   const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
   if (pathname === "/") {
-    response.writeHead(302, { Location: "/demo/classic-nine/" }).end();
+    response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    response.end(`<!doctype html><title>Super Slot Studio demos</title>
+      <body style="font-family:system-ui;background:#0f1218;color:#e8eefc;padding:2rem">
+      <h1>Local demos</h1>
+      <ul>
+        <li><a href="/demo/classic-nine/">Classic Nine grid</a></li>
+        <li><a href="/demo/timeline/">Motion timeline styles</a></li>
+      </ul>
+      <p style="color:#9aa8c7">Non-monetary fixtures. No approval claim.</p>
+      </body>`);
     return;
   }
   const requested = pathname.endsWith("/") ? `${pathname}index.html` : pathname;
@@ -33,5 +42,5 @@ const server = createServer((request, response) => {
   }
 });
 server.listen(4173, "127.0.0.1", () =>
-  console.log("Classic Nine preview: http://127.0.0.1:4173"),
+  console.log("Demos: http://127.0.0.1:4173"),
 );
