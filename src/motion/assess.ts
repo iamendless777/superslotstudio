@@ -73,7 +73,6 @@ function scoreStyle(shape: GameShape, profile: StyleProfile): StyleMatch {
     score += 10;
     reasons.push("non-tumble style fits static board");
   } else {
-    // Tumble style on non-tumble game is usable but not ideal
     score += 5;
     reasons.push("tumble style usable without cascades");
   }
@@ -85,6 +84,10 @@ function scoreStyle(shape: GameShape, profile: StyleProfile): StyleMatch {
     } else {
       mismatches.push("sticky wilds required but style lacks sticky-morph path");
     }
+  } else if (caps.stickyWilds) {
+    // Prefer simpler styles when stickies are not part of the game
+    score -= 5;
+    reasons.push("sticky-capable style is heavier than needed");
   }
 
   if (shape.hasAnticipationMarkers) {
@@ -94,9 +97,11 @@ function scoreStyle(shape: GameShape, profile: StyleProfile): StyleMatch {
     } else {
       mismatches.push("anticipation markers present; style has no slow-stop");
     }
+  } else if (caps.anticipation) {
+    score -= 5;
+    reasons.push("anticipation style is heavier than needed");
   }
 
-  // Soft signal from event vocabulary
   if (shape.eventTypes.includes("highlight") && profile.winEffects.length > 0) {
     score += 5;
     reasons.push("highlight events map to win effects");
@@ -109,7 +114,6 @@ function scoreStyle(shape: GameShape, profile: StyleProfile): StyleMatch {
     reasons.push("cascade-related event types present");
   }
 
-  // Hard veto: critical mismatches zero the recommendation weight
   const hardFail =
     mismatches.some((m) => m.startsWith("winType")) ||
     mismatches.some((m) => m.startsWith("grid"));
@@ -145,7 +149,6 @@ export function assessGameShape(shape: GameShape): Assessment {
     .filter((m) => m.score > 0 && m.mismatches.length === 0)
     .map((m) => m.styleId);
 
-  // If nothing is perfect, still surface soft matches with score > 0
   const soft =
     recommended.length > 0
       ? recommended
