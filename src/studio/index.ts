@@ -3,3 +3,4 @@ export * from "./pipeline.js";
 export * from "./templates.js";
 export * from "./art-brief.js";
 export * from "./runtime-adapter.js";
+export * from "./stake-runtime-bridge.js";
