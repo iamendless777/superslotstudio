@@ -26,6 +26,11 @@ function healthySamples() {
       reels: { x: viewportWidth * 0.12, y: viewportHeight * 0.12, width: viewportWidth * 0.76, height: viewportHeight * 0.6 },
       hud: { x: 0, y: viewportHeight * 0.78, width: viewportWidth, height: viewportHeight * 0.22 },
       spin: { x: viewportWidth / 2 - spinWidth / 2, y: viewportHeight * 0.82, width: spinWidth, height: spinHeight },
+      controlTargets: [
+        { id: 'menu', x: 10, y: viewportHeight * 0.82, width: 48, height: 48 },
+        { id: 'spin', x: viewportWidth / 2 - spinWidth / 2, y: viewportHeight * 0.82, width: spinWidth, height: spinHeight },
+        { id: 'turbo', x: viewportWidth - 58, y: viewportHeight * 0.82, width: 48, height: 48 },
+      ],
       minimumSymbolWidth: symbolWidth, minimumSymbolHeight: symbolHeight,
       hudLabelFontPx: labelFont, hudValueFontPx: valueFont, controlsOverlap: false,
     };
@@ -38,6 +43,7 @@ test('all three measured layouts satisfy safe-zone and accessibility budgets', (
   assert.equal(summary.complete, true);
   assert.equal(summary.samples.length, 3);
   assert.equal(summary.tightestSpin.viewport, 'mobile');
+  assert.equal(summary.tightestControl.id, 'spin');
   assert.equal(summary.smallestSymbol.viewport, 'mini');
 });
 
@@ -46,14 +52,14 @@ test('cropping, tiny controls, illegible symbols, and collisions block layout ap
   const samples = healthySamples();
   samples[1].overflowX = 12;
   samples[1].stage.width += 20;
-  samples[2].spin.height = 24;
+  samples[2].controlTargets[2].width = 24;
   samples[2].minimumSymbolWidth = 22;
   samples[2].hudLabelFontPx = 5;
   samples[2].controlsOverlap = true;
   const summary = recordViewportLayoutQA(value, samples);
   assert.equal(summary.complete, false);
   assert.ok(summary.issues.some(issue => issue.includes('mobile scrolls')));
-  assert.ok(summary.issues.some(issue => issue.includes('mini spin control')));
+  assert.ok(summary.issues.some(issue => issue.includes('mini turbo control')));
   assert.ok(summary.issues.some(issue => issue.includes('mini HUD typography')));
   assert.ok(summary.issues.some(issue => issue.includes('mini HUD controls overlap')));
 });

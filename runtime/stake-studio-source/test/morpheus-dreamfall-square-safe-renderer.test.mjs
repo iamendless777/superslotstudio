@@ -120,7 +120,7 @@ test('Preview integrates the active-only square profile without a second rendere
   assert.match(preview, /grownRowMotionCoveragePassed/);
   assert.match(preview, /renderAspectIntegrityPassed/);
   assert.match(preview, /createMorpheusContentSafeRect/);
-  assert.match(preview, /createMorpheusMotionSafeRect/);
+  assert.match(preview, /createAspectPreservingOverlayRect/);
   assert.match(preview, /this\.isMorpheusDreamfallWorldActive\(\) \? '' : `<button class="preview-mode-chip/);
   assert.match(preview, /modeChipReels/);
   assert.match(preview, /'#previewModeChip'/);

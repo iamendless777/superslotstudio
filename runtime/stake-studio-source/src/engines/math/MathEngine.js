@@ -646,6 +646,10 @@ export class MathEngine {
       };
       steps.push(step);
 
+      // A ways/line match that rounds below Stake's payout quantum is not a
+      // settled win. Preserve the evaluated step for diagnostics, but do not
+      // explode symbols or manufacture a cascade with no payable cause.
+      if (stepWin <= 0) break;
       if (forcedWincap || ordinaryCapHit || !cascadesOn || cascadeCount >= maxCascades) break;
       const refillExclusions = new Set([
         ...forbiddenRefillSymbols,

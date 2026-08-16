@@ -91,7 +91,13 @@ export function projectMorpheusPortableEvent(event, command) {
     projected.explodingSymbols = clone(payload.explodingSymbols || []);
     projected.newSymbols = clone(payload.newSymbols || []);
   }
-  if (event.type === 'specialTargetSelected') projected.target = payload.targetFamily;
+  if (event.type === 'specialTargetSelected') {
+    projected.target = payload.targetFamily;
+    // The authoritative event's affected position is the ONEIRIC_STAR source.
+    // Keep it explicit in the portable packet so the frontend launches the
+    // target tell from the actual tile instead of the cabinet fallback origin.
+    projected.sources = clone(event.affectedPositions || []);
+  }
   if (event.type === 'positionMultiplierGridUpdate') projected.updates = [{
     reel: payload.position?.reel,
     row: payload.position?.row,

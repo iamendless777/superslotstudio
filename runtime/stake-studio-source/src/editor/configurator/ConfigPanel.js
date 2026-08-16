@@ -454,7 +454,7 @@ export class ConfigPanel {
         </div>
         <div class="form-group">
           <label>Provider Number <input type="number" id="cfgProviderNumber" value="${Number(stake.providerNumber) || 0}" min="1" step="1"></label>
-          <small>Enter the positive provider number assigned to your signed-in Stake Engine team. Keep 0 only while preparing an unbound preflight build.</small>
+          <small>Use 0 until Stake assigns the team provider number, then replace it with the assigned non-negative integer.</small>
         </div>
         <div class="form-group">
           <label>Team Name <input type="text" id="cfgTeamName" value="${stake.teamName || ''}"></label>

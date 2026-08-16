@@ -215,13 +215,14 @@ function completedProject() {
   value.production.qa.mobileApproved = true;
   value.production.qa.miniApproved = true;
   value.production.qa.viewportAudit = {
-    format: 'stake-studio-viewport-layout-qa-v1',
+    format: 'stake-studio-viewport-layout-qa-v2',
     fingerprint: getViewportLayoutFingerprint(value),
     runAt: '2026-08-03T00:00:00.000Z', passed: true, issues: [],
     samples: ['desktop', 'mobile', 'mini'].map(viewport => ({
       viewport, viewportWidth: 1280, viewportHeight: 720, overflowX: 0, overflowY: 0, stageScale: 1,
       stage: { x: 0, y: 0, width: 1280, height: 720 }, reels: { x: 120, y: 80, width: 960, height: 430 },
       hud: { x: 0, y: 560, width: 1280, height: 160 }, spin: { x: 560, y: 600, width: 120, height: 50 },
+      controlTargets: [{ id: 'spin', x: 560, y: 600, width: 120, height: 50 }],
       minimumSymbolWidth: 64, minimumSymbolHeight: 64, hudLabelFontPx: 10, hudValueFontPx: 18, controlsOverlap: false,
     })),
   };

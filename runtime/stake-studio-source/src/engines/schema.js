@@ -107,6 +107,7 @@ export function createGameProject(overrides = {}) {
 
     // --- AUDIO ENGINE ---
     audio: {
+      soundscapeEnabled: true,
       factory: {
         version: 1,
         generatedAssets: 0,

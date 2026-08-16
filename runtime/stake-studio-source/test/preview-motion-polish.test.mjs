@@ -2,10 +2,23 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, stat } from 'node:fs/promises';
 
-test('preview spin travel stays inside populated reel buffers', async () => {
-  const source = await readFile(new URL('../src/editor/preview/PreviewPanel.js', import.meta.url), 'utf8');
-  assert.match(source, /reelSpinDist = cellH \* \(0\.92 \+ Math\.random\(\) \* 0\.18 \+ r \* 0\.05\)/);
-  assert.doesNotMatch(source, /spinDistance = cellH \* \(8/);
+test('preview spin keeps professional wells fixed while an artwork-only track travels', async () => {
+  const [source, css] = await Promise.all([
+    readFile(new URL('../src/editor/preview/PreviewPanel.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/styles.css', import.meta.url), 'utf8'),
+  ]);
+  assert.match(source, /createPreviewReelSpinTrack/);
+  assert.match(source, /previewReelSpinSequence/);
+  assert.match(source, /visibleRows \* 3/);
+  assert.match(source, /mask\.appendChild\(track\)/);
+  assert.match(source, /this\.paintReelBoard\(r, newBoard\[r\]\)/);
+  assert.doesNotMatch(source, /reelSpinDist/);
+  assert.doesNotMatch(source, /this\.runBlurPhase\(/);
+  assert.match(css, /\.preview-stage\[data-animation-state="spinning"\] \.reel-mask:not\(\.has-stopped\) > \.reel-strip \.reel-sym img \{ visibility: hidden; opacity: 0 !important; \}/);
+  assert.match(css, /\.preview-reel-spin-track \{/);
+  assert.match(css, /\.preview-reel-spin-symbol \{[^}]*background: transparent;[^}]*box-shadow: none;/);
+  assert.match(css, /\.preview-reel-spin-symbol::before,[\s\S]*content: none;/);
+  assert.match(css, /@keyframes preview-reel-spin-flow/);
 });
 
 test('Morpheus HUD uses a packaged raster control asset', async () => {
@@ -43,8 +56,48 @@ test('cascade playback consumes Stake events without whole-board repaint drops',
   assert.doesNotMatch(player, /paintBoard\(step\.board\)/);
   assert.doesNotMatch(player, /dropBoardIn\(\)/);
   assert.match(source, /frame\.classList\.add\('is-tumbling'\)/);
-  assert.match(css, /\.reel-frame\.is-tumbling > \.reel-mask \{ visibility: hidden; \}/);
+  assert.match(css, /\.reel-frame\.is-tumbling > \.reel-mask \{ visibility: visible; \}/);
+  assert.match(css, /\.reel-frame\.is-tumbling > \.reel-mask \.reel-sym img \{ visibility: hidden; \}/);
+  assert.match(css, /\.preview-tumble-symbol::before \{ content: none; \}/);
+  assert.match(css, /\.preview-tumble-symbol \{[^}]*background: transparent !important;[^}]*box-shadow: none;/);
   assert.match(css, /\.preview-tumble-layer/);
+});
+
+test('Preview executes authoritative Visual Excellence phases for connections and tumbles', async () => {
+  const source = await readFile(new URL('../src/editor/preview/PreviewPanel.js', import.meta.url), 'utf8');
+  const connectionStart = source.indexOf('\n  createTileConnectionPlans(wins');
+  const connection = source.slice(connectionStart, source.indexOf('\n  createTumbleSymbol(', connectionStart));
+  const tumblePlanStart = source.indexOf('\n  createTumbleChoreographyPlan(');
+  const tumblePlan = source.slice(tumblePlanStart, source.indexOf('\n  /**', tumblePlanStart));
+  const tumble = source.slice(source.indexOf('async playStakeTumble('), source.indexOf('\n  /** Animate only mechanic-authored', source.indexOf('async playStakeTumble(')));
+  const control = source.slice(source.indexOf('beginVisualChoreography('), source.indexOf('\n  currentVisualReelGeometry(', source.indexOf('beginVisualChoreography(')));
+
+  assert.match(connection, /win\.positions/);
+  assert.match(connection, /relationshipEdges/);
+  assert.match(connection, /visualSequenceIntensity\('tile-connections', 'normal'\)/);
+  assert.doesNotMatch(connection, /this\.board.*filter|positionsForSymbol/);
+  assert.match(source, /plan\.routes\.map/);
+  assert.match(source, /data-relationship=/);
+  assert.match(tumble, /event\.explodingSymbols/);
+  assert.match(tumble, /event\.newSymbols/);
+  assert.match(tumble, /createTumbleChoreographyPlan/);
+  assert.match(tumblePlan, /visualSequenceIntensity\('tumble', 'major'\)/);
+  assert.match(tumble, /phase\('clear'\)/);
+  assert.match(tumble, /phase\('enter'\)/);
+  assert.match(tumble, /phase\('fall'\)/);
+  assert.match(tumble, /phase\('settle'\)/);
+  assert.match(control, /visualChoreographyStart/);
+  assert.match(control, /visualChoreographyPhase/);
+  assert.match(control, /createChoreographyAcknowledgement/);
+  assert.match(control, /visualChoreographyAcknowledged/);
+});
+
+test('base and variable-row motion overlays share the generic aspect-preserving safe rectangle', async () => {
+  const source = await readFile(new URL('../src/editor/preview/PreviewPanel.js', import.meta.url), 'utf8');
+  const sync = source.slice(source.indexOf('syncSymbolMotionFlipbooks('), source.indexOf('\n  populateInitialBoard(', source.indexOf('syncSymbolMotionFlipbooks(')));
+  assert.match(sync, /createAspectPreservingOverlayRect/);
+  assert.doesNotMatch(sync, /const overlayStage = this\.isMorpheusDreamfallWorldActive/);
+  assert.match(sync, /aspectPreserved: Math\.abs/);
 });
 
 test('every bonus spin consumes its authoritative event book instead of painting a terminal board', async () => {

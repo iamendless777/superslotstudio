@@ -8,19 +8,43 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
 import { createMathPublisher } from './math-publisher.mjs';
-import { resolveStudioHome } from './studio-paths.mjs';
+import { resolveMathSdkRoot, resolveStudioHome } from './studio-paths.mjs';
 import { compileFrontendProject } from './frontend-compiler.mjs';
 import { createVisualAssetFactory } from './visual-asset-factory.mjs';
 import { analyzeVisualAsset } from './visual-quality.mjs';
 import { normalizeStudioProfile } from '../src/engines/factory/StudioProfile.js';
 import {
+  claimAgentJob,
+  completeAgentJob,
+  createAgentJob,
+  failAgentJob,
+  ensureProductionWorkflow,
+  getFlagshipWorkflowSummary,
+  heartbeatAgentJob,
+  listAgentJobs,
+  recoverStaleAgentJobLeases,
+  setProductionTrack,
+  updateAgentJob,
+} from '../src/engines/factory/FlagshipWorkflow.js';
+import {
+  createVisualExcellenceJobPlan,
+  getVisualExcellenceSummary,
+  recordHumanVisualSignoff,
+  recordVisualDirectorReview,
+  recordVisualExcellenceDelivery,
+  upsertVisualSequenceBrief,
+} from '../src/engines/factory/VisualExcellenceDepartment.js';
+import {
   appendCommandResult,
   compactCommandResultLedger,
   consumeCommandResult,
 } from './command-ledger.mjs';
+import { persistProjectDocument, readProjectDocument } from './project-storage.mjs';
 
 const MAX_BODY_BYTES = 80 * 1024 * 1024;
 const SPEECH_MAX_CHARACTERS = 800;
@@ -1041,7 +1065,7 @@ export function archiveProjectQACapture({ gamesDir, projectId, body = {} }) {
   if (!encoded) throw new Error('QA capture PNG data is required.');
   const image = Buffer.from(encoded, 'base64');
   const { width, height, visualMetrics } = analyzePngVisualMetrics(image);
-  const project = readJson(projectPath, {});
+  const project = readProjectDocument(projectPath, {}).project;
   let renderedCellRecognition = body.renderedCellRecognition
     ? analyzeRenderedCellRecognition(image, projectRoot, project, {
       ...body.renderedCellRecognition,
@@ -1180,7 +1204,7 @@ export function reevaluateArchivedProjectQACapture({ gamesDir, projectId, body =
       rect: cell.rect,
     })),
   };
-  const project = readJson(projectPath, {});
+  const project = readProjectDocument(projectPath, {}).project;
   const compositeImage = readFileSync(compositePath);
   const identityImage = readFileSync(identityPath);
   let renderedCellRecognition = analyzeRenderedCellRecognition(compositeImage, projectRoot, project, {
@@ -1284,12 +1308,8 @@ export function stakeStudioBridge(options = {}) {
   const speechRequests = [];
   const mathPublisher = createMathPublisher({ studioHome });
   const visualAssetFactory = createVisualAssetFactory({ studioHome, apiKey: openaiApiKey });
-
-  mkdirSync(gamesDir, { recursive: true });
-  mkdirSync(runtimeDir, { recursive: true });
-  if (existsSync(resultsPath)) {
-    atomicWrite(resultsPath, JSON.stringify(compactCommandResultLedger(readJson(resultsPath, { results: [] })), null, 2));
-  }
+  const publishedReplayReader = join(dirname(fileURLToPath(import.meta.url)), 'read_published_reviewer_replay.py');
+  const mathSdkPython = join(resolveMathSdkRoot({ studioHome }), 'env', 'bin', 'python');
 
   const projectPath = id => join(gamesDir, safeId(id), 'project.json');
   const projectMeta = id => {
@@ -1302,6 +1322,11 @@ export function stakeStudioBridge(options = {}) {
   return {
     name: 'stake-studio-shared-bridge',
     configureServer(server) {
+      mkdirSync(gamesDir, { recursive: true });
+      mkdirSync(runtimeDir, { recursive: true });
+      if (existsSync(resultsPath)) {
+        atomicWrite(resultsPath, JSON.stringify(compactCommandResultLedger(readJson(resultsPath, { results: [] })), null, 2));
+      }
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url || '/', 'http://127.0.0.1');
         if (!url.pathname.startsWith('/__stake_studio/')) return next();
@@ -1419,8 +1444,24 @@ export function stakeStudioBridge(options = {}) {
 
           if (req.method === 'POST' && url.pathname === '/__stake_studio/state') {
             const body = await readBody(req);
-            const state = { ...body, connected: true, receivedAt: new Date().toISOString() };
+            const receivedAt = new Date().toISOString();
+            const reportedErrors = Array.isArray(body.diagnostics?.errors)
+              ? body.diagnostics.errors.slice(-50)
+              : null;
+            const diagnostics = body.diagnostics && typeof body.diagnostics === 'object'
+              ? { ...body.diagnostics }
+              : null;
+            if (diagnostics) delete diagnostics.errors;
+            const state = {
+              ...body,
+              ...(diagnostics ? { diagnostics } : {}),
+              connected: true,
+              receivedAt,
+            };
             atomicWrite(statePath, JSON.stringify(state, null, 2));
+            if (reportedErrors) {
+              atomicWrite(errorsPath, JSON.stringify({ errors: reportedErrors, receivedAt }, null, 2));
+            }
             return sendJson(res, 200, { ok: true, receivedAt: state.receivedAt });
           }
 
@@ -1448,6 +1489,20 @@ export function stakeStudioBridge(options = {}) {
             return sendJson(res, 200, readJson(frameMetaPath, { available: false }));
           }
 
+          if (req.method === 'POST' && url.pathname === '/__stake_studio/frame-stale') {
+            const body = await readBody(req);
+            const metadata = readJson(frameMetaPath, { available: false });
+            const staleAt = body.markedAt || new Date().toISOString();
+            const next = {
+              ...metadata,
+              stale: true,
+              staleReason: body.reason || 'visual-change',
+              staleAt,
+            };
+            atomicWrite(frameMetaPath, JSON.stringify(next, null, 2));
+            return sendJson(res, 200, { ok: true, ...next });
+          }
+
           if (req.method === 'POST' && url.pathname === '/__stake_studio/frame') {
             const body = await readBody(req);
             if (!body.data) throw new Error('Frame data is required.');
@@ -1461,6 +1516,9 @@ export function stakeStudioBridge(options = {}) {
               height: body.height || null,
               bytes: image.length,
               reason: body.reason || 'update',
+              stale: false,
+              staleReason: null,
+              staleAt: null,
               capturedAt: body.capturedAt || new Date().toISOString(),
               receivedAt: new Date().toISOString(),
             };
@@ -1500,10 +1558,105 @@ export function stakeStudioBridge(options = {}) {
             return sendJson(res, 200, { projects });
           }
 
+          const agentJobsMatch = url.pathname.match(/^\/__stake_studio\/projects\/([a-zA-Z0-9_-]+)\/agent-jobs(?:\/([^/]+))?(?:\/(claim|heartbeat|update|complete|fail))?$/);
+          if (agentJobsMatch) {
+            const id = safeId(agentJobsMatch[1]);
+            const path = projectPath(id);
+            const project = readProjectDocument(path, null).project;
+            if (!project) return sendJson(res, 404, { error: `No project "${id}".` });
+            const jobSegment = agentJobsMatch[2] ? decodeURIComponent(agentJobsMatch[2]) : null;
+            const action = agentJobsMatch[3] || null;
+            if (req.method === 'GET' && !jobSegment) {
+              const result = listAgentJobs(project, {
+                owner: url.searchParams.get('owner'),
+                status: url.searchParams.get('status'),
+                availableOnly: url.searchParams.get('availableOnly') === 'true',
+              });
+              if (result.recovered.length) persistProjectDocument(path, project);
+              return sendJson(res, 200, { id, ...result, summary: getFlagshipWorkflowSummary(project) });
+            }
+            if (req.method === 'POST' && jobSegment === 'recover' && !action) {
+              const recovery = recoverStaleAgentJobLeases(project);
+              if (recovery.recovered.length) persistProjectDocument(path, project);
+              return sendJson(res, 200, { id, ...recovery, summary: getFlagshipWorkflowSummary(project) });
+            }
+            const body = await readBody(req);
+            let job;
+            if (req.method === 'POST' && !jobSegment) {
+              setProductionTrack(project, 'flagship');
+              job = createAgentJob(project, {
+                id: body.jobId, owner: body.owner, artifact: body.artifact, stage: body.stage,
+                dependencies: body.dependencies, deliverables: body.deliverables, acceptance: body.acceptance,
+              });
+            } else if (req.method === 'POST' && jobSegment && action === 'claim') {
+              job = claimAgentJob(project, { jobId: jobSegment, ...body });
+            } else if (req.method === 'POST' && jobSegment && action === 'heartbeat') {
+              job = heartbeatAgentJob(project, { jobId: jobSegment, ...body });
+            } else if (req.method === 'POST' && jobSegment && action === 'update') {
+              job = updateAgentJob(project, { jobId: jobSegment, ...body });
+            } else if (req.method === 'POST' && jobSegment && action === 'complete') {
+              job = completeAgentJob(project, { jobId: jobSegment, ...body });
+            } else if (req.method === 'POST' && jobSegment && action === 'fail') {
+              job = failAgentJob(project, { jobId: jobSegment, ...body });
+            } else {
+              return sendJson(res, 405, { error: 'Unsupported agent-job operation.' });
+            }
+            persistProjectDocument(path, project);
+            return sendJson(res, 200, {
+              id, job, ...(job.lease?.token ? { leaseToken: job.lease.token } : {}),
+              summary: getFlagshipWorkflowSummary(project),
+            });
+          }
+
+          const visualExcellenceMatch = url.pathname.match(/^\/__stake_studio\/projects\/([a-zA-Z0-9_-]+)\/visual-excellence(?:\/(briefs|deliveries|reviews|human-signoff))?$/);
+          if (visualExcellenceMatch) {
+            const id = safeId(visualExcellenceMatch[1]);
+            const path = projectPath(id);
+            const project = readProjectDocument(path, null).project;
+            if (!project) return sendJson(res, 404, { error: `No project "${id}".` });
+            const operation = visualExcellenceMatch[2] || null;
+            let workflow = ensureProductionWorkflow(project);
+            if (req.method === 'GET' && !operation) {
+              return sendJson(res, 200, {
+                id, department: workflow.visualExcellence,
+                summary: getVisualExcellenceSummary(workflow.visualExcellence),
+              });
+            }
+            if (req.method !== 'POST' || !operation) {
+              return sendJson(res, 405, { error: 'Unsupported Visual Excellence operation.' });
+            }
+            const body = await readBody(req);
+            setProductionTrack(project, 'flagship');
+            workflow = ensureProductionWorkflow(project, 'flagship');
+            if (operation === 'briefs') {
+              workflow.visualExcellence = upsertVisualSequenceBrief(workflow.visualExcellence, body.brief || body);
+              const brief = workflow.visualExcellence.briefs.find(item => item.id === String((body.brief || body)?.id || '').trim());
+              if (body.createJobs !== false) {
+                for (const job of createVisualExcellenceJobPlan(brief)) {
+                  if (!workflow.agentCoordination.workItems.some(item => item.id === job.id)) createAgentJob(project, job);
+                }
+              }
+            } else if (operation === 'deliveries') {
+              workflow.visualExcellence = recordVisualExcellenceDelivery(workflow.visualExcellence, body);
+            } else if (operation === 'reviews') {
+              workflow.visualExcellence = recordVisualDirectorReview(workflow.visualExcellence, body);
+            } else if (operation === 'human-signoff') {
+              workflow.visualExcellence = recordHumanVisualSignoff(workflow.visualExcellence, body);
+            }
+            workflow.updatedAt = new Date().toISOString();
+            project.production.qa ||= {};
+            project.production.qa.gameCertification = null;
+            persistProjectDocument(path, project);
+            return sendJson(res, 200, {
+              id, department: workflow.visualExcellence,
+              summary: getVisualExcellenceSummary(workflow.visualExcellence),
+            });
+          }
+
           const visualDeliveryMatch = url.pathname.match(/^\/__stake_studio\/projects\/([a-zA-Z0-9_-]+)\/visual-delivery$/);
           if (req.method === 'POST' && visualDeliveryMatch) {
             const id = safeId(visualDeliveryMatch[1]);
-            const project = readJson(projectPath(id), null);
+            const project = readProjectDocument(projectPath(id), null).project;
             if (!project) return sendJson(res, 404, { error: `No project "${id}".` });
             const body = await readBody(req);
             const workOrder = project.visualFactory?.workOrder;
@@ -1664,6 +1817,33 @@ export function stakeStudioBridge(options = {}) {
             }));
           }
 
+          const publishedReplayMatch = url.pathname.match(/^\/__stake_studio\/projects\/([a-zA-Z0-9_-]+)\/published-replay\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)$/);
+          if (req.method === 'GET' && publishedReplayMatch) {
+            const id = safeId(publishedReplayMatch[1]);
+            const mode = safeCaptureSegment(publishedReplayMatch[2], 'Published replay mode');
+            const category = safeCaptureSegment(publishedReplayMatch[3], 'Published replay category');
+            const allowedCategories = new Set(['loss', 'normalWin', 'bigWin', 'wincap', 'bonusTrigger']);
+            if (!allowedCategories.has(category)) return sendJson(res, 400, { error: `Unknown published replay category "${category}".` });
+            const project = readProjectDocument(projectPath(id), null).project;
+            const published = project.build?.mathPublish || {};
+            if (!(published.profile === 'production' && published.officialVerification
+              && published.fullStreamIntegrity && published.rtpAligned)) {
+              return sendJson(res, 409, { error: `Project "${id}" has no verified production math replay authority.` });
+            }
+            const loaded = spawnSync(mathSdkPython, [
+              publishedReplayReader,
+              join(gamesDir, id, 'math-publish'),
+              mode,
+              category,
+            ], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+            let replay = null;
+            try { replay = JSON.parse(String(loaded.stdout || '').trim()); } catch { /* handled below */ }
+            if (loaded.status !== 0 || replay?.valid === false || !replay?.book) {
+              return sendJson(res, 422, { error: replay?.error || loaded.stderr || 'Published reviewer replay could not be loaded.' });
+            }
+            return sendJson(res, 200, { projectId: id, ...replay });
+          }
+
           const mathPublisherJobMatch = url.pathname.match(/^\/__stake_studio\/math-publisher\/jobs\/([a-zA-Z0-9_-]+)(\/cancel)?$/);
           if (mathPublisherJobMatch) {
             const jobId = mathPublisherJobMatch[1];
@@ -1712,20 +1892,26 @@ export function stakeStudioBridge(options = {}) {
             }
             if (req.method === 'GET') {
               if (!existsSync(path)) return sendJson(res, 404, { error: `No project "${id}".` });
-              return sendJson(res, 200, { project: readJson(path, null), meta: projectMeta(id) });
+              return sendJson(res, 200, { project: readProjectDocument(path, null).project, meta: projectMeta(id) });
             }
             if (req.method === 'PUT') {
               const body = await readBody(req);
               if (!body.project || typeof body.project !== 'object') throw new Error('A project object is required.');
-              mkdirSync(dirname(path), { recursive: true });
-              atomicWrite(path, JSON.stringify(body.project, null, 2));
-              return sendJson(res, 200, { ok: true, meta: projectMeta(id) });
+              const storage = persistProjectDocument(path, body.project);
+              return sendJson(res, 200, { ok: true, meta: projectMeta(id), storage: storage.stats });
             }
           }
 
           if (req.method === 'POST' && url.pathname === '/__stake_studio/commands') {
             const body = await readBody(req);
             if (!body.command) throw new Error('A command is required.');
+            const frameMetadata = readJson(frameMetaPath, { available: false });
+            atomicWrite(frameMetaPath, JSON.stringify({
+              ...frameMetadata,
+              stale: true,
+              staleReason: `command:${body.command}`,
+              staleAt: new Date().toISOString(),
+            }, null, 2));
             const queue = readJson(commandsPath, { sequence: 0, commands: [] });
             const sequence = Number(queue.sequence || 0) + 1;
             const command = {

@@ -263,6 +263,8 @@ test('a raw win quantized to zero cannot advance persistent feature state', () =
   const spin = new SubQuantumWinEngine(project).resolveSpin(() => 0, 'freegame', { featureTier: 'symbolMult' });
   assert.equal(spin.steps.length, 1);
   assert.equal(spin.steps[0].stepWin, 0);
+  assert.equal(spin.steps[0].tumble, undefined);
+  assert.equal(spin.state.some(event => event.type === 'tumbleBoard'), false);
   assert.deepEqual(spin.steps[0].featureEvents, []);
   assert.deepEqual(spin.featureState.symbolMultipliers, {});
 });

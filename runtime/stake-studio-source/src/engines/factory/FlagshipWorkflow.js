@@ -2,9 +2,35 @@ import {
   MORPHEUS_SIGNATURE_SCENARIO_ID,
   getMorpheusSignatureCaptureSummary,
 } from '../quality/morpheus/MorpheusSignatureCaptureQA.js';
+import {
+  createVisualExcellenceDepartment,
+  getVisualExcellenceSummary,
+  normalizeVisualExcellenceDepartment,
+} from './VisualExcellenceDepartment.js';
 
 export const STUDIO_WORKFLOW_FORMAT = 'stake-studio-production-workflow-v1';
 export const FIDELITY_LEDGER_FORMAT = 'stake-studio-vision-fidelity-v1';
+export const AGENT_JOB_FORMAT = 'stake-studio-agent-job-v1';
+
+export const AGENT_JOB_LIMITS = Object.freeze({
+  jobs: 500,
+  dependencies: 50,
+  deliverables: 50,
+  acceptance: 50,
+  evidence: 100,
+  history: 50,
+  idCharacters: 160,
+  textCharacters: 2000,
+  minLeaseSeconds: 30,
+  maxLeaseSeconds: 3600,
+  defaultLeaseSeconds: 900,
+});
+
+const AGENT_JOB_TERMINAL_STATUSES = new Set([
+  'accepted', 'complete', 'completed', 'cancelled', 'failed', 'handed-off',
+]);
+const AGENT_JOB_SUCCESS_STATUSES = new Set(['accepted', 'complete', 'completed', 'handed-off']);
+const AGENT_JOB_LEASED_STATUSES = new Set(['claimed', 'in-progress']);
 
 export const PRODUCTION_TRACKS = Object.freeze({
   blueprint: Object.freeze({
@@ -39,8 +65,24 @@ export const SPECIALTY_AGENT_ROLES = Object.freeze({
   math: Object.freeze({ label: 'Math Engineer', owns: ['probability', 'books', 'RTP', 'tail behavior'], writes: ['math', 'mathEvidence'] }),
   protocol: Object.freeze({ label: 'Event Protocol Engineer', owns: ['event vocabulary', 'causal order', 'replay payloads'], writes: ['eventProtocol'] }),
   frontend: Object.freeze({ label: 'Gameplay Frontend Engineer', owns: ['runtime state', 'renderer', 'HUD', 'recovery'], writes: ['frontend'] }),
-  presentation: Object.freeze({ label: 'Presentation Director', owns: ['choreography', 'readability', 'effect concurrency'], writes: ['presentationDirector', 'animation'] }),
-  visual: Object.freeze({ label: 'Art Director', owns: ['art bible', 'assets', 'visual continuity'], writes: ['theme', 'visualFactory', 'atlas'] }),
+  presentation: Object.freeze({
+    label: 'Visual Director / Orchestrator',
+    owns: ['visual direction', 'hierarchy', 'sequence briefs', 'choreography', 'director review'],
+    writes: ['presentationDirector', 'visualSequenceBrief', 'visualDirectorReview'],
+    doesNotWrite: ['composition implementation', 'animation implementation', 'QA approval', 'human signoff'],
+  }),
+  visual: Object.freeze({
+    label: 'Composition & Asset Specialist',
+    owns: ['art bible', 'assets', 'placement', 'anchors', 'layers', 'responsive composition'],
+    writes: ['theme', 'visualFactory', 'atlas', 'visualComposition', 'assetPlacement'],
+    doesNotWrite: ['motion implementation', 'director review', 'QA approval'],
+  }),
+  motion_vfx: Object.freeze({
+    label: 'Motion & VFX Specialist',
+    owns: ['animation', 'easing', 'particles', 'impact', 'camera response', 'transitions'],
+    writes: ['visualMotion', 'visualEffects'],
+    doesNotWrite: ['visual direction', 'scene composition', 'director review', 'QA approval'],
+  }),
   audio: Object.freeze({ label: 'Audio Director', owns: ['music', 'SFX', 'mix', 'sync'], writes: ['audio'] }),
   information: Object.freeze({ label: 'Player Information Editor', owns: ['Game Info', 'disclosures', 'rules parity'], writes: ['playerInformation'] }),
   qa: Object.freeze({ label: 'QA and Certification Lead', owns: ['scenarios', 'coverage', 'certification'], writes: ['qaEvidence'] }),
@@ -50,6 +92,60 @@ const clean = value => String(value ?? '').trim().replace(/\s+/g, ' ');
 const strings = value => Array.isArray(value) ? value.map(clean).filter(Boolean) : [];
 const clone = value => JSON.parse(JSON.stringify(value));
 const approved = value => ['approved', 'frozen', 'proven', 'complete'].includes(clean(value));
+
+const jobText = value => clean(value).slice(0, AGENT_JOB_LIMITS.textCharacters);
+const boundedStrings = (value, limit) => strings(value)
+  .map(item => item.slice(0, AGENT_JOB_LIMITS.textCharacters))
+  .slice(0, limit);
+
+function timestamp(value = null) {
+  const date = value instanceof Date ? value : value === null ? new Date() : new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error('Agent-job time must be a valid date.');
+  return date.toISOString();
+}
+
+function leaseSeconds(value) {
+  const seconds = Number.isFinite(Number(value)) ? Math.floor(Number(value)) : AGENT_JOB_LIMITS.defaultLeaseSeconds;
+  return Math.max(AGENT_JOB_LIMITS.minLeaseSeconds, Math.min(AGENT_JOB_LIMITS.maxLeaseSeconds, seconds));
+}
+
+function leaseToken() {
+  return globalThis.crypto?.randomUUID?.()
+    || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+}
+
+function normalizeAgentJob(input = {}) {
+  const lease = input.lease && typeof input.lease === 'object' ? {
+    holder: clean(input.lease.holder).slice(0, AGENT_JOB_LIMITS.idCharacters),
+    token: clean(input.lease.token),
+    claimedAt: input.lease.claimedAt || null,
+    heartbeatAt: input.lease.heartbeatAt || null,
+    expiresAt: input.lease.expiresAt || null,
+    durationSeconds: leaseSeconds(input.lease.durationSeconds),
+  } : null;
+  return {
+    ...clone(input),
+    format: AGENT_JOB_FORMAT,
+    execution: clean(input.execution) || 'legacy-compatible',
+    id: clean(input.id),
+    owner: clean(input.owner),
+    artifact: jobText(input.artifact),
+    stage: jobText(input.stage),
+    status: clean(input.status) || 'planned',
+    dependencies: boundedStrings(input.dependencies, AGENT_JOB_LIMITS.dependencies),
+    deliverables: boundedStrings(input.deliverables, AGENT_JOB_LIMITS.deliverables),
+    acceptance: boundedStrings(input.acceptance, AGENT_JOB_LIMITS.acceptance),
+    evidence: boundedStrings(input.evidence, AGENT_JOB_LIMITS.evidence),
+    progress: jobText(input.progress),
+    attempts: Math.max(0, Math.floor(Number(input.attempts) || 0)),
+    lease: lease?.holder && lease?.token && lease?.expiresAt ? lease : null,
+    history: Array.isArray(input.history) ? clone(input.history).slice(-AGENT_JOB_LIMITS.history) : [],
+  };
+}
+
+function appendJobHistory(job, event) {
+  job.history = [...(job.history || []), event].slice(-AGENT_JOB_LIMITS.history);
+}
 
 function normalizedTrack(value) {
   return Object.hasOwn(PRODUCTION_TRACKS, value) ? value : 'blueprint';
@@ -68,7 +164,14 @@ function defaultDisciplineProof() {
 
 function createAgentCoordination() {
   return {
-    format: 'stake-studio-agent-coordination-v1',
+    format: 'stake-studio-agent-coordination-v2',
+    jobProtocol: {
+      format: AGENT_JOB_FORMAT,
+      execution: 'external-agent-claim',
+      launchesModels: false,
+      launchesCommands: false,
+      leaseSeconds: AGENT_JOB_LIMITS.defaultLeaseSeconds,
+    },
     orchestrator: 'orchestrator',
     policy: {
       singleWriterPerArtifact: true,
@@ -148,6 +251,7 @@ export function createProductionWorkflow(track = 'blueprint') {
       format: FIDELITY_LEDGER_FORMAT,
       entries: [],
     },
+    visualExcellence: createVisualExcellenceDepartment(),
     agentCoordination: createAgentCoordination(),
     scenarioLab: {
       format: 'stake-studio-flagship-scenario-lab-v1',
@@ -217,13 +321,20 @@ export function normalizeProductionWorkflow(input = {}, fallbackTrack = 'bluepri
       ...(input.fidelityLedger || {}),
       entries: Array.isArray(input.fidelityLedger?.entries) ? clone(input.fidelityLedger.entries) : [],
     },
+    visualExcellence: normalizeVisualExcellenceDepartment(input.visualExcellence),
     agentCoordination: {
       ...createAgentCoordination(),
       ...(input.agentCoordination || {}),
       policy: { ...createAgentCoordination().policy, ...(input.agentCoordination?.policy || {}) },
-      activeRoles: strings(input.agentCoordination?.activeRoles || Object.keys(SPECIALTY_AGENT_ROLES))
-        .filter(role => Object.hasOwn(SPECIALTY_AGENT_ROLES, role)),
-      workItems: Array.isArray(input.agentCoordination?.workItems) ? clone(input.agentCoordination.workItems) : [],
+      activeRoles: [...new Set([
+        ...strings(input.agentCoordination?.activeRoles || Object.keys(SPECIALTY_AGENT_ROLES))
+          .filter(role => Object.hasOwn(SPECIALTY_AGENT_ROLES, role)),
+        'motion_vfx',
+      ])],
+      jobProtocol: { ...createAgentCoordination().jobProtocol, ...(input.agentCoordination?.jobProtocol || {}) },
+      workItems: Array.isArray(input.agentCoordination?.workItems)
+        ? input.agentCoordination.workItems.slice(0, AGENT_JOB_LIMITS.jobs).map(normalizeAgentJob)
+        : [],
       handoffs: Array.isArray(input.agentCoordination?.handoffs) ? clone(input.agentCoordination.handoffs) : [],
     },
     scenarioLab: {
@@ -292,16 +403,26 @@ export function upsertSpecialtyAgentWorkItem(project, input = {}) {
   const owner = clean(input.owner);
   const artifact = clean(input.artifact);
   if (!id) throw new Error('Specialty-agent work requires a stable ID.');
+  if (id.length > AGENT_JOB_LIMITS.idCharacters) throw new Error(`Agent-job IDs may not exceed ${AGENT_JOB_LIMITS.idCharacters} characters.`);
   if (!Object.hasOwn(SPECIALTY_AGENT_ROLES, owner)) throw new Error(`Unknown specialty-agent role "${owner}".`);
   if (!artifact) throw new Error('Specialty-agent work requires one owned artifact.');
-  const terminal = new Set(['accepted', 'complete', 'cancelled', 'handed-off']);
+  if (artifact.length > AGENT_JOB_LIMITS.textCharacters) throw new Error(`Agent-job artifacts may not exceed ${AGENT_JOB_LIMITS.textCharacters} characters.`);
+  if (!coordination.workItems.some(item => item.id === id) && coordination.workItems.length >= AGENT_JOB_LIMITS.jobs) {
+    throw new Error(`Agent-job limit reached (${AGENT_JOB_LIMITS.jobs}). Complete or archive existing work before adding more.`);
+  }
   const conflict = coordination.workItems.find(item => item.id !== id
     && clean(item.artifact) === artifact
-    && clean(item.owner) !== owner
-    && !terminal.has(clean(item.status)));
+    && !AGENT_JOB_TERMINAL_STATUSES.has(clean(item.status)));
   if (conflict) throw new Error(`Artifact "${artifact}" already has active writer ${conflict.owner} (${conflict.id}).`);
   const currentIndex = coordination.workItems.findIndex(item => item.id === id);
-  const item = {
+  const current = currentIndex >= 0 ? coordination.workItems[currentIndex] : null;
+  if (current?.execution === 'leased') {
+    throw new Error(`Agent job "${id}" uses the leased protocol and cannot be changed through the legacy work-item tool.`);
+  }
+  if (current?.lease && new Date(current.lease.expiresAt).getTime() > Date.now()) {
+    throw new Error(`Agent job "${id}" is claimed by ${current.lease.holder}; use the leased job update tools.`);
+  }
+  const item = normalizeAgentJob({
     ...(currentIndex >= 0 ? coordination.workItems[currentIndex] : {}),
     ...input,
     id,
@@ -309,16 +430,212 @@ export function upsertSpecialtyAgentWorkItem(project, input = {}) {
     artifact,
     stage: clean(input.stage),
     status: clean(input.status) || 'planned',
-    dependencies: strings(input.dependencies),
-    deliverables: strings(input.deliverables),
-    acceptance: strings(input.acceptance),
-    evidence: strings(input.evidence),
+    dependencies: input.dependencies ?? current?.dependencies,
+    deliverables: input.deliverables ?? current?.deliverables,
+    acceptance: input.acceptance ?? current?.acceptance,
+    evidence: input.evidence ?? current?.evidence,
     updatedAt: new Date().toISOString(),
-  };
+  });
   if (currentIndex >= 0) coordination.workItems[currentIndex] = item;
   else coordination.workItems.push(item);
   workflow.updatedAt = item.updatedAt;
   return clone(item);
+}
+
+export function createAgentJob(project, input = {}) {
+  const workflow = ensureProductionWorkflow(project, 'flagship');
+  const id = clean(input.id);
+  if (workflow.agentCoordination.workItems.some(item => item.id === id)) {
+    throw new Error(`Agent job "${id}" already exists.`);
+  }
+  const dependencies = boundedStrings(input.dependencies, AGENT_JOB_LIMITS.dependencies);
+  for (const dependencyId of dependencies) {
+    if (dependencyId === id) throw new Error('An agent job cannot depend on itself.');
+    if (!workflow.agentCoordination.workItems.some(item => item.id === dependencyId)) {
+      throw new Error(`Unknown agent-job dependency "${dependencyId}".`);
+    }
+  }
+  return upsertSpecialtyAgentWorkItem(project, {
+    ...input, dependencies, execution: 'leased', status: clean(input.status) || 'planned',
+  });
+}
+
+function jobById(coordination, id) {
+  const job = coordination.workItems.find(item => item.id === clean(id));
+  if (!job) throw new Error(`Unknown agent job "${clean(id)}".`);
+  return job;
+}
+
+function dependencyState(coordination, job) {
+  const blockedBy = [];
+  for (const dependencyId of job.dependencies || []) {
+    const dependency = coordination.workItems.find(item => item.id === dependencyId);
+    if (!dependency || !AGENT_JOB_SUCCESS_STATUSES.has(clean(dependency.status))) blockedBy.push(dependencyId);
+  }
+  return { satisfied: blockedBy.length === 0, blockedBy };
+}
+
+function expiredLease(job, nowMs) {
+  return job.lease && new Date(job.lease.expiresAt).getTime() <= nowMs;
+}
+
+export function recoverStaleAgentJobLeases(project, { now = null } = {}) {
+  const workflow = ensureProductionWorkflow(project, 'flagship');
+  const coordination = workflow.agentCoordination;
+  const at = timestamp(now);
+  const nowMs = new Date(at).getTime();
+  const recovered = [];
+  for (const job of coordination.workItems) {
+    if (!AGENT_JOB_LEASED_STATUSES.has(clean(job.status)) || !expiredLease(job, nowMs)) continue;
+    const previousHolder = job.lease.holder;
+    const dependency = dependencyState(coordination, job);
+    job.status = dependency.satisfied ? 'ready' : 'blocked';
+    job.lease = null;
+    job.updatedAt = at;
+    appendJobHistory(job, { type: 'lease-recovered', at, previousHolder, blockedBy: dependency.blockedBy });
+    recovered.push(job.id);
+  }
+  if (recovered.length) workflow.updatedAt = at;
+  return { recovered, at };
+}
+
+export function listAgentJobs(project, filters = {}) {
+  const recovery = recoverStaleAgentJobLeases(project, { now: filters.now });
+  const coordination = ensureProductionWorkflow(project, 'flagship').agentCoordination;
+  const status = clean(filters.status);
+  const owner = clean(filters.owner);
+  const availableOnly = filters.availableOnly === true;
+  const jobs = coordination.workItems.map(job => {
+    const dependency = dependencyState(coordination, job);
+    const available = dependency.satisfied
+      && !AGENT_JOB_TERMINAL_STATUSES.has(clean(job.status))
+      && !job.lease;
+    return { ...clone(job), available, blockedBy: dependency.blockedBy };
+  }).filter(job => (!status || job.status === status)
+    && (!owner || job.owner === owner)
+    && (!availableOnly || job.available));
+  return { jobs, recovered: recovery.recovered };
+}
+
+function assertJobLease(job, input, at) {
+  if (!AGENT_JOB_LEASED_STATUSES.has(clean(job.status)) || !job.lease) {
+    throw new Error(`Agent job "${job.id}" is not currently claimed.`);
+  }
+  if (expiredLease(job, new Date(at).getTime())) throw new Error(`Agent job "${job.id}" lease has expired.`);
+  if (job.lease.holder !== clean(input.agentId) || job.lease.token !== clean(input.leaseToken)) {
+    throw new Error(`Agent job "${job.id}" lease belongs to another agent.`);
+  }
+}
+
+export function claimAgentJob(project, input = {}) {
+  const at = timestamp(input.now);
+  recoverStaleAgentJobLeases(project, { now: at });
+  const workflow = ensureProductionWorkflow(project, 'flagship');
+  const coordination = workflow.agentCoordination;
+  const job = jobById(coordination, input.jobId);
+  const agentId = clean(input.agentId);
+  const role = clean(input.role);
+  if (!agentId) throw new Error('Claiming an agent job requires a stable agent ID.');
+  if (agentId.length > AGENT_JOB_LIMITS.idCharacters) throw new Error(`Agent IDs may not exceed ${AGENT_JOB_LIMITS.idCharacters} characters.`);
+  if (!Object.hasOwn(SPECIALTY_AGENT_ROLES, role)) throw new Error(`Unknown specialty-agent role "${role}".`);
+  if (role !== job.owner) throw new Error(`Agent job "${job.id}" belongs to the ${job.owner} lane, not ${role}.`);
+  if (AGENT_JOB_TERMINAL_STATUSES.has(clean(job.status))) throw new Error(`Agent job "${job.id}" is already ${job.status}.`);
+  if (job.lease) throw new Error(`Agent job "${job.id}" is already claimed by ${job.lease.holder}.`);
+  const dependency = dependencyState(coordination, job);
+  if (!dependency.satisfied) throw new Error(`Agent job "${job.id}" is blocked by: ${dependency.blockedBy.join(', ')}.`);
+  const artifactConflict = coordination.workItems.find(candidate => candidate.id !== job.id
+    && candidate.artifact === job.artifact
+    && candidate.lease
+    && !expiredLease(candidate, new Date(at).getTime()));
+  if (artifactConflict) throw new Error(`Artifact "${job.artifact}" is leased by ${artifactConflict.lease.holder} (${artifactConflict.id}).`);
+  const durationSeconds = leaseSeconds(input.leaseSeconds || coordination.jobProtocol.leaseSeconds);
+  job.execution = 'leased';
+  job.status = 'claimed';
+  job.attempts += 1;
+  job.lease = {
+    holder: agentId,
+    token: leaseToken(),
+    claimedAt: at,
+    heartbeatAt: at,
+    expiresAt: new Date(new Date(at).getTime() + durationSeconds * 1000).toISOString(),
+    durationSeconds,
+  };
+  job.updatedAt = at;
+  appendJobHistory(job, { type: 'claimed', at, agentId, attempt: job.attempts });
+  workflow.updatedAt = at;
+  return clone(job);
+}
+
+export function heartbeatAgentJob(project, input = {}) {
+  const workflow = ensureProductionWorkflow(project, 'flagship');
+  const job = jobById(workflow.agentCoordination, input.jobId);
+  const at = timestamp(input.now);
+  assertJobLease(job, input, at);
+  const durationSeconds = leaseSeconds(input.leaseSeconds || job.lease.durationSeconds);
+  job.status = 'in-progress';
+  job.lease.heartbeatAt = at;
+  job.lease.expiresAt = new Date(new Date(at).getTime() + durationSeconds * 1000).toISOString();
+  job.lease.durationSeconds = durationSeconds;
+  job.updatedAt = at;
+  workflow.updatedAt = at;
+  return clone(job);
+}
+
+export function updateAgentJob(project, input = {}) {
+  const workflow = ensureProductionWorkflow(project, 'flagship');
+  const job = jobById(workflow.agentCoordination, input.jobId);
+  const at = timestamp(input.now);
+  assertJobLease(job, input, at);
+  job.status = 'in-progress';
+  if (input.progress !== undefined) job.progress = jobText(input.progress);
+  const evidence = boundedStrings(input.evidence, AGENT_JOB_LIMITS.evidence);
+  job.evidence = [...job.evidence, ...evidence].slice(-AGENT_JOB_LIMITS.evidence);
+  const note = jobText(input.note);
+  appendJobHistory(job, { type: 'updated', at, agentId: job.lease.holder, ...(note ? { note } : {}) });
+  job.updatedAt = at;
+  workflow.updatedAt = at;
+  return clone(job);
+}
+
+export function completeAgentJob(project, input = {}) {
+  const workflow = ensureProductionWorkflow(project, 'flagship');
+  const job = jobById(workflow.agentCoordination, input.jobId);
+  const at = timestamp(input.now);
+  assertJobLease(job, input, at);
+  const evidence = boundedStrings(input.evidence, AGENT_JOB_LIMITS.evidence);
+  job.evidence = [...job.evidence, ...evidence].slice(-AGENT_JOB_LIMITS.evidence);
+  if (!job.evidence.length) throw new Error(`Agent job "${job.id}" completion requires evidence.`);
+  const agentId = job.lease.holder;
+  job.status = 'completed';
+  job.progress = jobText(input.result) || job.progress;
+  job.completedAt = at;
+  job.completedBy = agentId;
+  job.lease = null;
+  job.updatedAt = at;
+  appendJobHistory(job, { type: 'completed', at, agentId });
+  workflow.updatedAt = at;
+  return clone(job);
+}
+
+export function failAgentJob(project, input = {}) {
+  const workflow = ensureProductionWorkflow(project, 'flagship');
+  const job = jobById(workflow.agentCoordination, input.jobId);
+  const at = timestamp(input.now);
+  assertJobLease(job, input, at);
+  const reason = jobText(input.reason);
+  if (!reason) throw new Error(`Agent job "${job.id}" failure requires a reason.`);
+  const evidence = boundedStrings(input.evidence, AGENT_JOB_LIMITS.evidence);
+  job.evidence = [...job.evidence, ...evidence].slice(-AGENT_JOB_LIMITS.evidence);
+  const agentId = job.lease.holder;
+  job.status = 'failed';
+  job.failureReason = reason;
+  job.failedAt = at;
+  job.failedBy = agentId;
+  job.lease = null;
+  job.updatedAt = at;
+  appendJobHistory(job, { type: 'failed', at, agentId, reason });
+  workflow.updatedAt = at;
+  return clone(job);
 }
 
 export function recordSpecialtyAgentHandoff(project, input = {}) {
@@ -348,28 +665,37 @@ export function recordSpecialtyAgentHandoff(project, input = {}) {
   const currentIndex = coordination.handoffs.findIndex(item => item.id === handoff.id);
   if (currentIndex >= 0) coordination.handoffs[currentIndex] = handoff;
   else coordination.handoffs.push(handoff);
-  if (status === 'accepted') workItem.status = 'handed-off';
+  if (status === 'accepted') {
+    workItem.status = 'handed-off';
+    workItem.lease = null;
+    workItem.updatedAt = handoff.recordedAt;
+    appendJobHistory(workItem, { type: 'handed-off', at: handoff.recordedAt, from, to, handoffId: handoff.id });
+  }
   workflow.updatedAt = handoff.recordedAt;
   return clone(handoff);
 }
 
 export function getSpecialtyAgentCoordinationSummary(project) {
   const coordination = ensureProductionWorkflow(project).agentCoordination;
-  const active = coordination.workItems.filter(item => !['accepted', 'complete', 'cancelled', 'handed-off'].includes(clean(item.status)));
+  const active = coordination.workItems.filter(item => !AGENT_JOB_TERMINAL_STATUSES.has(clean(item.status)));
   const artifactOwners = new Map();
   const conflicts = [];
   for (const item of active) {
     const artifact = clean(item.artifact);
-    const owner = clean(item.owner);
-    if (artifactOwners.has(artifact) && artifactOwners.get(artifact) !== owner) conflicts.push(artifact);
-    else artifactOwners.set(artifact, owner);
+    if (artifactOwners.has(artifact)) conflicts.push(artifact);
+    else artifactOwners.set(artifact, item.id);
   }
   const pendingHandoffs = coordination.handoffs.filter(item => clean(item.status) === 'proposed');
+  const nowMs = Date.now();
   return {
     roles: coordination.activeRoles.length,
     workItems: coordination.workItems.length,
     active: active.length,
     acceptedHandoffs: coordination.handoffs.filter(item => clean(item.status) === 'accepted').length,
+    claimed: active.filter(item => item.lease && !expiredLease(item, nowMs)).length,
+    staleLeases: active.filter(item => expiredLease(item, nowMs)).length,
+    completed: coordination.workItems.filter(item => AGENT_JOB_SUCCESS_STATUSES.has(clean(item.status))).length,
+    failed: coordination.workItems.filter(item => clean(item.status) === 'failed').length,
     pendingHandoffs,
     conflicts: [...new Set(conflicts)],
     healthy: conflicts.length === 0,
@@ -526,6 +852,7 @@ export function getFlagshipWorkflowSummary(project) {
     && workflow.agentCoordination.policy.scopeChangesRequireUserApproval === true
     && workflow.agentCoordination.policy.conflictingWrites === 'stop-and-reconcile';
   const agents = getSpecialtyAgentCoordinationSummary(project);
+  const visualExcellence = getVisualExcellenceSummary(workflow.visualExcellence);
   return {
     track: workflow.track,
     stages: getFactoryStageOrder(workflow.track),
@@ -537,6 +864,7 @@ export function getFlagshipWorkflowSummary(project) {
     policyEnforced,
     agentPolicyEnforced,
     agents,
+    visualExcellence,
   };
 }
 

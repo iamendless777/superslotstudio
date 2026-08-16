@@ -3,7 +3,7 @@ import { generateDefaultPaylines, getExecutableWinType } from './engines/math/Wi
 import { GAME_TYPES, BONUS_MECHANICS, getCompatibleMechanics } from './mechanics/registry.js';
 import { CabinetEditor } from './editor/cabinet/CabinetEditor.js';
 import { ConfigPanel } from './editor/configurator/ConfigPanel.js';
-import { PreviewPanel } from './editor/preview/PreviewPanel.js?orchestration=20260813-27';
+import { PreviewPanel } from './editor/preview/PreviewPanel.js?orchestration=20260815-40';
 import { ReelStripEditor } from './editor/reelstrip/ReelStripEditor.js';
 import { SimulationDashboard } from './editor/simulation/SimulationDashboard.js';
 import { PaytableValidator } from './engines/math/PaytableValidator.js';
@@ -14,7 +14,7 @@ import { AudioPanel } from './editor/audio/AudioPanel.js?orchestration=20260811-
 import { AtlasPanel } from './editor/atlas/AtlasPanel.js';
 import { SpinePanel } from './editor/spine/SpinePanel.js';
 import { VisualCapabilityLabPanel } from './editor/visual/VisualCapabilityLabPanel.js';
-import { QualityPanel } from './editor/quality/QualityPanel.js';
+import { QualityPanel } from './editor/quality/QualityPanel.js?visual-excellence=20260813-2';
 import { recordPlayerInformationQA } from './engines/quality/PlayerInformationQA.js';
 import { getFlagshipScenarioLabSummary } from './engines/quality/FlagshipScenarioLab.js';
 import { recordGameCertification } from './engines/quality/GameCertificationQA.js';
@@ -23,7 +23,7 @@ import {
   applySafeRepairs,
   finalizeSafeRepairRun,
 } from './engines/quality/SafeRepairOrchestrator.js';
-import { StudioBridge } from './bridge/StudioBridge.js?orchestration=20260813-26';
+import { StudioBridge } from './bridge/StudioBridge.js?orchestration=20260815-32';
 import { ensurePresentationDirector } from './engines/presentation/PresentationDirector.js';
 import { ensureVisualEffects } from './engines/animation/VisualEffectRecipes.js';
 import { GAME_BLUEPRINTS, applyGameBlueprint, getBlueprint } from './engines/blueprints/GameBlueprintEngine.js';

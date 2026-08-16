@@ -127,13 +127,14 @@ export class StakeRuntime {
     return value;
   }
 
-  isBonusRound(round, modeConfig = {}) {
-    return Boolean(round?.active || modeConfig.isFeature || modeConfig.isBuyBonus || modeConfig.autoCloseDisabled);
+  isBonusGame(modeConfig = {}) {
+    return Boolean(modeConfig.isFeature || modeConfig.isBuyBonus || modeConfig.autoCloseDisabled);
   }
 
   classifyRound(round, modeConfig = {}) {
-    if (this.isBonusRound(round, modeConfig)) return 'bonusWin';
-    if (Number(round?.payoutMultiplier) > 0) return 'singleRoundWin';
+    const isBonusGame = this.isBonusGame(modeConfig);
+    if (round?.active === true && isBonusGame) return 'bonusWin';
+    if (Number(round?.payoutMultiplier) > 0) return isBonusGame ? 'bonusWin' : 'singleRoundWin';
     return 'noWin';
   }
 

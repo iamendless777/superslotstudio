@@ -2,6 +2,11 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { readProjectDocument } from './project-storage.mjs';
+import {
+  FULL_CANVAS_CABINET_MODE,
+  resolvePlayerComposition,
+} from '../src/editor/composition/CabinetComposition.js';
 import { createPlayerInformationManifest } from '../src/engines/quality/PlayerInformationQA.js';
 import { build as viteBuild } from 'vite';
 import {
@@ -13,6 +18,14 @@ import { animationRuntimeFingerprint } from '../src/engines/animation/AnimationE
 import { STANDARD_ANIMATION_STATES } from '../src/engines/animation/AnimationEngine.js';
 import { generateAnimationFiles } from '../src/engines/animation/AnimationExporter.js';
 import { createPresentationDirectorManifest } from '../src/engines/presentation/PresentationDirector.js';
+import {
+  INTENSITY_PROFILES,
+  MOTION_PROFILE_FACTORS,
+  TILE_CONNECTION_PHASES,
+  TILE_CONNECTION_TIMING,
+  TUMBLE_PHASES,
+  TUMBLE_TIMING,
+} from '../src/engines/presentation/visual-excellence/index.js';
 import {
   MORPHEUS_DREAMFALL_RENDER_PROFILE,
   MORPHEUS_DREAMFALL_RENDER_PROFILE_FORMAT,
@@ -31,6 +44,7 @@ import {
   createMysteryStarDreamfallProofTrace,
   createTricksterGridSettlementProofTrace,
   createLucidFamilyMultiplierProofTrace,
+  createVeilAscentUpgradeProofTrace,
   createPredeterminedGeneratorProofTrace,
   createNightmareReliquaryProofTrace,
 } from '../src/engines/morpheus/MorpheusEffectProofTraces.js';
@@ -45,7 +59,7 @@ import {
   recordMorpheusAssetOrchestrationEvidence,
 } from '../src/engines/quality/morpheus/MorpheusAssetOrchestrationEvidence.js';
 
-export const FRONTEND_COMPILER_VERSION = 11;
+export const FRONTEND_COMPILER_VERSION = 13;
 const SERVER_ROOT = dirname(fileURLToPath(import.meta.url));
 const STUDIO_ROOT = join(SERVER_ROOT, '..');
 const PUBLIC_ROOT = join(STUDIO_ROOT, 'public');
@@ -86,9 +100,21 @@ function projectCabinetLayers(project) {
     }));
 }
 
+function projectReelArea(project) {
+  const cabinet = project.theme?.cabinet || {};
+  const layer = (cabinet.layers || []).find(item => item?.type === 'reel-area' && item.visible !== false);
+  if (!layer) return null;
+  return {
+    x: Number(layer.x) || 0,
+    y: Number(layer.y) || 0,
+    width: Math.max(1, Number(layer.width) || Number(cabinet.width) || 1280),
+    height: Math.max(1, Number(layer.height) || Number(cabinet.height) || 800),
+  };
+}
+
 function projectEnvironmentAssets(project) {
   return Object.fromEntries(Object.entries(project.theme?.environmentAssets || {})
-    .filter(([, asset]) => asset?.src)
+    .filter(([, asset]) => asset?.src && asset.visible !== false)
     .map(([id, asset]) => [id, {
       id,
       src: asset.src,
@@ -96,6 +122,9 @@ function projectEnvironmentAssets(project) {
       y: Number(asset.y) || 0,
       width: Number(asset.width) || 1,
       height: Number(asset.height) || 1,
+      opacity: Math.max(0, Math.min(1, Number(asset.opacity ?? 1))),
+      zIndex: Number(asset.zIndex) || 2,
+      blendMode: asset.blendMode || 'normal',
     }]));
 }
 
@@ -117,9 +146,12 @@ function compactAudioAsset(asset, { loop = false } = {}) {
 
 function createFrontendAudioConfig(project) {
   const source = project.audio || {};
-  const layers = Object.fromEntries(Object.entries(source.layers || {})
-    .map(([key, asset]) => [key, compactAudioAsset(asset, { loop: true })])
-    .filter(([, asset]) => asset?.src));
+  const soundscapeEnabled = source.soundscapeEnabled !== false;
+  const layers = soundscapeEnabled
+    ? Object.fromEntries(Object.entries(source.layers || {})
+      .map(([key, asset]) => [key, compactAudioAsset(asset, { loop: true })])
+      .filter(([, asset]) => asset?.src))
+    : {};
   const stingers = Object.fromEntries(Object.entries(source.stingers || {}).map(([key, value]) => {
     const assets = (Array.isArray(value) ? value : [value]).map(asset => compactAudioAsset(asset)).filter(asset => asset?.src);
     return [key, assets];
@@ -130,6 +162,7 @@ function createFrontendAudioConfig(project) {
   }
   return {
     enabled: Boolean(source.director?.enabled !== false && (Object.keys(layers).length || Object.keys(stingers).length)),
+    soundscapeEnabled,
     director: source.director || {},
     layers,
     stingers,
@@ -196,6 +229,7 @@ export function createFrontendConfig(project) {
   for (const symbol of symbols) assertPortableAsset(symbol.src, `Symbol ${symbol.name}`);
   assertPortableAsset(projectBackground(project), 'Cabinet background');
   const cabinetLayers = projectCabinetLayers(project);
+  const reelArea = projectReelArea(project);
   const environmentAssets = projectEnvironmentAssets(project);
   for (const layer of cabinetLayers) assertPortableAsset(layer.src, `Cabinet layer ${layer.id}`);
   for (const asset of Object.values(environmentAssets)) assertPortableAsset(asset.src, `Environment asset ${asset.id}`);
@@ -205,16 +239,19 @@ export function createFrontendConfig(project) {
   const audio = createFrontendAudioConfig(project);
   const spinButtonAsset = project.theme?.presentationEffects?.spinButtonAsset || '';
   assertPortableAsset(spinButtonAsset, 'Spin button');
+  const composition = resolvePlayerComposition(project, { projectId: gameId, worldActive: true });
+  const authoredControls = project.theme?.playerInterface?.controls || {};
+  const resolvedControls = composition.hud.art || {};
   const controlAssets = {
-    spinButtonAsset: spinButtonAsset || '/assets/morpheus-spin-control-v1.png',
-    menu: '/assets/morpheus-control-menu-v1.png',
-    bonus: '/assets/morpheus-control-bonus-v1.png',
-    autoplay: '/assets/morpheus-control-autoplay-v1.png',
-    turbo: '/assets/morpheus-control-turbo-v1.png',
-    sound: '/assets/morpheus-control-sound-v1.png',
-    info: '/assets/morpheus-control-info-v1.png',
-    decrease: '/assets/morpheus-control-minus-v1.png',
-    increase: '/assets/morpheus-control-plus-v1.png',
+    spinButtonAsset: authoredControls.spin || spinButtonAsset || resolvedControls.spin || '/assets/morpheus-spin-control-v1.png',
+    menu: authoredControls.menu || resolvedControls.menu || '/assets/morpheus-control-menu-v1.png',
+    bonus: authoredControls.bonus || resolvedControls.bonus || '/assets/morpheus-control-bonus-v1.png',
+    autoplay: authoredControls.autoplay || resolvedControls.autoplay || '/assets/morpheus-control-autoplay-v1.png',
+    turbo: authoredControls.turbo || resolvedControls.turbo || '/assets/morpheus-control-turbo-v1.png',
+    sound: authoredControls.sound || resolvedControls.sound || '/assets/morpheus-control-sound-v1.png',
+    info: authoredControls.info || resolvedControls.info || '/assets/morpheus-control-info-v1.png',
+    decrease: authoredControls.betDown || resolvedControls.betDown || '/assets/morpheus-control-minus-v1.png',
+    increase: authoredControls.betUp || resolvedControls.betUp || '/assets/morpheus-control-plus-v1.png',
     modeCard: '/assets/morpheus-mode-card-v1.png',
   };
   for (const [key, source] of Object.entries(controlAssets)) assertPortableAsset(source, `Control ${key}`);
@@ -234,11 +271,13 @@ export function createFrontendConfig(project) {
     palette: [...(project.theme?.colorPalette || [])],
     background: projectBackground(project),
     cabinetLayers,
+    reelArea,
     environmentAssets,
     cabinetSize: {
       width: Number(project.theme?.cabinet?.width) || 1280,
       height: Number(project.theme?.cabinet?.height) || 800,
     },
+    compositionMode: composition.mode,
     symbols,
     betModes,
     governedModes,
@@ -252,13 +291,26 @@ export function createFrontendConfig(project) {
           mechanicIds: ['dreamfallReelGrowth', 'expandingReels'],
           eventTypes: ['expandReelHeight'],
         },
-        cabinet: {
+        cabinet: composition.featureOverlay ? {
           ...MORPHEUS_DREAMFALL_CABINET_PROFILE,
           activation: { ...MORPHEUS_DREAMFALL_CABINET_PROFILE.activation },
-          asset: { ...MORPHEUS_DREAMFALL_CABINET_PROFILE.asset },
-          safeOpening: { ...MORPHEUS_DREAMFALL_CABINET_PROFILE.safeOpening },
-          reelBay: { ...MORPHEUS_DREAMFALL_CABINET_PROFILE.reelBay },
-        },
+          id: composition.featureOverlay.id || MORPHEUS_DREAMFALL_CABINET_PROFILE.id,
+          asset: {
+            ...MORPHEUS_DREAMFALL_CABINET_PROFILE.asset,
+            src: composition.featureOverlay.src,
+            x: composition.featureOverlay.x,
+            y: composition.featureOverlay.y,
+            width: composition.featureOverlay.width,
+            height: composition.featureOverlay.height,
+            opacity: composition.featureOverlay.opacity ?? 1,
+            zIndex: composition.featureOverlay.zIndex ?? 59,
+            blendMode: composition.featureOverlay.blendMode || 'normal',
+          },
+          safeOpening: { ...(composition.featureOverlay.safeOpening || MORPHEUS_DREAMFALL_CABINET_PROFILE.safeOpening) },
+          reelBay: { ...(composition.featureOverlay.reelBay || MORPHEUS_DREAMFALL_CABINET_PROFILE.reelBay) },
+          hudBoundaryY: composition.featureOverlay.hudBoundaryY ?? MORPHEUS_DREAMFALL_CABINET_PROFILE.hudBoundaryY,
+          replacesBaseForeground: composition.featureOverlay.replacesBaseForeground !== false,
+        } : null,
       },
     } : {},
     authoritativeRuntime: gameId === 'morpheus_dreamfall' ? {
@@ -290,8 +342,31 @@ export function createFrontendConfig(project) {
     presentationEffects: project.theme?.presentationEffects || {},
     presentationAssets,
     presentationDirector: createPresentationDirectorManifest(project),
+    visualChoreography: {
+      format: 'stake-studio-portable-visual-choreography-v1',
+      intensityProfiles: INTENSITY_PROFILES,
+      motionProfiles: MOTION_PROFILE_FACTORS,
+      sequences: {
+        tileConnection: { phases: TILE_CONNECTION_PHASES, ...TILE_CONNECTION_TIMING },
+        tumble: { phases: TUMBLE_PHASES, ...TUMBLE_TIMING },
+      },
+    },
     audio,
     controls: controlAssets,
+    playerInterface: {
+      hud: {
+        x: composition.hud.x,
+        y: composition.hud.y,
+        width: composition.hud.width,
+        height: composition.hud.height,
+        zIndex: composition.hud.zIndex,
+        visible: composition.hud.visible,
+        // A saved reel window plus cabinet artwork is already an authored
+        // composition even when the HUD uses the studio's resolved defaults.
+        // Keep every resolved layer on the same cabinet plane in that case.
+        authored: composition.mode === FULL_CANVAS_CABINET_MODE,
+      },
+    },
     animation: {
       configured: Object.keys(project.animation?.stateAnimations || {}).length > 0
         || Object.values(project.animation?.states || {}).some(state => (state.layers || []).length > 0),
@@ -570,7 +645,7 @@ export async function compileFrontendProject({ studioHome, projectId }) {
   const id = safeId(projectId);
   const projectPath = join(home, 'games', id, 'project.json');
   if (!existsSync(projectPath)) throw new Error(`No saved project ${id}.`);
-  const project = readJson(projectPath);
+  const project = readProjectDocument(projectPath).project;
   const root = join(home, 'games', id);
   const destination = join(root, 'frontend');
   const staged = join(root, `.frontend-${process.pid}-${Date.now()}`);
@@ -579,8 +654,17 @@ export async function compileFrontendProject({ studioHome, projectId }) {
 
   const written = [];
   try {
+    const templateCacheKey = `${FRONTEND_COMPILER_VERSION}-${sha256(Buffer.concat(
+      TEMPLATE_FILES.filter(name => name !== 'index.html').map(name => readFileSync(join(TEMPLATE_ROOT, name))),
+    )).slice(0, 12)}`;
     for (const name of TEMPLATE_FILES) {
-      const contents = readFileSync(join(TEMPLATE_ROOT, name));
+      let contents = readFileSync(join(TEMPLATE_ROOT, name));
+      if (name === 'index.html') {
+        contents = Buffer.from(contents.toString('utf8').replaceAll(
+          '__STAKE_STUDIO_FRONTEND_VERSION__',
+          templateCacheKey,
+        ));
+      }
       writeFileSync(join(staged, name), contents);
       written.push({ path: name, bytes: contents.length, sha256: sha256(contents) });
     }
@@ -620,6 +704,7 @@ export async function compileFrontendProject({ studioHome, projectId }) {
       }
       await viteBuild({
         configFile: false,
+        publicDir: false,
         logLevel: 'silent',
         build: {
           outDir: staged,
@@ -637,6 +722,7 @@ export async function compileFrontendProject({ studioHome, projectId }) {
     if (hasVisualRuntime) {
       await viteBuild({
         configFile: false,
+        publicDir: false,
         logLevel: 'silent',
         build: {
           outDir: staged,
@@ -654,6 +740,7 @@ export async function compileFrontendProject({ studioHome, projectId }) {
     if (hasMorpheusAuthoritativeRuntime) {
       await viteBuild({
         configFile: false,
+        publicDir: false,
         logLevel: 'silent',
         build: {
           outDir: staged,
@@ -686,6 +773,7 @@ export async function compileFrontendProject({ studioHome, projectId }) {
           predeterminedGeneratorDeclarations: createPredeterminedGeneratorProofTrace(),
           nightmareReliquaryDeclarations: createNightmareReliquaryProofTrace(),
           lucidFamilyMultiplierSettlement: createLucidFamilyMultiplierProofTrace(),
+          veilAscentUpgrade: createVeilAscentUpgradeProofTrace(),
           tricksterGridSettlement: createTricksterGridSettlementProofTrace(),
           mysteryStarDreamfallTumble: createMysteryStarDreamfallProofTrace(),
           exactMaxTermination: createExactMaxTerminationProofTrace(),

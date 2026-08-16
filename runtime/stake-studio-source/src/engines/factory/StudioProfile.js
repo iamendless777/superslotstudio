@@ -58,19 +58,21 @@ export function normalizeStudioProfile(input = {}, { stamp = false } = {}) {
 export function getStudioProfileReadiness(input = {}) {
   const profile = normalizeStudioProfile(input);
   const productionReady = Boolean(profile.providerName);
-  const releaseReady = productionReady && Boolean(profile.providerNumber);
+  const providerNumber = Number(profile.providerNumber || 0);
+  const providerNumberValid = Number.isSafeInteger(providerNumber) && providerNumber >= 0;
+  const releaseReady = productionReady && providerNumberValid;
   return {
     productionReady,
     releaseReady,
     missing: [
       ...(!profile.providerName ? ['providerName'] : []),
-      ...(!profile.providerNumber ? ['providerNumber'] : []),
+      ...(!providerNumberValid ? ['providerNumber'] : []),
     ],
     message: !productionReady
       ? 'Set the real provider name before launching the factory.'
       : !releaseReady
-        ? 'Production can begin. Add the real provider number before release packaging.'
-        : 'Studio identity is ready for production and release packaging.',
+        ? 'Provider number must be a non-negative integer.'
+        : 'Studio identity is ready for packaging; provider number 0 remains valid until Stake assigns the team number.',
   };
 }
 

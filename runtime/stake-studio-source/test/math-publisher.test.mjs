@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 import { createGameProject } from '../src/engines/schema.js';
 import { MathSDKExporter } from '../src/engines/build/MathSDKExporter.js';
@@ -14,6 +15,7 @@ import {
   getMathPublisherProfile,
   getProjectMathPublisherExecution,
   getMathPublisherRounds,
+  synchronizeMathConfigHashes,
   updateMathPublishProject,
   validateMorpheusPublishedMath,
   validatePublishedModeContracts,
@@ -50,6 +52,43 @@ with open(source, "rb") as incoming, open(target, "wb") as outgoing:
   }));
   return publish;
 }
+
+test('post-alignment packaging refreshes every backend config hash from promoted files', () => {
+  const root = mkdtempSync(join(tmpdir(), 'stakestudio-config-hashes-'));
+  const library = join(root, 'library');
+  const configs = join(library, 'configs');
+  const publish = join(library, 'publish_files');
+  const forces = join(library, 'forces');
+  const hash = value => createHash('sha256').update(value).digest('hex');
+  try {
+    for (const path of [configs, publish, forces]) mkdirSync(path, { recursive: true });
+    const files = {
+      frontend: Buffer.from('frontend'), standard: Buffer.from('standard'), books: Buffer.from('books'),
+      lookup: Buffer.from('aligned lookup'), force: Buffer.from('mode force'),
+    };
+    writeFileSync(join(configs, 'config_fe_proof.json'), files.frontend);
+    writeFileSync(join(forces, 'force.json'), files.standard);
+    writeFileSync(join(publish, 'books_base.jsonl.zst'), files.books);
+    writeFileSync(join(publish, 'lookUpTable_base_0.csv'), files.lookup);
+    writeFileSync(join(forces, 'force_record_base.json'), files.force);
+    writeFileSync(join(configs, 'config.json'), JSON.stringify({
+      gameID: 'proof',
+      frontendConfig: { file: 'fe_config.json', sha256: 'stale' },
+      standardForceFile: { file: 'force.json', sha256: 'stale' },
+      bookShelfConfig: [{
+        name: 'base', tables: [{ file: 'lookUpTable_base_0.csv', sha256: 'stale' }],
+        booksFile: { file: 'books_base.jsonl.zst', sha256: 'stale' },
+        forceFile: { file: 'force_record_base.json', sha256: 'stale' },
+      }],
+    }));
+    const refreshed = synchronizeMathConfigHashes(library);
+    assert.equal(refreshed.frontendConfig.sha256, hash(files.frontend));
+    assert.equal(refreshed.standardForceFile.sha256, hash(files.standard));
+    assert.equal(refreshed.bookShelfConfig[0].tables[0].sha256, hash(files.lookup));
+    assert.equal(refreshed.bookShelfConfig[0].booksFile.sha256, hash(files.books));
+    assert.equal(refreshed.bookShelfConfig[0].forceFile.sha256, hash(files.force));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
 
 test('full-stream verifier proves compressed books and LUTs agree', () => {
   const root = mkdtempSync(join(tmpdir(), 'stakestudio-publish-valid-'));
@@ -261,6 +300,8 @@ test('production publisher requires exact optimized RTP before release verificat
   assert.match(publisher, /runOfficialVerification\(job\)/);
   assert.match(publisher, /refresh_official_math_verification\.py/);
   assert.match(publisher, /resumeExisting[\s\S]*directoryBytes/);
+  assert.match(publisher, /existingWorkspace\(safeProjectId, files\)/);
+  assert.match(publisher, /Recovery cannot replace published library data/);
   assert.match(publisher, /contractFingerprint: job\.contractFingerprint/);
   assert.match(publisher, /mathSDKFilesFingerprint\(files\)/);
   assert.match(publisher, /detached: process\.platform !== 'win32'/);

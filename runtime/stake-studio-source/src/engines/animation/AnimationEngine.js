@@ -215,6 +215,10 @@ export function createAnimationManifest(project) {
     runtimeVersion: ANIMATION_RUNTIME_VERSION,
     renderer: 'pixi-v8',
     spineRuntime: SPINE_RUNTIME_VERSION,
+    cabinetSize: {
+      width: Math.max(1, Number(project.theme?.cabinet?.width) || 1280),
+      height: Math.max(1, Number(project.theme?.cabinet?.height) || 800),
+    },
     runtime: engine.runtime,
     states: Object.fromEntries(STANDARD_ANIMATION_STATES.map(state => [state, engine.describeState(state)])),
     assets: (project.animation?.spineAssets || []).map(asset => ({

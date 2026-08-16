@@ -49,6 +49,10 @@ export async function mountSpineRuntime({ host, manifestUrl = 'animation/runtime
   });
   const asset = manifest.assets?.[0];
   if (!asset?.files?.skeleton || !asset.files.atlas) return { transition() { return false; }, play() {}, destroy() {}, diagnostics: { status: 'disabled' } };
+  const authoredPlacement = asset.placement || {};
+  if (Number.isFinite(Number(authoredPlacement.zIndex))) {
+    host.style.zIndex = String(Number(authoredPlacement.zIndex));
+  }
 
   const atlasText = await fetch(absolute(asset.files.atlas)).then(response => {
     if (!response.ok) throw new Error('Spine atlas is unavailable.');
@@ -106,12 +110,16 @@ export async function mountSpineRuntime({ host, manifestUrl = 'animation/runtime
     spine.skeleton.updateWorldTransform(Physics.pose);
     let bounds;
     try { bounds = spine.getLocalBounds(); } catch { bounds = null; }
-    const placement = asset.placement || {};
+    const placement = authoredPlacement;
+    const cabinetWidth = Math.max(1, Number(manifest.cabinetSize?.width) || surface.width);
+    const cabinetHeight = Math.max(1, Number(manifest.cabinetSize?.height) || surface.height);
+    const cabinetScaleX = surface.width / cabinetWidth;
+    const cabinetScaleY = surface.height / cabinetHeight;
     const box = {
-      x: Number(placement.x) || 0,
-      y: Number(placement.y) || 0,
-      width: Number(placement.width) || surface.width,
-      height: Number(placement.height) || surface.height,
+      x: (Number(placement.x) || 0) * cabinetScaleX,
+      y: (Number(placement.y) || 0) * cabinetScaleY,
+      width: (Number(placement.width) || cabinetWidth) * cabinetScaleX,
+      height: (Number(placement.height) || cabinetHeight) * cabinetScaleY,
     };
     const sourceWidth = Math.max(1, Number(bounds?.width) || Number(asset.width) || box.width);
     const sourceHeight = Math.max(1, Number(bounds?.height) || Number(asset.height) || box.height);

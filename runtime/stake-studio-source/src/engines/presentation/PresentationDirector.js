@@ -16,9 +16,9 @@ export const WIN_TIER_ORDER = Object.freeze(['winSmall', 'winMedium', 'winBig', 
 
 export function createProfessionalReelChoreography() {
   return {
-    baseDurationMs: 600, perReelDelayMs: 180, perReelDurationMs: 150,
-    anticipationHoldMs: 650, anticipationCueLagMs: 40, impactMs: 320,
-    blurIntervalMs: 60, blurTicks: 6, blurStopTickStart: 2,
+    baseDurationMs: 520, perReelDelayMs: 120, perReelDurationMs: 70,
+    anticipationHoldMs: 720, anticipationCueLagMs: 50, impactMs: 260,
+    blurIntervalMs: 48, blurTicks: 6, blurStopTickStart: 2,
   };
 }
 

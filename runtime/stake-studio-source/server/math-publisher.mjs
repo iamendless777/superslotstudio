@@ -1,8 +1,11 @@
 import {
   cpSync,
+  closeSync,
   existsSync,
   lstatSync,
   mkdirSync,
+  openSync,
+  readSync,
   readdirSync,
   readFileSync,
   realpathSync,
@@ -12,12 +15,14 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mathSDKFilesFingerprint } from '../src/engines/build/MathSDKExporter.js';
 import { MORPHEUS_LUCID_WILD_VALUES } from '../src/engines/morpheus/MorpheusGameContract.js';
 import { maximumWinHitRateForMode } from '../src/engines/math/MaximumWinPolicy.js';
+import { persistProjectDocument, readProjectDocument } from './project-storage.mjs';
 
 const LOG_LIMIT = 80_000;
 const PROFILES = new Set(['smoke', 'draft', 'production']);
@@ -124,8 +129,47 @@ function atomicJson(path, value) {
   renameSync(temp, path);
 }
 
+function fileSha256(path) {
+  const digest = createHash('sha256');
+  const buffer = Buffer.allocUnsafe(1024 * 1024);
+  const descriptor = openSync(path, 'r');
+  try {
+    for (let bytes = readSync(descriptor, buffer, 0, buffer.length, null); bytes > 0;
+      bytes = readSync(descriptor, buffer, 0, buffer.length, null)) {
+      digest.update(buffer.subarray(0, bytes));
+    }
+  } finally {
+    closeSync(descriptor);
+  }
+  return digest.digest('hex');
+}
+
+export function synchronizeMathConfigHashes(library) {
+  const configs = join(library, 'configs');
+  const publish = join(library, 'publish_files');
+  const forces = join(library, 'forces');
+  const configPath = join(configs, 'config.json');
+  const config = readJson(configPath);
+  if (!config) throw new Error('Official math output is missing configs/config.json.');
+
+  const refresh = (entry, path, label) => {
+    if (!entry?.file || !existsSync(path)) throw new Error(`Official math output is missing ${label}.`);
+    entry.sha256 = fileSha256(path);
+  };
+  const frontendPath = join(configs, `config_fe_${config.gameID}.json`);
+  refresh(config.frontendConfig, frontendPath, `frontend config for ${config.gameID}`);
+  refresh(config.standardForceFile, join(forces, config.standardForceFile?.file || ''), 'standard force file');
+  for (const shelf of config.bookShelfConfig || []) {
+    for (const table of shelf.tables || []) refresh(table, join(publish, table.file || ''), `lookup table for ${shelf.name}`);
+    refresh(shelf.booksFile, join(publish, shelf.booksFile?.file || ''), `book file for ${shelf.name}`);
+    refresh(shelf.forceFile, join(forces, shelf.forceFile?.file || ''), `force file for ${shelf.name}`);
+  }
+  atomicJson(configPath, config);
+  return config;
+}
+
 export function updateMathPublishProject(path, job, report) {
-  const project = readJson(path);
+  const project = readProjectDocument(path, null).project;
   if (!project) throw new Error(`Project ${job.projectId} disappeared before publisher completion.`);
   const modeNames = report.modes.map(mode => mode.name);
   const targetValues = (project.math?.betModes || []).map(mode => Number(mode.rtp ?? project.math.rtp));
@@ -173,7 +217,7 @@ export function updateMathPublishProject(path, job, report) {
       })),
     };
   }
-  atomicJson(path, project);
+  persistProjectDocument(path, project);
   return project.build.mathPublish;
 }
 
@@ -288,6 +332,29 @@ export function validateMorpheusPublishedMath(project, report) {
   return { applicable: true, passed: true, checks };
 }
 
+export function generateReviewerReplayEventCatalog(library, project, python) {
+  const serverDir = dirname(fileURLToPath(import.meta.url));
+  const generator = join(serverDir, 'generate_reviewer_replay_catalog.py');
+  const policies = Object.fromEntries((project.math?.betModes || []).map(mode => [mode.name, {
+    entry: mode.profile?.entry || 'base',
+    triggerFreeSpins: mode.profile?.triggerFreeSpins !== false,
+  }]));
+  const generated = spawnSync(python, [generator, library, JSON.stringify(policies)], {
+    encoding: 'utf8',
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  const lines = String(generated.stdout || '').trim().split(/\r?\n/).filter(Boolean);
+  let catalog = null;
+  for (let index = lines.length - 1; index >= 0; index--) {
+    try { catalog = JSON.parse(lines[index]); break; } catch { /* keep looking */ }
+  }
+  if (generated.status !== 0 || !catalog?.complete) {
+    throw new Error(catalog?.error || generated.stderr || 'Reviewer replay event catalog generation failed.');
+  }
+  atomicJson(join(library, 'reviewer-replay-event-catalog.json'), catalog);
+  return catalog;
+}
+
 function appendLog(job, chunk) {
   job.log = `${job.log}${String(chunk)}`.slice(-LOG_LIMIT);
   job.updatedAt = new Date().toISOString();
@@ -355,7 +422,7 @@ export function createMathPublisher({ studioHome }) {
     return { id, workspace, officialPath };
   }
 
-  function existingWorkspace(projectId) {
+  function existingWorkspace(projectId, files) {
     const id = safeId(projectId);
     const workspace = join(workspaceRoot, id);
     const marker = readJson(join(workspace, '.stake-studio-managed.json'));
@@ -367,6 +434,29 @@ export function createMathPublisher({ studioHome }) {
       || realpathSync(officialPath) !== realpathSync(workspace)) {
       throw new Error(`Official math-sdk games/${id} is not linked to the managed recovery workspace.`);
     }
+    // A recovery run deliberately preserves the expensive library/books, but
+    // it must execute the current generated contract. Otherwise an identity-
+    // only or source-only correction can be falsely stamped with the new
+    // fingerprint while the SDK actually ran stale Python and reel files.
+    const prefix = `games/${id}/`;
+    const entries = Object.entries(files || {});
+    if (!entries.length) throw new Error('Generated math-sdk files are required for recovery.');
+    for (const [relative, contents] of entries) {
+      if (!relative.startsWith(prefix) || relative.includes('..') || typeof contents !== 'string') {
+        throw new Error(`Unsafe generated recovery file entry: ${relative}.`);
+      }
+      const local = relative.slice(prefix.length);
+      if (local === 'library' || local.startsWith('library/')) {
+        throw new Error(`Recovery cannot replace published library data: ${relative}.`);
+      }
+      const target = join(workspace, local);
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, contents);
+    }
+    atomicJson(join(workspace, '.stake-studio-managed.json'), {
+      ...marker,
+      recoveredAt: new Date().toISOString(),
+    });
     return { id, workspace, officialPath };
   }
 
@@ -479,7 +569,7 @@ export function createMathPublisher({ studioHome }) {
     ));
     if (active) return publicJob(active);
     const projectPath = join(gamesDir, safeProjectId, 'project.json');
-    const project = readJson(projectPath);
+    const project = readProjectDocument(projectPath, null).project;
     if (!project) throw new Error(`No saved project ${safeProjectId}. Save the project before publishing math.`);
     const storage = resumeExisting
       ? (() => {
@@ -498,7 +588,7 @@ export function createMathPublisher({ studioHome }) {
         + 'Free storage or lower the simulation profile before starting.',
       );
     }
-    const prepared = resumeExisting ? existingWorkspace(safeProjectId) : prepareWorkspace(safeProjectId, files);
+    const prepared = resumeExisting ? existingWorkspace(safeProjectId, files) : prepareWorkspace(safeProjectId, files);
     const contractFingerprint = mathSDKFilesFingerprint(files);
     const id = `math-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const now = new Date().toISOString();
@@ -554,6 +644,7 @@ export function createMathPublisher({ studioHome }) {
       }
       try {
         alignExactRtp(job, project);
+        synchronizeMathConfigHashes(join(job.workspace, 'library'));
         job.phase = 'full-stream-verification';
         const staged = stageAndVerify(job, project);
         const offTarget = staged.report.modes.filter(mode => !Number.isFinite(mode.delta) || Math.abs(mode.delta) > 1e-8);
@@ -567,6 +658,7 @@ export function createMathPublisher({ studioHome }) {
           staged.report.officialFinalVerification = runOfficialVerification(job);
           syncOfficialVerificationArtifacts(job, staged);
         }
+        staged.report.reviewerReplayEventCatalog = generateReviewerReplayEventCatalog(staged.staged, project, python);
         promoteStaged(job, staged);
         const mathPublish = updateProject(job, staged.report);
         job.status = 'completed';

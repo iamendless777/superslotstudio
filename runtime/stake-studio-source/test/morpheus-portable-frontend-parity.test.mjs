@@ -40,6 +40,14 @@ test('portable runtime preserves typed envelopes and blocks dispatch until rende
   const second = session.dispatch(trace.events[1]);
   assert.equal(second.presentationEvent.totalWin, 250);
   assert.equal(second.presentationEvent.wins[0].symbol, 'MORPHEUS');
+
+  session.acknowledge({ id: second.command.acknowledgementId, evidence: 'rendered:win' });
+  const mystery = session.dispatch(trace.events[2]);
+  session.acknowledge({ id: mystery.command.acknowledgementId, evidence: 'rendered:mystery' });
+  const target = session.dispatch(trace.events[3]);
+  assert.deepEqual(target.presentationEvent.sources, trace.events[3].affectedPositions,
+    'portable target tell must launch from the authoritative ONEIRIC_STAR tile');
+  assert.equal(target.presentationEvent.target, 'POPPY');
 });
 
 test('portable mixed and terminal projections equal the governed Preview authority in every motion mode', () => {
@@ -113,7 +121,10 @@ test('compiler bundles and executes the authoritative runtime and records immuta
     assert.equal(terminal.protocolEvidence.finalState.totalWinAmount, 10_000_000);
     const qaBook = JSON.parse(readFileSync(join(root, 'frontend', 'morpheus-authoritative-qa.json'), 'utf8'));
     assert.equal(qaBook.contractFingerprint, MORPHEUS_CONTRACT_FINGERPRINT);
-    assert.deepEqual(Object.keys(qaBook.routes).sort(), ['exactMaxTermination', 'lucidFamilyMultiplierSettlement', 'mysteryStarDreamfallTumble', 'nightmareReliquaryDeclarations', 'predeterminedGeneratorDeclarations', 'tricksterGridSettlement']);
+    assert.deepEqual(Object.keys(qaBook.routes).sort(), ['exactMaxTermination', 'lucidFamilyMultiplierSettlement', 'mysteryStarDreamfallTumble', 'nightmareReliquaryDeclarations', 'predeterminedGeneratorDeclarations', 'tricksterGridSettlement', 'veilAscentUpgrade']);
+    assert.deepEqual(qaBook.routes.veilAscentUpgrade.events.map(event => event.type), [
+      'guaranteedScatters', 'reveal', 'winInfo', 'symbolBarProgress', 'symbolUpgrade', 'tumbleBoard',
+    ]);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
@@ -131,7 +142,7 @@ test('compiled template routes typed envelopes through the portable session and 
   assert.match(source, /loadMorpheusAuthoritativeQaRoute/);
   assert.match(source, /runtime\.launch\.studioPreview/);
   assert.match(source, /case 'mysteryTransform':[\s\S]{0,240}playBoardTransform/);
-  assert.match(source, /case 'specialPositionsResolved':[\s\S]{0,240}playBoardTransform/);
+  assert.match(source, /case 'specialPositionsResolved':[\s\S]{0,600}playBoardTransform/);
   assert.match(source, /case 'expandReelHeight':[\s\S]{0,400}settleReelMotion/);
   assert.match(source, /case 'maxWinReached':[\s\S]{0,500}showFeatureFinale/);
   assert.match(source, /case 'roundTerminated'/);
@@ -148,6 +159,6 @@ test('portable template has an explicit presentation branch for every authoritat
   assert.match(source, /case 'stackedReels':[\s\S]{0,600}currentBoard/);
   assert.match(source, /case 'guaranteedScatters':[\s\S]{0,420}event\.positions/);
   const expansionBranch = source.match(/case 'expandReelHeight':[\s\S]*?case 'tumbleChainProgress':/)?.[0] || '';
-  assert.equal((expansionBranch.match(/settleReelMotion\(event\.board, instant\)/g) || []).length, 1,
+  assert.equal((expansionBranch.match(/settleReelMotion\(event\.board, instant, hasRevealAnticipation\(event\.anticipation\)\)/g) || []).length, 1,
     'authoritative reel growth must settle the board once');
 });

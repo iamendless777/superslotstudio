@@ -1,5 +1,5 @@
 import gsap from 'gsap';
-import { MathEngine } from '../../engines/math/MathEngine.js';
+import { MathEngine } from '../../engines/math/MathEngine.js?settlement=20260815-1';
 import {
   BOOK_AMOUNT_MULTIPLIER,
   applyTumbleEvent,
@@ -50,7 +50,7 @@ import {
   LAYOUT_VIEWPORTS,
   getViewportLayoutSummary,
   recordViewportLayoutQA,
-} from '../../engines/quality/ViewportLayoutQA.js';
+} from '../../engines/quality/ViewportLayoutQA.js?controls=20260815-2';
 import {
   createVisualEffectSeed,
   ensureVisualEffects,
@@ -70,13 +70,19 @@ import {
   createMorpheusContentSafeRect,
   createMorpheusDreamfallRenderProfile,
   createMorpheusDreamfallWorldState,
-  createMorpheusMotionSafeRect,
   evaluateMorpheusRenderAspectMetrics,
   resolveMorpheusMotionRowCount,
 } from '../../engines/presentation/morpheus/MorpheusDreamfallRenderProfile.js';
 import {
   resolveMorpheusDreamfallCabinetProfile,
 } from '../../engines/presentation/morpheus/MorpheusDreamfallCabinetProfile.js';
+import {
+  createAspectPreservingOverlayRect,
+  createChoreographyAcknowledgement,
+  createTileConnectionPlan,
+  createTumblePlan,
+} from '../../engines/presentation/visual-excellence/index.js';
+import { resolvePlayerComposition } from '../composition/CabinetComposition.js';
 import {
   MorpheusEffectOrchestrationPreviewDriver,
 } from '../../engines/presentation/morpheus/MorpheusEffectOrchestrationPreviewDriver.js?orchestration=20260813-5';
@@ -87,6 +93,8 @@ function colorWithAlpha(value, alpha, fallback) {
   const rgb = Number.parseInt(match[1], 16);
   return `rgba(${rgb >> 16},${(rgb >> 8) & 255},${rgb & 255},${alpha})`;
 }
+
+const canonicalSymbolKey = value => String(value || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
 
 const SPECIAL_MECHANIC_EVENTS = new Set([
   'modeGridStart',
@@ -129,6 +137,8 @@ export class PreviewPanel {
     this.visualEffectRuntimeStatus = 'idle';
     this.visualEffectMountGeneration = 0;
     this.symbolMotionSyncFrame = null;
+    this.symbolMotionSuspensionDepth = 0;
+    this.symbolMotionLastSync = { status: 'idle', count: 0, authoritativeLanded: false };
     this.animationRuntimeStatus = 'idle';
     this.disposed = false;
     this.intervalIds = new Set();
@@ -159,8 +169,13 @@ export class PreviewPanel {
     this.featurePositionGridPulse = new Set();
     this.featureSymbolMultipliers = new Map();
     this.featureReelRows = new Map();
+    this.oneiricStarTargetLock = null;
     this.playbackTrace = [];
     this.playbackStartedAt = 0;
+    this.publishedReplay = null;
+    this.activeVisualChoreography = new Map();
+    this.pendingVisualChoreography = new Map();
+    this.visualChoreographyRuns = [];
     this.morpheusDreamfallDriver = null;
     this.morpheusDreamfallPromise = null;
     this.morpheusDreamfallState = null;
@@ -473,6 +488,7 @@ export class PreviewPanel {
           mode: 'dreamfall',
         })),
       ]);
+      if (!immediate) await this.waitForActiveVisualChoreography('tile-connection');
     } else if (sourceEvent.type === 'mysteryTransform') {
       this.board = deserializeBoard(payload.boardBefore);
       this.paintBoard(this.board);
@@ -486,23 +502,28 @@ export class PreviewPanel {
       this.paintBoard(this.board);
     } else if (sourceEvent.type === 'specialTargetSelected') {
       const targets = this.positionsForSymbol(this.board, payload.targetFamily);
+      const sources = this.eventPositions(sourceEvent.affectedPositions);
+      this.setOneiricStarTargetLock(sources, targets);
       if (!noMotion) await this.playSpecialMechanicEvent({
         type: 'wildStar',
-        sources: sourceEvent.affectedPositions,
+        sources,
         positions: targets,
         symbol: payload.targetFamily,
       }, this.board);
     } else if (sourceEvent.type === 'specialPositionsResolved') {
       this.board = deserializeBoard(payload.boardBefore);
       this.paintBoard(this.board);
+      this.applyOneiricStarTargetLock();
       if (!noMotion) await this.playSpecialMechanicEvent({
         type: 'wildStar',
         sources: payload.sourcePosition ? [payload.sourcePosition] : sourceEvent.affectedPositions,
         positions: payload.positions,
         symbol: payload.special,
       }, this.board);
+      this.clearOneiricStarTargetLock();
       this.board = deserializeBoard(payload.boardAfter);
       this.paintBoard(this.board);
+      if (!noMotion) this.pulseMechanicCells(payload.positions, 'is-oneiric-resolved');
     } else if (sourceEvent.type === 'expandReelHeight') {
       await this.animateMorpheusDreamfallExpansion({
         presentation: { durationMs: command.durationMs || 0 },
@@ -599,12 +620,21 @@ export class PreviewPanel {
     const remaining = this.container.querySelector('#dreamfallHudRemaining');
     const runningWin = this.container.querySelector('#dreamfallHudWin');
     const rows = this.container.querySelector('#dreamfallHudRows');
+    const reelRows = hud?.reelRows || this.project.math.grid.rows;
     if (status) status.textContent = String(state?.status || 'ready').toUpperCase();
     if (chain) chain.textContent = `${Number(hud?.chainHit || 0)} / ${Number(hud?.awardThreshold || 5)}`;
     if (spins) spins.textContent = String(Number(hud?.awardedFreeSpins || 0));
     if (remaining) remaining.textContent = String(Number(hud?.freeSpinsRemaining || 0));
     if (runningWin) runningWin.textContent = (Number(hud?.runningWin || 0) / BOOK_AMOUNT_MULTIPLIER * this.baseBet).toFixed(2);
-    if (rows) rows.textContent = (hud?.reelRows || this.project.math.grid.rows).join('·');
+    if (rows) rows.textContent = reelRows.join('·');
+    this.container.querySelectorAll('[data-dreamfall-meter-reel]').forEach((meter, reel) => {
+      const rowCount = Math.max(4, Math.min(MORPHEUS_RESERVED_WORLD_ROWS, Number(reelRows[reel]) || 4));
+      meter.dataset.rows = String(rowCount);
+      meter.style.setProperty('--dreamfall-growth', `${rowCount / MORPHEUS_RESERVED_WORLD_ROWS * 100}%`);
+      meter.classList.toggle('is-awakening', Number(hud?.lastExpandedReel) === reel);
+      const value = meter.querySelector('b');
+      if (value) value.textContent = String(rowCount);
+    });
     const button = this.container.querySelector('#previewMorpheusDreamfall');
     if (button) button.textContent = state?.status === 'playing' ? 'Finish Dreamfall Slice' : 'Play Dreamfall Slice';
   }
@@ -696,6 +726,7 @@ export class PreviewPanel {
     if (signal.aborted) return;
     const payload = sourceEvent.payload;
     const board = payload.board ? deserializeBoard(payload.board) : null;
+    const reducedMotion = command.presentation.motionMode === 'reduced';
     this.recordPlaybackEvent(sourceEvent.type, {
       bookIndex: sourceEvent.index,
       sourceEventHash: command.semantic.sourceEventHash,
@@ -717,18 +748,28 @@ export class PreviewPanel {
       const wins = deserializeWins(payload.wins);
       this.lastWin = Number(payload.cumulativeWin || 0) / BOOK_AMOUNT_MULTIPLIER * this.baseBet;
       this.updateHUD();
-      this.animateWinDisplay(Number(payload.totalWin || 0) / BOOK_AMOUNT_MULTIPLIER * this.baseBet);
-      const motion = this.highlightWins(wins);
-      if (!immediate) await Promise.all([
-        this.waitForPresentationMotion(motion),
-        Promise.resolve(this.dispatchPresentation('winInfo', {
-          wins,
-          winsAlreadyHighlighted: true,
-          amount: Number(payload.totalWin || 0) / BOOK_AMOUNT_MULTIPLIER * this.baseBet,
-          runningAmount: this.lastWin,
-          mode: 'dreamfall',
-        })),
-      ]);
+      if (!reducedMotion) this.animateWinDisplay(Number(payload.totalWin || 0) / BOOK_AMOUNT_MULTIPLIER * this.baseBet);
+      if (reducedMotion) {
+        this.highlightWins(wins, { staticOnly: true });
+        const plans = this.createTileConnectionPlans(wins, {
+          motionPolicy: 'reduced',
+          eventIdPrefix: `dreamfall:${sourceEvent.index}:winInfo`,
+        });
+        for (const plan of plans) this.executeReducedVisualChoreography(plan);
+      } else {
+        const motion = this.highlightWins(wins);
+        await Promise.all([
+          this.waitForPresentationMotion(motion),
+          Promise.resolve(this.dispatchPresentation('winInfo', {
+            wins,
+            winsAlreadyHighlighted: true,
+            amount: Number(payload.totalWin || 0) / BOOK_AMOUNT_MULTIPLIER * this.baseBet,
+            runningAmount: this.lastWin,
+            mode: 'dreamfall',
+          })),
+        ]);
+        await this.waitForActiveVisualChoreography('tile-connection');
+      }
     } else if (sourceEvent.type === 'expandReelHeight') {
       await this.animateMorpheusDreamfallExpansion(command, sourceEvent, immediate);
     } else if (sourceEvent.type === 'tumbleChainProgress') {
@@ -740,7 +781,23 @@ export class PreviewPanel {
       if (!immediate) await this.wait(command.presentation.durationMs);
     } else if (sourceEvent.type === 'tumbleBoard') {
       this.clearWinHighlights();
-      if (immediate) {
+      if (reducedMotion) {
+        const boardBefore = deserializeBoard(payload.boardBefore);
+        const boardAfter = deserializeBoard(payload.boardAfter);
+        this.board = boardBefore;
+        this.paintBoard(boardBefore);
+        const plan = this.createTumbleChoreographyPlan(boardBefore, payload, {
+          motionPolicy: 'reduced',
+          eventId: `dreamfall:${sourceEvent.index}:tumbleBoard`,
+        });
+        this.executeReducedVisualChoreography(plan, {
+          onPhase: phase => {
+            if (phase.id !== 'settle') return;
+            this.board = boardAfter;
+            this.paintBoard(boardAfter);
+          },
+        });
+      } else if (immediate) {
         this.board = deserializeBoard(payload.boardAfter);
         this.paintBoard(this.board);
       } else {
@@ -898,7 +955,7 @@ export class PreviewPanel {
           </label>
           <span class="toolbar-sep"></span>
           <span class="preview-info">
-            ${math.gameType} | ${math.grid.reels}x${math.grid.rows[0]} | RTP ${(math.rtp * 100).toFixed(1)}%
+            ${math.gameType} | ${math.grid.reels}x${math.grid.rows[0]} | Published RTP ${(math.rtp * 100).toFixed(1)}%
           </span>
           <span class="animation-runtime-badge" id="animationRuntimeBadge" data-status="loading">Animation: loading</span>
           <span class="animation-runtime-badge" id="visualEffectRuntimeBadge" data-status="loading">VFX: loading</span>
@@ -930,7 +987,7 @@ export class PreviewPanel {
         ${viewportLayout.fresh ? `
           <div class="preview-layout-strip ${viewportLayout.complete ? 'is-complete' : 'has-failures'}">
             <strong>${viewportLayout.complete ? 'Layout gate passed' : 'Layout repair required'}</strong>
-            <span>${viewportLayout.samples.map(sample => `${sample.viewport} target ${sample.spin.width.toFixed(0)}×${sample.spin.height.toFixed(0)}px · symbols ${sample.minimumSymbolWidth.toFixed(0)}×${sample.minimumSymbolHeight.toFixed(0)}px`).join(' · ')}</span>
+            <span>${viewportLayout.samples.map(sample => { const minimum = sample.controlTargets.reduce((current, target) => !current || Math.min(target.width, target.height) < Math.min(current.width, current.height) ? target : current, null); return `${sample.viewport} controls ≥ ${minimum?.width.toFixed(0) || 0}×${minimum?.height.toFixed(0) || 0}px · symbols ${sample.minimumSymbolWidth.toFixed(0)}×${sample.minimumSymbolHeight.toFixed(0)}px`; }).join(' · ')}</span>
             <span>${viewportLayout.fingerprint}</span>
           </div>` : viewportLayout.stale ? '<div class="preview-layout-strip has-failures"><strong>Layout evidence is stale</strong><span>Visual layout inputs changed after the last audit.</span></div>' : ''}
         <div class="preview-workspace ${this.showDirector ? 'has-director' : ''}">
@@ -968,7 +1025,11 @@ export class PreviewPanel {
 
     this.bindEvents();
     this.scaleStage();
-    this.populateInitialBoard();
+    // A viewport, menu, or information-panel render must preserve the current
+    // authoritative board. Repopulating here made a completed feature keep its
+    // cabinet/HUD while silently attaching motion from a random base board.
+    if (Array.isArray(this.board) && this.board.length) this.paintBoard(this.board);
+    else this.populateInitialBoard();
     this.setAnimationState(this.spinning ? 'spinning' : 'idle');
     this.mountAnimationRuntime(cab);
     this.mountVisualEffectRuntime(cab);
@@ -1150,6 +1211,10 @@ export class PreviewPanel {
       symbolFlipbookCount: this.visualEffectRuntime?.symbolFlipbooks?.length || 0,
       symbolFlipbookRenderer: this.visualEffectRuntime?.symbolFlipbooks?.length ? 'pixi-webgl-frame-atlas' : null,
       symbolFlipbookSamples: this.visualEffectRuntime?.symbolFlipbooks?.slice(0, 8).map(book => book.meta) || [],
+      symbolMotionLifecycle: {
+        ...this.symbolMotionLastSync,
+        suspensionDepth: this.symbolMotionSuspensionDepth,
+      },
       motionAtlasErrors: this.visualEffectRuntime?.motionLoadErrors ? Object.fromEntries(this.visualEffectRuntime.motionLoadErrors) : {},
     };
   }
@@ -1175,15 +1240,18 @@ export class PreviewPanel {
   }
 
   renderCabinet(cab) {
-    const featureCabinet = resolveMorpheusDreamfallCabinetProfile({
+    // Keep the legacy profile resolution as a compatibility contract while the
+    // shared composition is the source Preview actually renders.
+    resolveMorpheusDreamfallCabinetProfile({
       projectId: this.projectId,
       worldActive: this.isMorpheusDreamfallWorldActive(),
       renderProfile: MORPHEUS_DREAMFALL_RENDER_PROFILE_FORMAT,
     });
+    const featureCabinet = this.playerComposition().featureOverlay;
     const layers = [...(cab.layers || [])].sort((a, b) => a.zIndex - b.zIndex);
     const base = layers.map(layer => {
       if (!layer.visible) return '';
-      if (featureCabinet?.replacesBaseForeground && layer.assetPackRole === 'foreground') return '';
+      if (featureCabinet?.visible && featureCabinet.replacesBaseForeground && layer.assetPackRole === 'foreground') return '';
       const style = `position:absolute;left:${layer.x}px;top:${layer.y}px;width:${layer.width}px;height:${layer.height}px;opacity:${layer.opacity};z-index:${layer.zIndex};mix-blend-mode:${layer.blendMode || 'normal'}`;
       if (layer.src) {
         const regions = Array.isArray(layer.clipRegions) && layer.clipRegions.length ? layer.clipRegions : [null];
@@ -1194,8 +1262,15 @@ export class PreviewPanel {
       }
       return '';
     }).join('');
-    if (!featureCabinet) return base;
-    return `${base}<div class="cabinet-layer cabinet-layer-dreamfall-feature" data-cabinet-profile="${featureCabinet.format}" style="position:absolute;inset:0;width:${featureCabinet.asset.width}px;height:${featureCabinet.asset.height}px;z-index:59;pointer-events:none"><img src="${featureCabinet.asset.src}" decoding="async" draggable="false" style="width:100%;height:100%;object-fit:contain"></div>`;
+    if (!featureCabinet?.visible || !featureCabinet.src) return base;
+    return `${base}<div class="cabinet-layer cabinet-layer-dreamfall-feature" data-cabinet-profile="${this.esc(featureCabinet.format || featureCabinet.id || 'authored')}" style="position:absolute;left:${featureCabinet.x}px;top:${featureCabinet.y}px;width:${featureCabinet.width}px;height:${featureCabinet.height}px;opacity:${featureCabinet.opacity ?? 1};z-index:${featureCabinet.zIndex ?? 59};mix-blend-mode:${featureCabinet.blendMode || 'normal'};pointer-events:none"><img src="${this.esc(featureCabinet.src)}" decoding="async" draggable="false" style="width:100%;height:100%;object-fit:contain"></div>`;
+  }
+
+  playerComposition() {
+    return resolvePlayerComposition(this.project, {
+      projectId: this.projectId,
+      worldActive: this.isMorpheusDreamfallWorldActive(),
+    });
   }
 
   allowsHtmlVisibleEffects() {
@@ -1239,7 +1314,7 @@ export class PreviewPanel {
   }
 
   renderLivingEnvironment() {
-    const assets = this.project.theme?.environmentAssets || {};
+    const assets = this.playerComposition().environment;
     const layers = [
       ['floraLeft', 'preview-living-flora preview-living-flora-left'],
       ['floraRight', 'preview-living-flora preview-living-flora-right'],
@@ -1247,24 +1322,20 @@ export class PreviewPanel {
     ];
     const art = layers.map(([key, className]) => {
       const asset = assets[key];
-      if (!asset?.src) return '';
+      if (!asset?.src || asset.visible === false) return '';
       const x = Number(asset.x) || 0;
       const y = Number(asset.y) || 0;
       const width = Math.max(1, Number(asset.width) || 1);
       const height = Math.max(1, Number(asset.height) || 1);
-      return `<div class="${className}" style="left:${x}px;top:${y}px;width:${width}px;height:${height}px"><img src="${this.esc(asset.src)}" decoding="async" draggable="false" alt=""></div>`;
+      return `<div class="${className}" style="left:${x}px;top:${y}px;width:${width}px;height:${height}px;opacity:${asset.opacity ?? 1};z-index:${asset.zIndex ?? 59};mix-blend-mode:${asset.blendMode || 'normal'}"><img src="${this.esc(asset.src)}" decoding="async" draggable="false" alt=""></div>`;
     }).join('');
     return art ? `<div class="preview-living-environment" aria-hidden="true">${art}</div>` : '';
   }
 
   renderCharacterRig() {
-    const character = this.project.theme?.character;
-    if (!character?.poses?.idle) return '';
-    const placement = character.placement || {};
-    const x = Number(placement.x ?? 870);
-    const y = Number(placement.y ?? 125);
-    const width = Number(placement.width ?? 410);
-    const height = Number(placement.height ?? 575);
+    const character = this.playerComposition().character;
+    if (!character.visible || !character.poses?.idle) return '';
+    const { x, y, width, height } = character.placement;
     const poses = Object.entries(character.poses)
       .filter(([, src]) => Boolean(src))
       .map(([name, src]) => {
@@ -1275,7 +1346,7 @@ export class PreviewPanel {
       ? '<div class="preview-character-aura"></div><div class="preview-character-rays"></div><div class="preview-character-heat"></div>'
       : '';
     return `
-      <div class="preview-character" aria-hidden="true" style="left:${x}px;top:${y}px;width:${width}px;height:${height}px">
+      <div class="preview-character" aria-hidden="true" style="left:${x}px;top:${y}px;width:${width}px;height:${height}px;--character-z-index:${character.zIndex}">
         ${htmlEnergy}
         <div class="preview-character-rig">
           ${poses}
@@ -1436,11 +1507,14 @@ export class PreviewPanel {
       h = profile.world.height;
     }
     const cellW = (w - gap * (reels - 1)) / reels;
+    // Dreamfall's 470x600 reel world is an authored feature state inside the
+    // unchanged 1280x800 cabinet plane. Keep its square 75px cells in every
+    // composition mode instead of stretching the growing board to the base bay.
     const maxRows = reservedWorld ? MORPHEUS_RESERVED_WORLD_ROWS : Math.max(...rows);
     const cellH = h / maxRows;
     const buffer = 2;
 
-    let html = `<div class="reel-frame" data-dreamfall-world="${reservedWorld ? 'active' : 'inactive'}" style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;z-index:50;border-radius:8px;overflow:hidden;background:rgba(0,0,0,0.5)">`;
+    let html = `<div class="reel-frame" data-dreamfall-world="${reservedWorld ? 'active' : 'inactive'}" style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;z-index:50;border-radius:8px;overflow:hidden;background:rgba(0,0,0,0.5)"><div class="preview-dormant-grid" id="previewDormantGrid" aria-hidden="true"></div>`;
 
     for (let r = 0; r < reels; r++) {
       const rRows = rows[r] || rows[0];
@@ -1497,37 +1571,44 @@ export class PreviewPanel {
 
   renderHUD() {
     const cab = this.project.theme.cabinet;
-    const hudY = cab.height * 0.78;
+    const hud = this.playerComposition().hud;
     const mode = this.activeMode();
     const autoLabel = this.autoSpinsRemaining > 0 ? String(this.autoSpinsRemaining) : 'AUTO';
     const compactModeLabel = mode.name === 'base'
       ? 'BASE'
       : this.label(mode.name).trim().split(/\s+/)[0].toUpperCase();
+    const dreamfallHud = this.morpheusDreamfallState?.hud || {};
+    const dreamfallRows = dreamfallHud.reelRows || this.project.math.grid.rows;
+    const dreamMaskArt = this.symbolDefinition('DREAM_MASK')?.src || '';
+    const dreamfallMeter = Array.from({ length: this.project.math.grid.reels }, (_, reel) => {
+      const rowCount = Math.max(4, Math.min(MORPHEUS_RESERVED_WORLD_ROWS, Number(dreamfallRows[reel]) || 4));
+      return `<i data-dreamfall-meter-reel="${reel}" data-rows="${rowCount}" style="--dreamfall-growth:${rowCount / MORPHEUS_RESERVED_WORLD_ROWS * 100}%"><span></span><b>${rowCount}</b></i>`;
+    }).join('');
     return `
       ${this.isMorpheusDreamfallWorldActive() ? '' : `<button class="preview-mode-chip ${this.selectedMode !== 'base' ? 'is-feature' : ''}" id="previewModeChip" aria-label="Choose game mode">
         <span>${this.esc(this.modeKind(mode))}</span><strong id="hudModeName">${this.esc(this.label(mode.name))}</strong><small id="hudModeCost">${Number(mode.cost)}×</small>
       </button>`}
-      <div class="preview-hud" style="position:absolute;left:0;bottom:0;width:100%;height:${cab.height - hudY}px;z-index:60">
-        <button class="hud-art-button" id="previewPlayerMenu" aria-label="Open game menu"><img src="/assets/morpheus-control-menu-v1.png" alt=""><span>MENU</span></button>
-        <button class="hud-art-button" id="previewBonusMenu" aria-label="Choose game mode, current ${this.esc(this.label(mode.name))}"><img src="/assets/morpheus-control-bonus-v1.png" alt=""><span>${this.esc(compactModeLabel)}</span></button>
+      <div class="preview-hud" style="position:absolute;left:${hud.x}px;top:${hud.y}px;width:${hud.width}px;height:${hud.height}px;z-index:${hud.zIndex};display:${hud.visible ? 'flex' : 'none'}">
+        <button class="hud-art-button" id="previewPlayerMenu" aria-label="Open game menu"><img src="${this.esc(hud.art.menu || '')}" alt=""><span>MENU</span><i class="control-hit-area" aria-hidden="true"></i></button>
+        <button class="hud-art-button" id="previewBonusMenu" aria-label="Choose game mode, current ${this.esc(this.label(mode.name))}"><img src="${this.esc(hud.art.bonus || '')}" alt=""><span>${this.esc(compactModeLabel)}</span><i class="control-hit-area" aria-hidden="true"></i></button>
         <div class="hud-group hud-balance">
           <span class="hud-label">BALANCE</span>
           <span class="hud-value" id="hudBalance">${this.balance.toFixed(2)}</span>
         </div>
-        <button class="hud-art-button hud-step-button" id="previewBetDown" aria-label="Decrease play amount"><img src="/assets/morpheus-control-minus-v1.png" alt=""></button>
+        <button class="hud-art-button hud-step-button" id="previewBetDown" aria-label="Decrease play amount"><img src="${this.esc(hud.art.betDown || '')}" alt=""><i class="control-hit-area" aria-hidden="true"></i></button>
         <div class="hud-group hud-bet">
           <span class="hud-label">PLAY AMOUNT</span>
           <span class="hud-value" id="hudBaseBet">${this.baseBet.toFixed(2)}</span>
           <small class="hud-total" id="hudBet">TOTAL ${this.bet.toFixed(2)}</small>
         </div>
-        <button class="hud-art-button hud-step-button" id="previewBetUp" aria-label="Increase play amount"><img src="/assets/morpheus-control-plus-v1.png" alt=""></button>
-        <button class="spin-btn" id="previewSpin">${this.autoSpinsRemaining > 0 ? 'STOP' : 'SPIN'}</button>
+        <button class="hud-art-button hud-step-button" id="previewBetUp" aria-label="Increase play amount"><img src="${this.esc(hud.art.betUp || '')}" alt=""><i class="control-hit-area" aria-hidden="true"></i></button>
+        <button class="spin-btn" id="previewSpin" style="--spin-control-art:url('${this.esc(hud.art.spin || '')}')"><span class="control-label">${this.autoSpinsRemaining > 0 ? 'STOP' : 'SPIN'}</span><i class="control-hit-area" aria-hidden="true"></i></button>
         <div class="hud-group hud-win">
           <span class="hud-label">WIN</span>
           <span class="hud-value" id="hudWin">${this.lastWin.toFixed(2)}</span>
         </div>
-        <button class="hud-art-button ${this.autoSpinsRemaining > 0 ? 'is-active' : ''}" id="previewAutoMenu" aria-label="Configure autoplay"><img src="/assets/morpheus-control-autoplay-v1.png" alt=""><span id="hudAutoCount">${autoLabel}</span></button>
-        <button class="hud-art-button ${this.turboMode ? 'is-active' : ''}" id="previewTurbo" aria-label="Toggle fast play"><img src="/assets/morpheus-control-turbo-v1.png" alt=""><span>TURBO</span></button>
+        <button class="hud-art-button ${this.autoSpinsRemaining > 0 ? 'is-active' : ''}" id="previewAutoMenu" aria-label="Configure autoplay"><img src="${this.esc(hud.art.autoplay || '')}" alt=""><span id="hudAutoCount">${autoLabel}</span><i class="control-hit-area" aria-hidden="true"></i></button>
+        <button class="hud-art-button ${this.turboMode ? 'is-active' : ''}" id="previewTurbo" aria-label="Toggle fast play"><img src="${this.esc(hud.art.turbo || '')}" alt=""><span>TURBO</span><i class="control-hit-area" aria-hidden="true"></i></button>
       </div>
       <div class="preview-feature-progress" id="previewFeatureProgress" aria-live="polite">
         <span id="previewFeatureMode"></span>
@@ -1536,14 +1617,19 @@ export class PreviewPanel {
         <em id="previewFeatureMechanic"></em>
       </div>
       ${this.isMorpheusDreamfallWorldActive() ? `
-        <div id="previewDreamfallHud" aria-live="polite" data-status="${this.esc(this.morpheusDreamfallState?.status || 'ready')}" style="position:absolute;right:2%;top:1.5%;z-index:82;display:${this.isMorpheusDreamfallWorldActive() ? 'grid' : 'none'};grid-template-columns:auto auto;gap:2px 12px;min-width:174px;padding:7px 11px;border:1px solid rgba(214,168,75,.55);border-radius:10px;background:rgba(8,10,27,.86);box-shadow:0 8px 28px rgba(0,0,0,.55);color:#e9e4ff;pointer-events:none">
-          <span style="font-size:9px;letter-spacing:1.2px;color:#55d6c2">DREAMFALL</span><strong id="dreamfallHudStatus" style="font-size:10px;text-align:right">${this.esc(this.morpheusDreamfallState?.status || 'READY')}</strong>
-          <small>CHAIN</small><b id="dreamfallHudChain">${Number(this.morpheusDreamfallState?.hud?.chainHit || 0)} / 5</b>
-          <small>FREE SPINS</small><b id="dreamfallHudRemaining">${Number(this.morpheusDreamfallState?.hud?.freeSpinsRemaining || 0)}</b>
-          <small>AWARDED</small><b id="dreamfallHudSpins">${Number(this.morpheusDreamfallState?.hud?.awardedFreeSpins || 0)}</b>
-          <small>RUNNING WIN</small><b id="dreamfallHudWin">${(Number(this.morpheusDreamfallState?.hud?.runningWin || 0) / BOOK_AMOUNT_MULTIPLIER * this.baseBet).toFixed(2)}</b>
-          <small>REELS</small><b id="dreamfallHudRows">${this.esc((this.morpheusDreamfallState?.hud?.reelRows || this.project.math.grid.rows).join('·'))}</b>
-        </div>` : ''}
+        <section id="previewDreamfallHud" class="dreamfall-hud" aria-live="polite" data-status="${this.esc(this.morpheusDreamfallState?.status || 'ready')}" style="--dreamfall-hud-art:url('${this.esc(hud.art.modeCard || '')}')">
+          ${dreamMaskArt ? `<img class="dreamfall-hud-emblem" src="${this.esc(dreamMaskArt)}" alt="" draggable="false">` : ''}
+          <div class="dreamfall-hud-copy">
+            <header><span>DREAMFALL</span><strong id="dreamfallHudStatus">${this.esc(this.morpheusDreamfallState?.status || 'READY')}</strong></header>
+            <div class="dreamfall-hud-primary">
+              <span><small>CHAIN</small><b id="dreamfallHudChain">${Number(dreamfallHud.chainHit || 0)} / ${Number(dreamfallHud.awardThreshold || 5)}</b></span>
+              <span><small>SPINS</small><b id="dreamfallHudRemaining">${Number(dreamfallHud.freeSpinsRemaining || 0)}</b></span>
+              <span><small>WIN</small><b id="dreamfallHudWin">${(Number(dreamfallHud.runningWin || 0) / BOOK_AMOUNT_MULTIPLIER * this.baseBet).toFixed(2)}</b></span>
+            </div>
+            <div class="dreamfall-hud-growth"><small>REEL ASCENT</small><div>${dreamfallMeter}</div><b id="dreamfallHudRows">${this.esc(dreamfallRows.join('·'))}</b></div>
+            <div class="dreamfall-hud-award"><small>AWARDED</small><b id="dreamfallHudSpins">${Number(dreamfallHud.awardedFreeSpins || 0)}</b></div>
+          </div>
+        </section>` : ''}
       ${this.renderPlayerOverlays()}
     `;
   }
@@ -1557,6 +1643,7 @@ export class PreviewPanel {
     }
     this.clearFeatureState();
     this.selectedMode = mode.name;
+    this.board = null;
     this.bet = this.totalWager(mode);
     this.lastWin = 0;
     this.showModeMenu = false;
@@ -1771,6 +1858,7 @@ export class PreviewPanel {
 
   renderPlayerOverlays() {
     const mode = this.activeMode();
+    const controlArt = this.playerComposition().hud.art;
     const close = '<button class="player-overlay-close" data-player-overlay-close aria-label="Close">CLOSE</button>';
     const modeOverlay = this.showModeMenu ? `
       <div class="preview-player-overlay" data-player-overlay="modes">
@@ -1784,9 +1872,9 @@ export class PreviewPanel {
       <div class="preview-player-overlay player-menu-overlay" data-player-overlay="menu">
         <aside class="player-menu-drawer" role="dialog" aria-modal="true" aria-label="Game menu">
           <header><div><small>MORPHEUS</small><strong>GAME MENU</strong></div>${close}</header>
-          <button class="player-menu-entry" id="previewPlayerInfo"><img src="/assets/morpheus-control-info-v1.png" alt=""><span><strong>GAME INFO</strong><small>Rules, paytable, RTP and mechanics</small></span></button>
-          <button class="player-menu-entry" id="previewPlayerSound"><img src="/assets/morpheus-control-sound-v1.png" alt=""><span><strong>SOUND ${this.soundEnabled ? 'ON' : 'OFF'}</strong><small>Music, ambience and effects</small></span></button>
-          <button class="player-menu-entry" id="previewPlayerTurbo"><img src="/assets/morpheus-control-turbo-v1.png" alt=""><span><strong>FAST PLAY ${this.turboMode ? 'ON' : 'OFF'}</strong><small>Accelerated reel choreography</small></span></button>
+          <button class="player-menu-entry" id="previewPlayerInfo"><img src="${this.esc(controlArt.info || '')}" alt=""><span><strong>GAME INFO</strong><small>Rules, paytable, RTP and mechanics</small></span></button>
+          <button class="player-menu-entry" id="previewPlayerSound"><img src="${this.esc(controlArt.sound || '')}" alt=""><span><strong>SOUND ${this.soundEnabled ? 'ON' : 'OFF'}</strong><small>Music, ambience and effects</small></span></button>
+          <button class="player-menu-entry" id="previewPlayerTurbo"><img src="${this.esc(controlArt.turbo || '')}" alt=""><span><strong>FAST PLAY ${this.turboMode ? 'ON' : 'OFF'}</strong><small>Accelerated reel choreography</small></span></button>
         </aside>
       </div>` : '';
     const autoOverlay = this.showAutoMenu ? `
@@ -1887,7 +1975,7 @@ export class PreviewPanel {
 
   getSymbolColor(sym) {
     if (!sym) return '#555';
-    const s = this.project.theme.symbols?.find(s => s.name === sym || s.id === sym);
+    const s = this.symbolDefinition(sym);
     const tier = s?.tier || 'low';
     const colors = {
       high: 'linear-gradient(135deg, #ff9a3c, #ff6f00)',
@@ -1896,6 +1984,49 @@ export class PreviewPanel {
       special: 'linear-gradient(135deg, #e040fb, #aa00ff)',
     };
     return colors[tier] || colors.low;
+  }
+
+  symbolDefinition(name) {
+    const key = canonicalSymbolKey(name);
+    return this.project.theme.symbols?.find(symbol => (
+      symbol.name === name || symbol.id === name
+      || canonicalSymbolKey(symbol.name) === key
+      || canonicalSymbolKey(symbol.id) === key
+    ));
+  }
+
+  authoredSymbolName(name) {
+    return this.symbolDefinition(name)?.name || name;
+  }
+
+  normalizePublishedBoard(board = []) {
+    return (board || []).map(reel => (reel || []).map(symbol => {
+      if (typeof symbol === 'string') return this.authoredSymbolName(symbol);
+      return symbol && typeof symbol === 'object'
+        ? { ...symbol, name: this.authoredSymbolName(symbol.name) }
+        : symbol;
+    }));
+  }
+
+  normalizePublishedEvent(event = {}) {
+    const normalized = { ...event };
+    if (Array.isArray(event.board)) normalized.board = this.normalizePublishedBoard(event.board);
+    if (Array.isArray(event.boardBefore)) normalized.boardBefore = this.normalizePublishedBoard(event.boardBefore);
+    if (Array.isArray(event.boardAfter)) normalized.boardAfter = this.normalizePublishedBoard(event.boardAfter);
+    if (Array.isArray(event.newSymbols)) normalized.newSymbols = this.normalizePublishedBoard(event.newSymbols);
+    if (Array.isArray(event.wins)) normalized.wins = event.wins.map(win => ({
+      ...win,
+      symbol: this.authoredSymbolName(win.symbol),
+    }));
+    if (Array.isArray(event.changes)) normalized.changes = event.changes.map(change => ({
+      ...change,
+      from: this.authoredSymbolName(change.from),
+      to: this.authoredSymbolName(change.to),
+    }));
+    for (const key of ['symbol', 'special', 'targetFamily', 'from', 'to']) {
+      if (typeof event[key] === 'string') normalized[key] = this.authoredSymbolName(event[key]);
+    }
+    return normalized;
   }
 
   morpheusSymbolContentSafeRect(sym) {
@@ -1912,10 +2043,11 @@ export class PreviewPanel {
   }
 
   setSymbolCell(cell, symName) {
-    const sym = this.project.theme.symbols?.find(s => s.name === symName || s.id === symName);
-    cell.title = symName || '';
-    cell.dataset.symbol = String(symName || '').toLowerCase().replaceAll('_', '-');
-    cell.dataset.symbolName = symName || '';
+    const sym = this.symbolDefinition(symName);
+    const authoredName = sym?.name || symName;
+    cell.title = authoredName || '';
+    cell.dataset.symbol = String(authoredName || '').toLowerCase().replaceAll('_', '-');
+    cell.dataset.symbolName = authoredName || '';
     if (sym?.motionProfile) cell.dataset.motion = sym.motionProfile;
     else delete cell.dataset.motion;
     if (sym?.src && this.assetStatus.get(sym.src) === true) {
@@ -1924,7 +2056,7 @@ export class PreviewPanel {
       const currentImage = cell.firstElementChild;
       const image = currentImage?.tagName === 'IMG' ? currentImage : document.createElement('img');
       if (image.getAttribute('src') !== sym.src) image.src = sym.src;
-      image.alt = symName || '';
+      image.alt = authoredName || '';
       image.draggable = false;
       image.decoding = 'async';
       image.loading = 'eager';
@@ -1949,24 +2081,49 @@ export class PreviewPanel {
     }
     cell.replaceChildren();
     cell.style.backgroundImage = '';
-    cell.textContent = symName || '';
-    cell.style.background = this.getSymbolColor(symName);
+    cell.textContent = authoredName || '';
+    cell.style.background = this.getSymbolColor(authoredName);
     this.scheduleSymbolMotionSync();
   }
 
-  scheduleSymbolMotionSync() {
+  scheduleSymbolMotionSync({ authoritativeLanded = false } = {}) {
     if (this.disposed || this.visualEffectRuntimeStatus !== 'ready') return;
-    if (this.spinning && this.landedReels.size === 0) return;
+    if (this.symbolMotionSuspensionDepth > 0) {
+      this.symbolMotionLastSync = { status: 'suspended', count: 0, authoritativeLanded };
+      return;
+    }
+    const frame = this.container.querySelector('.reel-frame');
+    if (frame?.classList.contains('is-tumbling') || frame?.classList.contains('is-symbol-motion-suspended')) {
+      this.symbolMotionLastSync = { status: 'transition', count: 0, authoritativeLanded };
+      return;
+    }
+    if (this.spinning && !authoritativeLanded) {
+      this.symbolMotionLastSync = { status: 'reels-moving', count: 0, authoritativeLanded };
+      return;
+    }
     if (this.symbolMotionSyncFrame) cancelAnimationFrame(this.symbolMotionSyncFrame);
+    this.symbolMotionLastSync = { status: 'pending', count: 0, authoritativeLanded };
     this.symbolMotionSyncFrame = requestAnimationFrame(() => {
       this.symbolMotionSyncFrame = null;
-      this.syncSymbolMotionFlipbooks();
+      const count = this.syncSymbolMotionFlipbooks({ authoritativeLanded });
+      this.symbolMotionLastSync = { status: count > 0 ? 'settled' : 'empty', count, authoritativeLanded };
     });
   }
 
   syncSymbolMotionFlipbooks({ authoritativeLanded = false } = {}) {
     const runtime = this.visualEffectRuntime;
     const stage = this.container.querySelector('#previewStage');
+    const frame = this.container.querySelector('.reel-frame');
+    if (this.symbolMotionSuspensionDepth > 0
+      || frame?.classList.contains('is-tumbling')
+      || frame?.classList.contains('is-symbol-motion-suspended')) {
+      runtime?.clearSymbolFlipbooks?.();
+      return 0;
+    }
+    if (this.spinning && !authoritativeLanded) {
+      runtime?.clearSymbolFlipbooks?.();
+      return 0;
+    }
     if (!runtime || this.visualEffectRuntimeStatus !== 'ready' || !stage) {
       runtime?.clearSymbolFlipbooks?.();
       return 0;
@@ -2007,15 +2164,11 @@ export class PreviewPanel {
       const loadedMotion = runtime.motionTextures?.get(symbol.motionAssetId);
       const motionSourceAspectRatio = Number(loadedMotion?.frameWidth) > 0 && Number(loadedMotion?.frameHeight) > 0
         ? loadedMotion.frameWidth / loadedMotion.frameHeight : 1;
-      const overlayBounds = {
-        x: cellStage.x + cellStage.width * (Number(overlay.left) || 0) / 100,
-        y: cellStage.y + cellStage.height * (Number(overlay.top) || 0) / 100,
-        width: cellStage.width * Math.max(1, Number(overlay.width) || 100) / 100,
-        height: cellStage.height * Math.max(1, Number(overlay.height) || 100) / 100,
-      };
-      const overlayStage = this.isMorpheusDreamfallWorldActive()
-        ? createMorpheusMotionSafeRect({ cellRect: cellStage, overlay, sourceAspectRatio: motionSourceAspectRatio }).safe
-        : overlayBounds;
+      const overlayStage = createAspectPreservingOverlayRect({
+        cellRect: cellStage,
+        overlay,
+        sourceAspectRatio: motionSourceAspectRatio,
+      }).safe;
       const design = runtime.stageRectToDesign({
         x: overlayStage.x + overlayStage.width / 2,
         y: overlayStage.y + overlayStage.height / 2,
@@ -2049,6 +2202,26 @@ export class PreviewPanel {
     return runtime.enableSymbolFlipbooks(instances, {
       reducedMotion: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
     });
+  }
+
+  suspendSettledSymbolMotion() {
+    this.symbolMotionSuspensionDepth += 1;
+    const frame = this.container.querySelector('.reel-frame');
+    frame?.classList.add('is-symbol-motion-suspended');
+    if (this.symbolMotionSyncFrame) cancelAnimationFrame(this.symbolMotionSyncFrame);
+    this.symbolMotionSyncFrame = null;
+    this.visualEffectRuntime?.cancel?.();
+    this.visualEffectRuntime?.cancelEnergyTaps?.();
+    this.visualEffectRuntime?.disablePresentationEnergy?.();
+    this.visualEffectRuntime?.clearSymbolFlipbooks?.();
+  }
+
+  resumeSettledSymbolMotion() {
+    this.symbolMotionSuspensionDepth = Math.max(0, this.symbolMotionSuspensionDepth - 1);
+    if (this.symbolMotionSuspensionDepth > 0) return;
+    const frame = this.container.querySelector('.reel-frame');
+    frame?.classList.remove('is-symbol-motion-suspended');
+    this.scheduleSymbolMotionSync({ authoritativeLanded: true });
   }
 
   populateInitialBoard() {
@@ -2098,6 +2271,9 @@ export class PreviewPanel {
       if (!sw || !sh) return;
       const scale = Math.min(vw / sw, vh / sh, 1);
       stage.style.transform = `scale(${scale})`;
+      // Preserve the authored control art while keeping its effective target
+      // at least 44 physical pixels after the fixed cabinet is scaled.
+      stage.style.setProperty('--minimum-control-target', `${44 / scale}px`);
       // CSS transforms do not change layout dimensions. Compensating margins
       // make the flex viewport reserve the scaled footprint instead of the
       // original 1280px stage, preventing mobile/mini previews from clipping
@@ -2533,6 +2709,12 @@ export class PreviewPanel {
     const controls = [...stage.querySelectorAll('.preview-hud > .hud-group, .preview-hud > .spin-btn, .preview-hud > .hud-art-button')]
       .filter(element => getComputedStyle(element).display !== 'none')
       .map(element => element.getBoundingClientRect());
+    const controlTargets = [...stage.querySelectorAll('.preview-hud > button')]
+      .filter(element => getComputedStyle(element).display !== 'none')
+      .map(element => ({
+        id: element.id || element.getAttribute('aria-label') || 'control',
+        ...this.relativeRect(element.querySelector(':scope > .control-hit-area') || element, viewportRect),
+      }));
     const stageScale = stage.offsetWidth ? stageRect.width / stage.offsetWidth : 0;
     const viewportStyle = getComputedStyle(viewport);
     const scrollableX = ['auto', 'scroll'].includes(viewportStyle.overflowX);
@@ -2550,6 +2732,7 @@ export class PreviewPanel {
       reels: this.relativeRect(stage.querySelector('.reel-frame'), viewportRect),
       hud: this.relativeRect(stage.querySelector('.preview-hud'), viewportRect),
       spin: this.relativeRect(spin, viewportRect),
+      controlTargets,
       minimumSymbolWidth: symbols.length ? Math.min(...symbols.map(rect => rect.width)) : 0,
       minimumSymbolHeight: symbols.length ? Math.min(...symbols.map(rect => rect.height)) : 0,
       hudLabelFontPx: label ? parseFloat(getComputedStyle(label).fontSize) * stageScale : 0,
@@ -2982,6 +3165,27 @@ export class PreviewPanel {
     const button = this.container.querySelector('#previewLayoutAudit');
     if (button?.disabled) return;
     const originalViewport = this.viewport;
+    const originalWorldState = this.morpheusDreamfallWorldState;
+    const originalFeatureReelRows = new Map(this.featureReelRows);
+    const originalBoard = Array.isArray(this.board)
+      ? this.board.map(reel => Array.isArray(reel) ? [...reel] : reel)
+      : this.board;
+    const restorePreviewState = () => {
+      this.viewport = originalViewport;
+      this.featureReelRows = new Map(originalFeatureReelRows);
+      this.board = Array.isArray(originalBoard)
+        ? originalBoard.map(reel => Array.isArray(reel) ? [...reel] : reel)
+        : originalBoard;
+      this.setMorpheusDreamfallWorldState(originalWorldState);
+      this.render();
+    };
+    if (this.isMorpheusDreamfallWorldActive()) {
+      this.deactivateMorpheusDreamfallWorld('viewport-layout-audit-base-state');
+      this.featureReelRows.clear();
+      this.board = (originalBoard || []).map((reel, index) => (
+        Array.isArray(reel) ? reel.slice(-Number(this.project.math.grid.rows[index] || this.project.math.grid.rows[0] || 1)) : reel
+      ));
+    }
     if (button) button.disabled = true;
     const samples = [];
     try {
@@ -2997,15 +3201,11 @@ export class PreviewPanel {
       }
       const summary = recordViewportLayoutQA(this.project, samples);
       this.onChange?.();
-      this.viewport = originalViewport;
-      this.render();
+      restorePreviewState();
       const status = this.container.querySelector('.preview-layout-strip strong');
       if (status && !summary.complete) status.title = summary.issues.join(' ');
     } catch (error) {
-      this.viewport = originalViewport;
-      const viewport = this.container.querySelector('#previewViewport');
-      viewport?.classList.remove(...LAYOUT_VIEWPORTS);
-      viewport?.classList.add(originalViewport);
+      restorePreviewState();
       if (button) {
         button.disabled = false;
         button.textContent = error.message || 'Layout audit failed';
@@ -3144,21 +3344,85 @@ export class PreviewPanel {
     }
   }
 
-  spin({ automatic = false } = {}) {
+  clearPreviewReelSpinTracks() {
+    this.container.querySelectorAll('.preview-reel-spin-track').forEach(track => track.remove());
+    this.container.querySelectorAll('.reel-mask').forEach(mask => mask.classList.remove('is-spinning', 'is-stopping', 'has-stopped'));
+  }
+
+  previewReelSpinSequence(reelIndex, visibleRows, symbolNames) {
+    if (!symbolNames.length) return [];
+    const sequence = [];
+    const stride = reelIndex % 2 === 0 ? 3 : 7;
+    for (let index = 0; index < visibleRows * 3; index++) {
+      const cycle = Math.floor(index / visibleRows);
+      const poolIndex = (reelIndex * 2 + cycle * (reelIndex + 3) + index * stride) % symbolNames.length;
+      sequence.push(symbolNames[poolIndex]);
+    }
+    return sequence;
+  }
+
+  createPreviewReelSpinTrack(mask, reelIndex, visibleRows, symbolNames) {
+    const sequence = this.previewReelSpinSequence(reelIndex, visibleRows, symbolNames);
+    if (!mask || sequence.length === 0) return null;
+    const track = document.createElement('div');
+    track.className = 'preview-reel-spin-track';
+    track.dataset.reel = String(reelIndex);
+    track.style.setProperty('--spin-rows', String(sequence.length));
+    const timing = normalizeReelChoreography(this.project.presentationDirector?.reelChoreography);
+    const cycleMs = Math.max(180, timing.blurIntervalMs * timing.blurTicks);
+    track.style.setProperty('--spin-duration', `${(this.turboMode ? Math.max(140, cycleMs * .52) : cycleMs) / 1000}s`);
+    track.style.setProperty('--spin-phase', `${-reelIndex * (this.turboMode ? 0.019 : 0.037)}s`);
+    for (const symbolName of sequence) {
+      const symbol = this.project.theme.symbols.find(item => item.name === symbolName || item.id === symbolName);
+      if (!symbol?.src) continue;
+      const cell = document.createElement('div');
+      cell.className = 'preview-reel-spin-symbol';
+      cell.dataset.symbol = symbolName;
+      const image = document.createElement('img');
+      image.src = symbol.src;
+      image.alt = '';
+      image.draggable = false;
+      image.decoding = 'async';
+      const safeRect = this.morpheusSymbolContentSafeRect(symbol);
+      image.style.width = safeRect ? `${safeRect.width}px` : '100%';
+      image.style.height = safeRect ? `${safeRect.height}px` : '100%';
+      image.style.objectFit = 'contain';
+      cell.appendChild(image);
+      track.appendChild(cell);
+    }
+    if (!track.childElementCount) return null;
+    mask.classList.add('is-spinning');
+    mask.appendChild(track);
+    return track;
+  }
+
+  spin({ automatic = false, roundOverride = null, publishedReplay = null } = {}) {
     if (this.spinning) return;
     if (!automatic && this.autoSpinsRemaining > 0) {
       this.stopAutoSpins();
       return;
     }
     this.spinning = true;
+    // Establish the clipped reel-motion state synchronously. A transient track
+    // must never share a rendered frame with the settled symbol artwork.
+    this.setAnimationState('spinning');
     this.playbackTrace = [];
     this.playbackStartedAt = performance.now();
-    this.recordPlaybackEvent('spinStart', { mode: this.selectedMode });
+    this.publishedReplay = publishedReplay;
+    this.recordPlaybackEvent('spinStart', {
+      mode: this.selectedMode,
+      source: publishedReplay ? 'published-book' : 'local-design-simulator',
+      bookId: publishedReplay?.bookId ?? null,
+      category: publishedReplay?.category ?? null,
+    });
     this.landedReels.clear();
+    this.visualEffectRuntime?.cancel?.();
+    this.visualEffectRuntime?.cancelEnergyTaps?.();
+    this.visualEffectRuntime?.disablePresentationEnergy?.();
     this.visualEffectRuntime?.clearSymbolFlipbooks?.();
 
     this.bet = this.totalWager();
-    this.balance -= this.bet;
+    if (!publishedReplay) this.balance -= this.bet;
     this.lastWin = 0;
     this.updateHUD();
 
@@ -3171,9 +3435,9 @@ export class PreviewPanel {
     this.audioEngine.startSoundscape(bonusMode ? 'bonusMusic' : 'baseMusic');
     void this.dispatchPresentation('spinStart', { mode: this.selectedMode });
 
-    // One canonical round — same engine path the simulator uses, so preview
-    // wins match simulated wins for the same config.
-    const round = this.mathEngine.resolveRound(Math.random, this.selectedMode);
+    // Ordinary Preview uses the local design simulator. Reviewer replay may
+    // inject a provenance-verified final-LUT book through this same renderer.
+    const round = roundOverride || this.mathEngine.resolveRound(Math.random, this.selectedMode);
     const visibleSpin = round.spins[0] || this.mathEngine.resolveSpin();
     this.spinResult = {
       ...visibleSpin,
@@ -3181,6 +3445,7 @@ export class PreviewPanel {
       uncappedWin: round.uncappedWin,
       wincapHit: round.wincapHit,
       round,
+      publishedReplay,
     };
     // The physical reel choreography begins before the book player. Prime only
     // explicitly pre-reveal instruments from the authoritative book so a
@@ -3199,9 +3464,8 @@ export class PreviewPanel {
     // authoritative transformed board instead of revealing only the aftermath.
     const newBoard = visibleSpin.sourceBoard || this.spinResult.board;
     const { rows } = this.project.math.grid;
-    const { cellH, buffer } = this.reelGeometry;
-    const reelCount = this.project.math.grid.reels;
     const strips = this.container.querySelectorAll('.reel-strip');
+    const masks = this.container.querySelectorAll('.reel-mask');
     const allSymNames = this.project.theme.symbols
       .filter(s => !s.special?.length)
       .map(s => s.name);
@@ -3212,23 +3476,48 @@ export class PreviewPanel {
 
     const spinToken = Symbol('preview-spin');
     this.activeSpinToken = spinToken;
+    this.clearPreviewReelSpinTracks();
+    const reelLandingBarriers = [];
+    const spinTracks = [...masks].map((mask, reelIndex) => this.createPreviewReelSpinTrack(
+      mask,
+      reelIndex,
+      rows[reelIndex] || rows[0],
+      allSymNames,
+    ));
     const tl = gsap.timeline({
       onComplete: () => {
-        if (this.activeSpinToken !== spinToken) return;
-        for (const interval of this.intervalIds) clearInterval(interval);
-        this.intervalIds.clear();
-        this.board = newBoard;
-        this.recordPlaybackEvent('reelsLanded', { mode: this.selectedMode });
-        // Every reel commits its authoritative reveal symbols at its own stop.
-        // Repainting here caused a visible last-frame board swap and delayed
-        // the Pixi symbol motion layer until after the complete reel sequence.
-        this.clearWinHighlights();
-        void this.dispatchPresentation('reveal', { board: newBoard, anticipation: this.hasScatterAnticipation(newBoard), mode: this.selectedMode });
-        this.playSpinResult().then(() => {
+        void (async () => {
+          if (this.activeSpinToken !== spinToken) return;
+          for (const interval of this.intervalIds) clearInterval(interval);
+          this.intervalIds.clear();
+          this.clearPreviewReelSpinTracks();
+          this.board = newBoard;
+          this.recordPlaybackEvent('reelsLanded', { mode: this.selectedMode });
+          // Every reel commits its authoritative reveal symbols at its own
+          // stop. Await the physical landing/impact ownership and the reveal
+          // recovery before the ordered book can advance to winInfo.
+          await Promise.all(reelLandingBarriers.filter(Boolean));
+          if (this.activeSpinToken !== spinToken) return;
+          this.recordPlaybackEvent('reelsSettled', { mode: this.selectedMode });
+          this.clearWinHighlights();
+          await this.dispatchPresentation('reveal', {
+            board: newBoard,
+            anticipation: this.hasScatterAnticipation(newBoard),
+            mode: this.selectedMode,
+          });
+          if (this.activeSpinToken !== spinToken) return;
+          this.recordPlaybackEvent('revealPresentationComplete', { mode: this.selectedMode });
+          await this.playSpinResult();
           if (this.activeSpinToken === spinToken) {
             this.spinning = false;
             this.scheduleSymbolMotionSync();
             this.queueAutoSpin();
+          }
+        })().catch(error => {
+          console.error('Preview reel-settle presentation failed', error);
+          if (this.activeSpinToken === spinToken) {
+            this.spinning = false;
+            this.clearPreviewReelSpinTracks();
           }
         });
       }
@@ -3238,41 +3527,48 @@ export class PreviewPanel {
     strips.forEach((strip, r) => {
       const rRows = rows[r] || rows[0];
       const cells = strip.querySelectorAll('.reel-sym');
+      const mask = masks[r];
+      const track = spinTracks[r];
       const stop = reelSchedule.stops[r];
-      // Keep the strip's travel inside its populated top/bottom buffers. The
-      // previous 8–21 cell translation moved the entire strip outside the
-      // mask, exposing the black reel well during every spin.
-      const reelSpinDist = cellH * (0.92 + Math.random() * 0.18 + r * 0.05);
-
-      cells.forEach((cell, i) => {
-        cell.classList.remove('is-landed');
-        const boardRow = i - buffer;
-        if (boardRow >= 0 && boardRow < rRows) {
-          this.setSymbolCell(cell, newBoard[r][boardRow]);
-        } else {
-          const rnd = allSymNames[Math.floor(Math.random() * allSymNames.length)];
-          this.setSymbolCell(cell, rnd);
-        }
-      });
-
-      tl.fromTo(strip,
-        { y: -reelSpinDist },
-        {
-          y: 0,
-          duration: Math.max(0.12, stop.durationMs * motionScale / 1000),
-          ease: 'back.out(0.7)',
-          delay: stop.delayMs * motionScale / 1000,
+      cells.forEach(cell => cell.classList.remove('is-landed'));
+      gsap.set(strip, { y: 0 });
+      const stopAt = stop.stopAtMs * motionScale / 1000;
+      const landingLead = this.turboMode ? 0.07 : 0.12;
+      const prepareReelStop = () => {
+        if (this.activeSpinToken !== spinToken) return;
+        mask?.classList.add('is-stopping');
+      };
+      const settleReel = () => {
+        if (this.activeSpinToken !== spinToken) return;
+        mask?.classList.add('has-stopped');
+        this.paintReelBoard(r, newBoard[r]);
+        this.landedReels.add(r);
+        this.animateLandedCells(cells);
+        this.audioEngine.playStinger('reelStop', r);
+        this.pulseReelImpact(r);
+        const impactMs = reelSchedule.timing.impactMs * (this.turboMode ? 0.5 : 1);
+        const landedCellMs = this.turboMode ? 170 : 340;
+        reelLandingBarriers[r] = this.wait(Math.max(impactMs, landedCellMs));
+      };
+      if (track) {
+        tl.to(track, {
+          opacity: 1,
+          filter: 'blur(.2px) saturate(.96) brightness(.94)',
+          duration: landingLead,
+          ease: 'power2.out',
+          onStart: prepareReelStop,
           onComplete: () => {
-            this.paintReelBoard(r, newBoard[r]);
-            this.landedReels.add(r);
-            this.syncSymbolMotionFlipbooks();
-            this.animateLandedCells(cells);
-            this.audioEngine.playStinger('reelStop', r);
-            this.pulseReelImpact(r);
+            settleReel();
+            track.remove();
+            mask?.classList.remove('is-spinning', 'is-stopping');
           },
-        },
-        0
-      );
+        }, Math.max(0, stopAt - landingLead));
+      } else {
+        tl.call(() => {
+          settleReel();
+          mask?.classList.remove('is-spinning', 'is-stopping');
+        }, [], stopAt);
+      }
     });
 
     if (hasAnticipation) {
@@ -3280,8 +3576,6 @@ export class PreviewPanel {
         void this.dispatchPresentation('anticipation', { board: newBoard, mode: this.selectedMode });
       }, [], reelSchedule.anticipationCueMs * motionScale / 1000);
     }
-
-    this.runBlurPhase(strips, allSymNames, reelCount, motionScale);
   }
 
   finishSpinImmediately() {
@@ -3291,44 +3585,17 @@ export class PreviewPanel {
     this.activeSpinToken = null;
     this.spinTimeline?.kill();
     this.spinTimeline = null;
+    this.clearPreviewReelSpinTracks();
     this.board = this.spinResult.board;
     this.paintBoard(this.board);
     this.clearWinHighlights();
     this.lastWin = this.spinResult.totalWin * this.baseBet;
-    this.balance += this.lastWin;
+    if (!this.spinResult.publishedReplay) this.balance += this.lastWin;
     this.spinning = false;
     this.scheduleSymbolMotionSync();
     this.setAnimationState('idle');
     this.updateHUD();
     this.queueAutoSpin();
-  }
-
-  runBlurPhase(strips, allSymNames, reelCount, motionScale = 1) {
-    const { rows } = this.project.math.grid;
-    const { buffer } = this.reelGeometry;
-    let tick = 0;
-    const reelTiming = normalizeReelChoreography(this.project.presentationDirector?.reelChoreography);
-    const maxTicks = reelTiming.blurTicks;
-    const reelStopTick = Array.from({ length: reelCount }, (_, r) => reelTiming.blurStopTickStart + r);
-
-    const interval = setInterval(() => {
-      strips.forEach((strip, r) => {
-        if (this.landedReels.has(r)) return;
-        if (tick >= reelStopTick[r]) return;
-        const cells = strip.querySelectorAll('.reel-sym');
-        const rRows = rows[r] || rows[0];
-        cells.forEach((cell, i) => {
-          const rnd = allSymNames[Math.floor(Math.random() * allSymNames.length)];
-          this.setSymbolCell(cell, rnd);
-        });
-      });
-      tick++;
-      if (tick >= maxTicks) {
-        clearInterval(interval);
-        this.intervalIds.delete(interval);
-      }
-    }, Math.max(18, reelTiming.blurIntervalMs * motionScale));
-    this.intervalIds.add(interval);
   }
 
   /** Play the same ordered event book the Stake frontend receives in round.state. */
@@ -3341,17 +3608,70 @@ export class PreviewPanel {
       return;
     }
     const playback = await this.playSpinEventBook(res, { alreadyLanded: true, mode: this.selectedMode });
+    await this.recoverWinPresentation();
     this.board = playback.currentBoard;
     this.paintBoard(playback.currentBoard);
     this.clearWinHighlights();
 
     // Settle on the engine's capped total — running sum is pre-cap.
     this.lastWin = res.totalWin * this.baseBet;
-    this.balance += this.lastWin;
+    if (!res.publishedReplay) this.balance += this.lastWin;
     this.updateHUD();
 
     this.scheduleSymbolMotionSync();
     this.setAnimationState('idle');
+  }
+
+  playPublishedReviewerReplay(payload = {}) {
+    if (this.spinning) throw new Error('Wait for the current Preview playback to finish.');
+    if (payload.format !== 'stake-studio-published-reviewer-replay-v1') {
+      throw new Error('Published reviewer replay uses an unsupported format.');
+    }
+    const book = payload.book;
+    const events = Array.isArray(book?.events) ? book.events.map(event => this.normalizePublishedEvent(event)) : [];
+    if (!events.length || events.some((event, index) => Number(event?.index) !== index)) {
+      throw new Error('Published reviewer replay has no sequential Stake event book.');
+    }
+    const reveal = events.find(event => event.type === 'reveal');
+    if (!reveal?.board) throw new Error('Published reviewer replay has no authoritative reveal board.');
+    const mode = this.mathEngine.getBetMode(payload.mode);
+    if (mode.name !== payload.mode) throw new Error(`Unknown published replay mode "${payload.mode}".`);
+    this.selectedMode = mode.name;
+    this.bet = mode.cost || 1;
+    this.lastWin = 0;
+    const sourceBoard = deserializeBoard(reveal.board);
+    const totalWin = Number(book.payoutMultiplier || 0) / BOOK_AMOUNT_MULTIPLIER;
+    const spin = {
+      state: events,
+      sourceBoard,
+      board: sourceBoard,
+      gameMode: reveal.gameType || 'basegame',
+      totalWin,
+      uncappedWin: totalWin,
+      wincapHit: book.criteria === 'wincap',
+    };
+    const round = {
+      mode: mode.name,
+      wager: mode.cost || 1,
+      spins: [spin],
+      totalWin,
+      uncappedWin: totalWin,
+      wincapHit: spin.wincapHit,
+      freeSpinsPlayed: 0,
+    };
+    this.spin({
+      roundOverride: round,
+      publishedReplay: {
+        format: payload.format,
+        mode: mode.name,
+        category: payload.category,
+        bookId: book.id,
+        catalogSha256: payload.catalogSha256,
+        eventsFileSha256: payload.eventsFileSha256,
+        bookProofSha256: payload.bookProofSha256,
+      },
+    });
+    return this.publishedReplay;
   }
 
   async playSpinEventBook(spin, {
@@ -3426,6 +3746,7 @@ export class PreviewPanel {
             mode,
           })),
         ]);
+        await this.waitForActiveVisualChoreography('tile-connection');
         continue;
       }
 
@@ -3458,6 +3779,33 @@ export class PreviewPanel {
           amount: Number(event.amount || 0) / BOOK_AMOUNT_MULTIPLIER * this.baseBet,
           mode,
         });
+        continue;
+      }
+
+      if (event.type === 'freeSpinTrigger' || event.type === 'enterBonus') {
+        const spins = Math.max(0, Number(event.totalFs ?? event.spins) || 0);
+        await this.dispatchPresentation(event.type, {
+          amount: (featureRunning + running) * this.baseBet,
+          mode,
+          spins,
+        });
+        if (spins > 0) this.updateFeatureProgress(mode, 0, spins, (featureRunning + running) * this.baseBet);
+        continue;
+      }
+
+      if (event.type === 'updateFreeSpin') {
+        const current = Math.max(0, Number(event.amount) || 0);
+        const total = Math.max(current, Number(event.total) || current);
+        this.updateFeatureProgress(mode, current, total, (featureRunning + running) * this.baseBet);
+        continue;
+      }
+
+      if (event.type === 'freeSpinEnd') {
+        await this.dispatchPresentation('freeSpinEnd', {
+          amount: Number(event.amount || 0) / BOOK_AMOUNT_MULTIPLIER * this.baseBet,
+          mode,
+        });
+        this.container.querySelector('#previewFeatureProgress')?.classList.remove('is-visible');
       }
     }
 
@@ -3473,6 +3821,29 @@ export class PreviewPanel {
     if (result?.finished?.then) return result.finished;
     const duration = Math.max(0, Number(result?.duration) || 0);
     return duration > 0 ? this.wait(Math.ceil(duration * 1000) + 80) : Promise.resolve();
+  }
+
+  combinePresentationMotion(results = []) {
+    return {
+      finished: Promise.all((results || [])
+        .filter(Boolean)
+        .map(result => this.waitForPresentationMotion(result))),
+    };
+  }
+
+  waitForActiveVisualChoreography(kind) {
+    const entries = [...this.pendingVisualChoreography.entries()]
+      .filter(([, entry]) => !kind || entry.kind === kind);
+    this.recordPlaybackEvent('visualChoreographyBarrierStart', {
+      kind: kind || 'all',
+      pendingPlanIds: entries.map(([planId]) => planId),
+    });
+    return Promise.all(entries.map(([, entry]) => entry.finished)).then(() => {
+      this.recordPlaybackEvent('visualChoreographyBarrierComplete', {
+        kind: kind || 'all',
+        pendingPlanIds: entries.map(([planId]) => planId),
+      });
+    });
   }
 
   eventPositions(values = []) {
@@ -3521,6 +3892,34 @@ export class PreviewPanel {
       });
     }
     return cells;
+  }
+
+  clearOneiricStarTargetLock() {
+    this.oneiricStarTargetLock = null;
+    this.container.querySelector('.reel-frame')?.classList.remove('is-oneiric-targeting');
+    this.container.querySelectorAll('.reel-sym').forEach(cell => cell.classList.remove(
+      'is-oneiric-source', 'is-oneiric-target',
+    ));
+  }
+
+  applyOneiricStarTargetLock() {
+    if (!this.oneiricStarTargetLock) return;
+    this.container.querySelector('.reel-frame')?.classList.add('is-oneiric-targeting');
+    for (const [reel, row] of this.oneiricStarTargetLock.sources) {
+      this.cellAt(reel, row)?.classList.add('is-oneiric-source');
+    }
+    for (const [reel, row] of this.oneiricStarTargetLock.targets) {
+      this.cellAt(reel, row)?.classList.add('is-oneiric-target');
+    }
+  }
+
+  setOneiricStarTargetLock(sources = [], targets = []) {
+    this.clearOneiricStarTargetLock();
+    this.oneiricStarTargetLock = {
+      sources: this.eventPositions(sources),
+      targets: this.eventPositions(targets),
+    };
+    this.applyOneiricStarTargetLock();
   }
 
   mechanicCopy(event) {
@@ -3694,6 +4093,7 @@ export class PreviewPanel {
   }
 
   clearFeatureState() {
+    this.clearOneiricStarTargetLock();
     this.featurePositionMultipliers.clear();
     this.featurePositionGridMode = null;
     this.featurePositionGridPulse.clear();
@@ -3793,6 +4193,190 @@ export class PreviewPanel {
     };
   }
 
+  visualChoreographyMotionPolicy() {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return 'reduced';
+    return this.turboMode ? 'fast' : 'normal';
+  }
+
+  visualSequenceIntensity(type, fallback = 'normal') {
+    const brief = (this.project.production?.workflow?.visualExcellence?.briefs || [])
+      .find(item => item.type === type && item.status === 'approved');
+    return ['micro', 'normal', 'major', 'peak'].includes(brief?.intensity) ? brief.intensity : fallback;
+  }
+
+  beginVisualChoreography(plan) {
+    const run = {
+      planId: plan.id,
+      eventId: plan.eventId,
+      kind: plan.kind,
+      intensity: plan.intensity,
+      motionPolicy: plan.motionPolicy,
+      authority: { ...plan.authority },
+      phaseOrder: plan.phases.map(phase => phase.id),
+      phase: null,
+      phaseHistory: [],
+      status: 'playing',
+      acknowledgement: null,
+    };
+    this.activeVisualChoreography.set(plan.id, run);
+    this.visualChoreographyRuns.push(run);
+    if (this.visualChoreographyRuns.length > 24) this.visualChoreographyRuns.splice(0, this.visualChoreographyRuns.length - 24);
+    this.recordPlaybackEvent('visualChoreographyStart', {
+      planId: plan.id,
+      kind: plan.kind,
+      intensity: plan.intensity,
+      motionPolicy: plan.motionPolicy,
+    });
+    return run;
+  }
+
+  executeReducedVisualChoreography(plan, { onPhase = null } = {}) {
+    if (plan.motionPolicy !== 'reduced' || plan.motionEnabled) {
+      throw new Error(`Reduced semantic choreography requires a reduced, motion-disabled plan; received ${plan.motionPolicy}.`);
+    }
+    this.beginVisualChoreography(plan);
+    for (const phase of plan.phases) {
+      this.advanceVisualChoreography(plan, phase.id);
+      onPhase?.(phase, plan);
+    }
+    return this.finishVisualChoreography(plan, 'completed');
+  }
+
+  advanceVisualChoreography(plan, phaseId) {
+    const run = this.activeVisualChoreography.get(plan.id);
+    if (!run || run.status !== 'playing' || run.phase === phaseId) return run || null;
+    run.phase = phaseId;
+    run.phaseHistory.push(phaseId);
+    this.recordPlaybackEvent('visualChoreographyPhase', {
+      planId: plan.id,
+      kind: plan.kind,
+      phase: phaseId,
+      motionPolicy: plan.motionPolicy,
+    });
+    return run;
+  }
+
+  finishVisualChoreography(plan, status = 'completed') {
+    const run = this.activeVisualChoreography.get(plan.id);
+    if (!run || run.status !== 'playing') return run || null;
+    run.status = status;
+    run.acknowledgement = createChoreographyAcknowledgement(plan, {
+      status,
+      completedPhase: run.phase,
+    });
+    this.activeVisualChoreography.delete(plan.id);
+    this.recordPlaybackEvent('visualChoreographyAcknowledged', {
+      planId: plan.id,
+      kind: plan.kind,
+      status,
+      completedPhase: run.acknowledgement.completedPhase,
+      acknowledgementToken: run.acknowledgement.token,
+    });
+    return run;
+  }
+
+  getVisualChoreographyState() {
+    return {
+      format: 'stake-studio-preview-visual-choreography-state-v1',
+      active: [...this.activeVisualChoreography.values()].map(run => ({ ...run })),
+      recent: this.visualChoreographyRuns.slice(-8).map(run => ({ ...run })),
+    };
+  }
+
+  scheduleTileConnectionPlan(plan) {
+    this.beginVisualChoreography(plan);
+    let settled = false;
+    let resolveFinished = () => {};
+    const finished = new Promise(resolve => { resolveFinished = resolve; });
+    const settle = status => {
+      if (settled) return;
+      settled = true;
+      const run = this.finishVisualChoreography(plan, status);
+      this.pendingVisualChoreography.delete(plan.id);
+      resolveFinished(run);
+    };
+    this.pendingVisualChoreography.set(plan.id, { kind: plan.kind, finished });
+    const timeline = gsap.timeline({
+      onComplete: () => settle('completed'),
+      onInterrupt: () => settle('cancelled'),
+    });
+    for (const phase of plan.phases) {
+      timeline.call(() => this.advanceVisualChoreography(plan, phase.id), [], phase.startMs / 1000);
+    }
+    timeline.call(() => {}, [], plan.totalDurationMs / 1000);
+    timeline.cancelPresentationMotion = () => settle('cancelled');
+    this.winOrbTimelines.push(timeline);
+    // Keep the awaited completion contract outside the GSAP object. GSAP owns
+    // timeline instance properties; a plain wrapper makes the event barrier
+    // stable across runtime builds and plugin versions.
+    return { timeline, finished };
+  }
+
+  currentVisualReelGeometry(board = this.board) {
+    const rows = this.project.math.grid.rows;
+    const cells = [];
+    for (let reel = 0; reel < this.project.math.grid.reels; reel++) {
+      const reelRows = this.featureReelRows.get(reel) || board?.[reel]?.length || rows[reel] || rows[0];
+      for (let row = 0; row < reelRows; row++) {
+        const position = this.tumbleCellPosition(reel, row);
+        cells.push({
+          reel, row,
+          x: this.reelGeometry.x + position.left,
+          y: this.reelGeometry.y + position.top,
+          width: this.reelGeometry.cellW,
+          height: this.reelGeometry.cellH,
+        });
+      }
+    }
+    return {
+      coordinateSpace: {
+        x: this.reelGeometry.x, y: this.reelGeometry.y,
+        width: this.reelGeometry.w, height: this.reelGeometry.h,
+      },
+      cells,
+    };
+  }
+
+  createTileConnectionPlans(wins = [], {
+    motionPolicy = this.visualChoreographyMotionPolicy(),
+    eventIdPrefix = `winInfo:${this.playbackTrace.length}`,
+  } = {}) {
+    const geometry = this.currentVisualReelGeometry();
+    const configuredAnchorY = Number(this.project.theme?.presentationEffects?.winConnections?.tileAnchorY);
+    const tileAnchorY = Number.isFinite(configuredAnchorY) ? Math.max(0, Math.min(1, configuredAnchorY)) : 0.5;
+    return (wins || []).flatMap((win, winIndex) => {
+      const seen = new Set();
+      const positions = (win.positions || []).map((position, order) => {
+        const [reel, row] = Array.isArray(position)
+          ? position.map(Number)
+          : [Number(position?.reel), Number(position?.row)];
+        return { id: `win-${winIndex}-${reel}-${row}`, reel, row, order, anchor: { x: 0.5, y: tileAnchorY } };
+      }).filter(position => {
+        const key = `${position.reel}:${position.row}`;
+        if (!Number.isFinite(position.reel) || !Number.isFinite(position.row) || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      if (positions.length < 2) return [];
+      const relationshipEdges = positions.slice(1).map((position, index) => ({
+        id: `win-${winIndex}-edge-${index}`,
+        source: positions[index].id,
+        target: position.id,
+        order: index,
+        relationship: 'same-authoritative-win',
+      }));
+      return [createTileConnectionPlan({
+        eventId: `${eventIdPrefix}:${winIndex}`,
+        eventPositions: positions,
+        relationshipEdges,
+        reelGeometry: geometry,
+        intensity: this.visualSequenceIntensity('tile-connections', 'normal'),
+        motionPolicy,
+        interruption: 'replace',
+      })];
+    });
+  }
+
   createTumbleSymbol(layer, symbol, reel, row, className = '') {
     const cell = document.createElement('div');
     const position = this.tumbleCellPosition(reel, row);
@@ -3811,6 +4395,49 @@ export class PreviewPanel {
     return cell;
   }
 
+  authoritativeTumbleMovements(board, event) {
+    const removed = new Set(this.eventPositions(event.explodingSymbols || [])
+      .map(([reel, row]) => `${reel},${row}`));
+    const movements = [];
+    for (let reel = 0; reel < (board || []).length; reel++) {
+      const incoming = event.newSymbols?.[reel] || [];
+      let survivorIndex = 0;
+      for (let row = 0; row < (board[reel] || []).length; row++) {
+        if (removed.has(`${reel},${row}`)) continue;
+        const targetRow = incoming.length + survivorIndex;
+        if (targetRow !== row) movements.push({
+          id: `fall-${reel}-${row}`,
+          tileId: `survivor-${reel}-${row}`,
+          type: 'fall', from: { reel, row }, to: { reel, row: targetRow },
+          order: survivorIndex,
+        });
+        survivorIndex++;
+      }
+      incoming.forEach((_symbol, index) => movements.push({
+        id: `enter-${reel}-${index}`,
+        tileId: `incoming-${reel}-${index}`,
+        type: 'enter', to: { reel, row: index }, entryOrder: incoming.length - index - 1,
+        order: index,
+      }));
+    }
+    return movements;
+  }
+
+  createTumbleChoreographyPlan(board, event, {
+    motionPolicy = this.visualChoreographyMotionPolicy(),
+    eventId = `tumbleBoard:${this.playbackTrace.length}`,
+  } = {}) {
+    return createTumblePlan({
+      eventId,
+      clearedPositions: this.eventPositions(event.explodingSymbols || []).map(([reel, row], order) => ({ reel, row, order })),
+      movements: this.authoritativeTumbleMovements(board, event),
+      reelGeometry: this.currentVisualReelGeometry(board),
+      intensity: this.visualSequenceIntensity('tumble', 'major'),
+      motionPolicy,
+      interruption: 'queue',
+    });
+  }
+
   /**
    * Stake tumble choreography: snapshot, explode exact positions, compact each
    * reel, insert exact incoming symbols, then atomically reveal the settled
@@ -3822,10 +4449,12 @@ export class PreviewPanel {
 
     const layer = document.createElement('div');
     layer.className = 'preview-tumble-layer';
-    const removed = new Set((event.explodingSymbols || [])
-      .map(position => `${Number(position.reel)},${Number(position.row)}`));
+    const removed = new Set(this.eventPositions(event.explodingSymbols || [])
+      .map(([reel, row]) => `${reel},${row}`));
     const survivorMotions = [];
     const explodingCells = [];
+    const incomingCells = [];
+    const landingCells = [];
 
     for (let reel = 0; reel < board.length; reel++) {
       const incoming = event.newSymbols?.[reel] || [];
@@ -3837,9 +4466,10 @@ export class PreviewPanel {
           explodingCells.push(cell);
           continue;
         }
-        const target = this.tumbleCellPosition(reel, incoming.length + survivorIndex);
+        const targetRow = incoming.length + survivorIndex;
+        const target = this.tumbleCellPosition(reel, targetRow);
         cell.dataset.targetTop = String(target.top);
-        survivorMotions.push(cell);
+        if (targetRow !== row) survivorMotions.push(cell);
         survivorIndex++;
       }
       incoming.forEach((symbol, index) => {
@@ -3848,32 +4478,107 @@ export class PreviewPanel {
         cell.dataset.targetTop = String(target.top);
         cell.style.opacity = '0';
         survivorMotions.push(cell);
+        incomingCells.push(cell);
       });
+      if (survivorMotions.some(cell => Number(cell.dataset.reel) === reel)) {
+        const reelCells = [...layer.children]
+          .filter(cell => Number(cell.dataset.reel) === reel && !cell.classList.contains('is-exploding'))
+          .sort((left, right) => Number(left.dataset.targetTop) - Number(right.dataset.targetTop));
+        if (reelCells.length) landingCells.push(reelCells.at(-1));
+      }
     }
+
+    const plan = this.createTumbleChoreographyPlan(board, event, {
+      motionPolicy: this.visualChoreographyMotionPolicy(),
+      eventId: `tumbleBoard:${this.playbackTrace.length}`,
+    });
+    const phase = id => plan.phases.find(item => item.id === id)?.durationMs || 0;
 
     frame.appendChild(layer);
     frame.classList.add('is-tumbling');
-    this.visualEffectRuntime?.clearSymbolFlipbooks?.();
+    frame.dataset.visualPlan = plan.id;
+    this.suspendSettledSymbolMotion();
 
+    this.beginVisualChoreography(plan);
     const motion = new Promise(resolve => {
-      const timeline = gsap.timeline({ onComplete: resolve });
-      if (explodingCells.length) {
-        timeline.to(explodingCells, {
-          scale: 0.18,
-          opacity: 0,
-          rotation: (_, target) => (Number(target.dataset.reel) % 2 ? 7 : -7),
-          duration: 0.28,
-          stagger: 0.012,
-          ease: 'power2.in',
-        });
+      let finished = false;
+      const timeline = gsap.timeline({
+        onComplete: () => {
+          finished = true;
+          this.finishVisualChoreography(plan, 'completed');
+          resolve();
+        },
+        onInterrupt: () => {
+          if (!finished) this.finishVisualChoreography(plan, 'cancelled');
+          resolve();
+        },
+      });
+      for (const item of plan.phases) {
+        timeline.call(() => this.advanceVisualChoreography(plan, item.id), [], item.startMs / 1000);
       }
-      timeline.to(survivorMotions, {
-        top: (_, target) => Number(target.dataset.targetTop),
-        opacity: 1,
-        duration: 0.46,
-        stagger: 0.014,
-        ease: 'power3.out',
-      }, explodingCells.length ? '-=0.035' : 0);
+      const clearPhase = plan.phases.find(item => item.id === 'clear');
+      const recognitionPhase = plan.phases.find(item => item.id === 'recognition');
+      const reactionPhase = plan.phases.find(item => item.id === 'reaction');
+      const enterPhase = plan.phases.find(item => item.id === 'enter');
+      const fallPhase = plan.phases.find(item => item.id === 'fall');
+      const settlePhase = plan.phases.find(item => item.id === 'settle');
+      if (plan.motionEnabled) {
+        timeline.call(() => explodingCells.forEach(cell => {
+          cell.classList.remove('is-tumble-reacting', 'is-tumble-clearing');
+          cell.classList.add('is-tumble-recognized');
+        }), [], (recognitionPhase?.startMs || 0) / 1000);
+        timeline.call(() => explodingCells.forEach(cell => {
+          cell.classList.remove('is-tumble-recognized');
+          cell.classList.add('is-tumble-reacting');
+        }), [], (reactionPhase?.startMs || 0) / 1000);
+        timeline.call(() => explodingCells.forEach(cell => {
+          cell.classList.remove('is-tumble-reacting');
+          cell.classList.add('is-tumble-clearing');
+        }), [], (clearPhase?.startMs || 0) / 1000);
+        if (explodingCells.length) timeline.to(explodingCells, {
+          yPercent: -8,
+          scale: 0.58,
+          opacity: 0,
+          rotation: (_, target) => (Number(target.dataset.reel) % 2 ? 4 : -4),
+          filter: 'blur(5px) brightness(1.25)',
+          duration: Math.max(0.001, phase('clear') / 1000),
+          stagger: Math.max(0, (clearPhase?.cues?.[1]?.relativeAtMs || 0) / 1000),
+          ease: 'power2.inOut',
+        }, (clearPhase?.startMs || 0) / 1000);
+        if (incomingCells.length) timeline.to(incomingCells, {
+          opacity: .35,
+          filter: 'blur(2px) brightness(.82)',
+          duration: Math.max(0.001, phase('enter') / 1000),
+          stagger: Math.max(0, (enterPhase?.cues?.[1]?.relativeAtMs || 0) / 1000),
+          ease: 'power1.out',
+        }, (enterPhase?.startMs || 0) / 1000);
+        timeline.to(survivorMotions, {
+          top: (_, target) => Number(target.dataset.targetTop),
+          opacity: 1,
+          filter: 'none',
+          duration: Math.max(0.001, phase('fall') / 1000),
+          stagger: Math.max(0, (fallPhase?.cues?.[1]?.relativeAtMs || 0) / 1000),
+          ease: 'power2.in',
+        }, (fallPhase?.startMs || 0) / 1000);
+        timeline.fromTo(survivorMotions, { scaleY: .94, scaleX: 1.035 }, {
+          scaleY: 1,
+          scaleX: 1,
+          duration: Math.max(0.001, phase('settle') / 1000),
+          stagger: Math.max(0, (settlePhase?.cues?.[1]?.relativeAtMs || 0) / 1000),
+          ease: 'back.out(1.55)',
+        }, (settlePhase?.startMs || 0) / 1000);
+        timeline.call(() => landingCells.forEach(cell => cell.classList.add('is-tumble-landing')), [], (settlePhase?.startMs || 0) / 1000);
+        timeline.call(() => landingCells.forEach(cell => cell.classList.remove('is-tumble-landing')), [], (settlePhase?.endMs || plan.totalDurationMs) / 1000);
+      } else {
+        timeline.set(explodingCells, { scale: 1, opacity: 0, rotation: 0 }, (clearPhase?.startMs || 0) / 1000);
+        timeline.set(survivorMotions, {
+          top: (_, target) => Number(target.dataset.targetTop),
+          opacity: 1,
+          scaleX: 1,
+          scaleY: 1,
+        }, (fallPhase?.startMs || 0) / 1000);
+      }
+      timeline.call(() => {}, [], plan.totalDurationMs / 1000);
     });
 
     try {
@@ -3892,7 +4597,8 @@ export class PreviewPanel {
     } finally {
       layer.remove();
       frame.classList.remove('is-tumbling');
-      this.scheduleSymbolMotionSync();
+      delete frame.dataset.visualPlan;
+      this.resumeSettledSymbolMotion();
     }
   }
 
@@ -3918,18 +4624,21 @@ export class PreviewPanel {
       incoming.push(newCell);
     }
     frame.appendChild(layer);
-    this.visualEffectRuntime?.clearSymbolFlipbooks?.();
-    this.board = targetBoard;
-    this.paintBoard(targetBoard);
+    this.suspendSettledSymbolMotion();
+    try {
+      this.board = targetBoard;
+      this.paintBoard(targetBoard);
 
-    await new Promise(resolve => {
-      gsap.timeline({ onComplete: resolve })
-        .to(outgoing, { opacity: 0, scale: 1.16, duration: 0.3, ease: 'power2.out' })
-        .fromTo(incoming, { opacity: 0, scale: 0.82 }, { opacity: 1, scale: 1, duration: 0.34, ease: 'back.out(1.4)' }, '-=0.2');
-    });
-    layer.remove();
-    this.scheduleSymbolMotionSync();
-    return targetBoard;
+      await new Promise(resolve => {
+        gsap.timeline({ onComplete: resolve })
+          .to(outgoing, { opacity: 0, scale: 1.16, duration: 0.3, ease: 'power2.out' })
+          .fromTo(incoming, { opacity: 0, scale: 0.82 }, { opacity: 1, scale: 1, duration: 0.34, ease: 'back.out(1.4)' }, '-=0.2');
+      });
+      return targetBoard;
+    } finally {
+      layer.remove();
+      this.resumeSettledSymbolMotion();
+    }
   }
 
   pulseReelImpact(reel) {
@@ -4136,6 +4845,7 @@ export class PreviewPanel {
         if (cell) this.setSymbolCell(cell, board[r][row]);
       }
     }
+    this.applyOneiricStarTargetLock();
   }
 
   paintReelBoard(reel, symbols) {
@@ -4161,6 +4871,38 @@ export class PreviewPanel {
     const { buffer, cellW } = this.reelGeometry;
     this.reelGeometry.maxRows = maxRows;
     this.reelGeometry.cellH = cellH;
+
+    const dormantGrid = this.container.querySelector('#previewDormantGrid');
+    if (dormantGrid) {
+      dormantGrid.style.gridTemplateColumns = `repeat(${counts.length}, ${cellW}px)`;
+      dormantGrid.style.gridTemplateRows = `repeat(${maxRows}, ${cellH}px)`;
+      dormantGrid.style.columnGap = `${this.reelGeometry.gap}px`;
+      dormantGrid.replaceChildren();
+      if (reservedWorld) {
+        for (let reel = 0; reel < counts.length; reel++) {
+          const dormantRows = Math.max(0, maxRows - counts[reel]);
+          for (let row = 0; row < dormantRows; row++) {
+            const well = document.createElement('i');
+            well.className = 'preview-dormant-well';
+            const depth = dormantRows - row;
+            well.dataset.dormantState = depth === 1 ? 'next' : 'locked';
+            well.dataset.dormantDepth = String(depth);
+            well.style.gridColumn = String(reel + 1);
+            well.style.gridRow = String(row + 1);
+            const mask = this.symbolDefinition('DREAM_MASK');
+            if (mask?.src) {
+              const glyph = document.createElement('img');
+              glyph.className = 'preview-dormant-glyph';
+              glyph.src = mask.src;
+              glyph.alt = '';
+              glyph.draggable = false;
+              well.appendChild(glyph);
+            }
+            dormantGrid.appendChild(well);
+          }
+        }
+      }
+    }
 
     for (let reel = 0; reel < counts.length; reel++) {
       const reelRows = counts[reel];
@@ -4269,81 +5011,76 @@ export class PreviewPanel {
   }
 
   renderWinPaths(wins) {
+    const plans = this.createTileConnectionPlans(wins);
     if (this.project.theme?.presentationEffects?.winConnections?.type === 'particleTap') {
-      return this.playWinEnergyTaps(wins);
+      return this.playWinEnergyTaps(wins, plans);
     }
     const orbLayer = this.container.querySelector('#previewWinOrbs');
     const orbSrc = this.project.theme?.presentationAssets?.connectionOrb;
     if (orbLayer && orbSrc) {
-      this.renderWinOrbTaps(orbLayer, wins, orbSrc);
+      this.renderWinOrbTaps(orbLayer, plans, orbSrc);
       return null;
     }
     const svg = this.container.querySelector('#previewWinPaths');
     if (!svg) return null;
     const paths = [];
-    for (const [index, win] of (wins || []).entries()) {
-      const positions = [...(win.positions || [])].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-      if (positions.length < 2) continue;
-      const points = positions.map(([reel, row]) => ({
-        x: this.reelGeometry.x + (reel + .5) * (this.reelGeometry.w / this.project.math.grid.reels),
-        y: this.reelGeometry.y + (row + .5) * (this.reelGeometry.h / this.reelGeometry.maxRows),
+    const planTimelines = [];
+    for (const [index, plan] of plans.entries()) {
+      const reaction = plan.phases.find(item => item.id === 'reaction');
+      const propagation = plan.phases.find(item => item.id === 'propagation');
+      paths.push(...plan.routes.map((route, routeIndex) => {
+        const relativeAtMs = propagation?.cues?.[routeIndex]?.relativeAtMs || 0;
+        return `<line class="preview-win-path preview-win-path-${index % 3}" data-visual-plan="${this.esc(plan.id)}" data-relationship="${this.esc(route.relationship)}" x1="${route.source.x.toFixed(1)}" y1="${route.source.y.toFixed(1)}" x2="${route.target.x.toFixed(1)}" y2="${route.target.y.toFixed(1)}" pathLength="1" style="--path-delay:${(propagation?.startMs || 0) + relativeAtMs}ms;--path-duration:${propagation?.durationMs || 260}ms"></line>`;
       }));
-      const pointString = points.map(point => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
-      paths.push(`<polyline class="preview-win-path preview-win-path-${index % 3}" points="${pointString}" pathLength="1" style="--path-delay:${index * 90}ms"></polyline>`);
-      paths.push(...points.map((point, pointIndex) => `<circle class="preview-win-node" cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="6" style="--path-delay:${index * 90 + pointIndex * 55}ms"></circle>`));
+      paths.push(...plan.anchors.map((anchor, pointIndex) => {
+        const relativeAtMs = reaction?.cues?.[pointIndex]?.relativeAtMs || 0;
+        return `<circle class="preview-win-node" data-visual-plan="${this.esc(plan.id)}" cx="${anchor.point.x.toFixed(1)}" cy="${anchor.point.y.toFixed(1)}" r="6" style="--path-delay:${(reaction?.startMs || 0) + relativeAtMs}ms"></circle>`;
+      }));
+      planTimelines.push(this.scheduleTileConnectionPlan(plan));
     }
     svg.innerHTML = paths.join('');
     svg.classList.toggle('is-visible', paths.length > 0);
-    return null;
+    return this.combinePresentationMotion(planTimelines);
   }
 
-  playWinEnergyTaps(wins) {
-    const seen = new Set();
-    const positionGroups = [];
-    for (const win of wins || []) {
-      const group = [];
-      for (const position of [...(win.positions || [])].sort((a, b) => a[0] - b[0] || a[1] - b[1])) {
-        const key = `${position[0]}:${position[1]}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        group.push(position);
-      }
-      if (group.length) positionGroups.push(group);
-    }
-    const positions = positionGroups.flat();
-    if (!positions.length) return;
-    const reelWidth = this.reelGeometry.w / this.project.math.grid.reels;
-    const rowHeight = this.reelGeometry.h / this.reelGeometry.maxRows;
-    const points = positions.map(position => this.pointForPosition(position));
-    let pointOffset = 0;
-    const groups = positionGroups.map(group => {
-      const mapped = points.slice(pointOffset, pointOffset + group.length);
-      pointOffset += group.length;
-      return mapped;
-    });
+  playWinEnergyTaps(wins, plans = this.createTileConnectionPlans(wins)) {
+    const groups = plans.map(plan => plan.anchors.map(anchor => anchor.point));
+    const points = groups.flat();
+    if (!points.length) return;
     const effect = this.project.theme?.presentationEffects?.winConnections || {};
+    const propagation = plans[0]?.phases?.find(item => item.id === 'propagation');
+    const hopMs = propagation?.cues?.[1]?.relativeAtMs || 110;
     const play = () => this.visualEffectRuntime?.playEnergyTaps(points, {
       color: effect.color || '#62e7ff',
       coreColor: effect.coreColor || '#ffffff',
       rimColor: effect.rimColor || '#d6a84b',
-      origin: effect.origin || null,
+      // Win connections are tile-to-tile relationships. External cabinet
+      // origins are only meaningful for mechanics entering the reel bay.
+      origin: null,
       groups,
-      launchDuration: Math.min(0.3, Number(effect.launchDuration) || 0.3),
+      launchDuration: Math.min(0.3, (plans[0]?.phases?.find(item => item.id === 'interaction')?.durationMs || Number(effect.launchDuration) * 1000 || 300) / 1000),
       launchHold: Math.min(0.04, Number(effect.launchHold) || 0.04),
-      hopDuration: Math.min(0.12, Number(effect.hopDuration) || 0.11),
+      hopDuration: Math.min(0.12, Math.max(0.01, hopMs / 1000)),
       messengerSize: Math.min(36, Number(effect.messengerSize) || 32),
       impactSize: Math.min(34, Number(effect.impactSize) || 30),
       impactAlpha: Math.min(0.68, Number(effect.impactAlpha) || 0.58),
+      routeWidth: effect.routeWidth,
+      routeAlpha: effect.routeAlpha,
+      messengerRadius: effect.messengerRadius,
+      impactRadius: effect.impactRadius,
       messengerAssetId: effect.messengerAssetId || null,
       impactAssetId: effect.impactAssetId || null,
       reducedMotion: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
     });
     const result = play();
-    if (!result) window.setTimeout(play, 120);
-    return result;
+    const visualMotion = result || {
+      finished: this.wait(120).then(() => this.waitForPresentationMotion(play())),
+    };
+    const planTimelines = plans.map(plan => this.scheduleTileConnectionPlan(plan));
+    return this.combinePresentationMotion([visualMotion, ...planTimelines]);
   }
 
-  renderWinOrbTaps(layer, wins, orbSrc) {
+  renderWinOrbTaps(layer, plans, orbSrc) {
     this.killWinOrbTimelines();
     layer.replaceChildren();
     layer.classList.remove('is-visible');
@@ -4351,14 +5088,15 @@ export class PreviewPanel {
     const rowHeight = this.reelGeometry.h / this.reelGeometry.maxRows;
     const orbSize = Math.max(36, Math.min(62, Math.min(reelWidth, rowHeight) * .62));
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const motions = [];
 
-    for (const [winIndex, win] of (wins || []).entries()) {
-      const positions = [...(win.positions || [])].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-      if (positions.length < 2) continue;
-      const points = positions.map(([reel, row]) => ({
-        x: this.reelGeometry.x + (reel + .5) * reelWidth,
-        y: this.reelGeometry.y + (row + .5) * rowHeight,
-      }));
+    for (const [winIndex, plan] of (plans || []).entries()) {
+      const points = plan.anchors.map(anchor => anchor.point);
+      if (points.length < 2) continue;
+      const interaction = plan.phases.find(phase => phase.id === 'interaction');
+      const reaction = plan.phases.find(phase => phase.id === 'reaction');
+      const propagation = plan.phases.find(phase => phase.id === 'propagation');
+      const resolution = plan.phases.find(phase => phase.id === 'resolution');
 
       points.forEach((point, pointIndex) => {
         const marker = new Image();
@@ -4370,11 +5108,14 @@ export class PreviewPanel {
         marker.style.top = `${point.y}px`;
         marker.style.width = `${orbSize * .86}px`;
         marker.style.height = `${orbSize * .86}px`;
-        marker.style.setProperty('--orb-delay', `${winIndex * 120 + pointIndex * 165}ms`);
+        marker.style.setProperty('--orb-delay', `${(reaction?.startMs || 0) + (reaction?.cues?.[pointIndex]?.relativeAtMs || 0)}ms`);
         layer.appendChild(marker);
       });
 
-      if (reducedMotion) continue;
+      if (reducedMotion || !plan.motionEnabled) {
+        motions.push(this.scheduleTileConnectionPlan(plan));
+        continue;
+      }
       const traveler = new Image();
       traveler.className = 'preview-win-orb preview-win-orb-traveler';
       traveler.alt = '';
@@ -4384,28 +5125,48 @@ export class PreviewPanel {
       traveler.style.height = `${orbSize}px`;
       layer.appendChild(traveler);
 
-      const timeline = gsap.timeline({ delay: winIndex * .12 });
-      timeline.set(traveler, { x: points[0].x, y: points[0].y, xPercent: -50, yPercent: -50, scale: .4, rotation: -10, opacity: 0 })
-        .to(traveler, { scale: 1, rotation: 0, opacity: 1, duration: .14, ease: 'back.out(2)' });
-      points.forEach((point, pointIndex) => {
-        if (pointIndex) timeline.to(traveler, { x: point.x, y: point.y, duration: .2, ease: 'power2.inOut' }, '>-0.01');
-        timeline.to(traveler, { scale: 1.24, filter: 'brightness(1.35)', duration: .075, ease: 'power2.out' })
-          .to(traveler, { scale: .84, filter: 'brightness(1)', duration: .12, ease: 'power2.in' });
+      const propagationDuration = Math.max(.01, (propagation?.durationMs || 260) / 1000 / Math.max(1, points.length - 1));
+      let resolveTraveler = () => {};
+      let travelerSettled = false;
+      const travelerFinished = new Promise(resolve => { resolveTraveler = resolve; });
+      const settleTraveler = () => {
+        if (travelerSettled) return;
+        travelerSettled = true;
+        resolveTraveler();
+      };
+      const timeline = gsap.timeline({
+        delay: (interaction?.startMs || 0) / 1000,
+        onComplete: settleTraveler,
+        onInterrupt: settleTraveler,
       });
-      timeline.to(traveler, { scale: 1.18, opacity: 0, duration: .28, ease: 'power2.out' });
+      timeline.set(traveler, { x: points[0].x, y: points[0].y, xPercent: -50, yPercent: -50, scale: .4, rotation: -10, opacity: 0 })
+        .to(traveler, { scale: 1, rotation: 0, opacity: 1, duration: Math.max(.01, (interaction?.durationMs || 100) / 1000), ease: 'back.out(2)' });
+      points.forEach((point, pointIndex) => {
+        if (pointIndex) timeline.to(traveler, { x: point.x, y: point.y, duration: propagationDuration, ease: 'power2.inOut' });
+        timeline.to(traveler, { scale: 1.24, filter: 'brightness(1.35)', duration: Math.max(.01, (reaction?.durationMs || 140) / 2000), ease: 'power2.out' })
+          .to(traveler, { scale: .84, filter: 'brightness(1)', duration: Math.max(.01, (reaction?.durationMs || 140) / 2000), ease: 'power2.in' });
+      });
+      timeline.to(traveler, { scale: 1.18, opacity: 0, duration: Math.max(.01, (resolution?.durationMs || 180) / 1000), ease: 'power2.out' });
+      timeline.cancelPresentationMotion = settleTraveler;
       this.winOrbTimelines.push(timeline);
+      motions.push({ timeline, finished: travelerFinished }, this.scheduleTileConnectionPlan(plan));
     }
 
     layer.classList.toggle('is-visible', layer.childElementCount > 0);
+    return this.combinePresentationMotion(motions);
   }
 
   killWinOrbTimelines() {
-    for (const timeline of this.winOrbTimelines || []) timeline.kill();
+    for (const timeline of this.winOrbTimelines || []) {
+      timeline.cancelPresentationMotion?.();
+      timeline.kill();
+    }
     this.winOrbTimelines = [];
   }
 
   clearWinHighlights() {
     this.visualEffectRuntime?.cancelEnergyTaps?.();
+    this.container.querySelector('#previewStage')?.classList.remove('is-win-recovering');
     this.container.querySelectorAll('.win-highlight').forEach(el => {
       el.classList.remove('win-highlight');
     });
@@ -4421,6 +5182,17 @@ export class PreviewPanel {
       orbs.replaceChildren();
       orbs.classList.remove('is-visible');
     }
+  }
+
+  async recoverWinPresentation({ immediate = false } = {}) {
+    const stage = this.container.querySelector('#previewStage');
+    const hasWinState = Boolean(this.container.querySelector('.win-highlight, .win-dimmed'));
+    if (!stage || !hasWinState) return false;
+    stage.classList.add('is-win-recovering');
+    if (!immediate) await this.wait(this.turboMode ? 90 : 240);
+    this.clearWinHighlights();
+    this.scheduleSymbolMotionSync();
+    return true;
   }
 
   animateWinDisplay(totalWin) {
@@ -4439,6 +5211,20 @@ export class PreviewPanel {
         });
       }
     }
+
+    const stage = document.getElementById('previewStage');
+    if (!stage || !Number.isFinite(Number(totalWin)) || Number(totalWin) <= 0) return;
+    stage.querySelector('.preview-win-result')?.remove();
+    const result = document.createElement('div');
+    const modeCardArt = this.playerComposition().hud.art.modeCard || '';
+    result.className = `preview-win-result${Number(totalWin) >= 10 ? ' is-emphatic' : ''}${modeCardArt ? ' has-authored-art' : ''}`;
+    if (modeCardArt) result.style.setProperty('--win-result-art', `url('${modeCardArt}')`);
+    result.innerHTML = `<span>TOTAL WIN</span><strong>${Number(totalWin).toFixed(2)}×</strong>`;
+    stage.appendChild(result);
+    gsap.timeline({ onComplete: () => result.remove() })
+      .fromTo(result, { opacity: 0, y: 10, scale: .82 }, { opacity: 1, y: 0, scale: 1, duration: .34, ease: 'back.out(1.55)' })
+      .fromTo(result.querySelector('strong'), { scale: .72 }, { scale: 1, duration: .4, ease: 'back.out(1.8)' }, .08)
+      .to(result, { opacity: 0, y: -6, duration: .28, delay: Number(totalWin) >= 10 ? 1.7 : 1.05 });
   }
 
   updateHUD() {
@@ -4453,7 +5239,8 @@ export class PreviewPanel {
     if (baseBet) baseBet.textContent = this.baseBet.toFixed(2);
     if (bet) bet.textContent = `TOTAL ${this.bet.toFixed(2)}`;
     if (win) win.textContent = this.lastWin.toFixed(2);
-    if (spin) spin.textContent = this.autoSpinsRemaining > 0 ? 'STOP' : 'SPIN';
+    const spinLabel = spin?.querySelector('.control-label');
+    if (spinLabel) spinLabel.textContent = this.autoSpinsRemaining > 0 ? 'STOP' : 'SPIN';
     if (autoCount) autoCount.textContent = this.autoSpinsRemaining > 0 ? String(this.autoSpinsRemaining) : 'AUTO';
     auto?.classList.toggle('is-active', this.autoSpinsRemaining > 0);
     const betIndex = this.baseBetOptions.findIndex(value => Math.abs(value - this.baseBet) < 1e-9);

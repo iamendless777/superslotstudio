@@ -29,7 +29,7 @@ Release requires every approved promise to be either:
 
 ## Specialty-agent coordination
 
-Flagship projects define governed specialist lanes for orchestration, creative direction, mechanic architecture, math, event protocol, frontend gameplay, presentation, visual art, audio, player information, and certification.
+Flagship projects define governed specialist lanes for orchestration, creative direction, mechanic architecture, math, event protocol, frontend gameplay, visual direction, composition and assets, motion and VFX, audio, player information, and certification.
 
 The coordination contract enforces:
 
@@ -41,6 +41,27 @@ The coordination contract enforces:
 
 Agents exchange contracts and evidence, not informal assumptions. The Game Orchestrator owns dependencies and integration; it does not silently reinterpret specialist deliverables.
 
+Work items are executable coordination records, not model processes. An external agent claims one dependency-ready job, receives a bounded lease, heartbeats while working, and completes or fails it with evidence. Lease tokens prevent another agent from updating the claim, artifact ownership prevents concurrent writers, and expired leases are recoverable. StakeStudio never launches models or arbitrary shell commands on behalf of a job.
+
+## Visual Excellence Department
+
+The Visual Excellence Department is a hierarchy, not three unrestricted writers:
+
+`Visual Director → Composition & Asset + Motion & VFX → Frontend implementation → Render → independent QA → Visual Director review → human final signoff`
+
+The existing `presentation` lane is the Visual Director / Orchestrator. It owns the sequence brief and review verdict but does not implement animation. The existing `visual` lane is the Composition & Asset Specialist. It owns placement, anchors, scale, depth, layers, masks and responsive composition. The added `motion_vfx` lane owns animation, easing, particles, impact, camera response, transitions and secondary motion. Separate artifacts and leased jobs prevent either specialist from overwriting the other's work.
+
+The Creative Director remains authoritative for the world, fantasy and Art Bible. Protocol supplies the authoritative event order and tile relationships. Frontend implements missing reusable renderer capabilities without rewriting visual direction. Audio receives explicit synchronization cues. QA independently verifies rendering, performance, accessibility, replay and viewport behavior. The Visual Director approves the department's result, but the human always retains final visual authority.
+
+Visual sequence briefs are machine-readable. Each brief records the player need, objective, intensity tier (`micro`, `normal`, `major`, or `peak`), intentional phases, authoritative protocol inputs, desktop/mobile/mini coverage, normal/fast/reduced-motion behavior, separate composition and motion objectives, audio synchronization, frontend capability needs, and acceptance criteria. Major events are sequences rather than piles of unrelated effects.
+
+The first governed proof covers two reusable cases:
+
+- **Tile connections:** authoritative event positions become a relationship graph, reel-cell anchors, connection motion, affected-tile reactions, propagation and resolution.
+- **Tumble:** recognition, reaction, clear, space resolution, entry, fall, settle and next evaluation.
+
+Each proof requires separate specialist deliveries, an integrated render, independent QA evidence, a Visual Director verdict, and final human signoff. Peak events use peak/max-win language and remain grounded in the game's stateless event contract.
+
 ## MCP workflow controls
 
 The Studio MCP exposes reusable project controls:
@@ -50,6 +71,14 @@ The Studio MCP exposes reusable project controls:
 - `update_flagship_workflow`
 - `upsert_specialty_agent_work`
 - `record_specialty_agent_handoff`
+- `create_agent_job`
+- `list_agent_jobs`
+- `claim_agent_job`
+- `heartbeat_agent_job`
+- `update_agent_job`
+- `complete_agent_job`
+- `fail_agent_job`
+- `recover_stale_agent_jobs`
 - `upsert_flagship_scenario`
 - `run_flagship_scenario`
 

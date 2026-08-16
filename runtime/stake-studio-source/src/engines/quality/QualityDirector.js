@@ -463,8 +463,8 @@ export class QualityDirector {
     const blueprintValidation = validateAppliedBlueprint(project);
     const assetPackValidation = validateAppliedAssetPack(project);
     checks.push(
-      check('release-identity', 'release', 'Game and provider identity are complete', configured(project.build?.stakeEngine?.gameId) && configured(project.build?.stakeEngine?.providerName) && Number.isSafeInteger(providerNumber) && providerNumber > 0, {
-        severity: 'blocker', remedy: 'Set the final game ID, provider name and assigned provider number.',
+      check('release-identity', 'release', 'Game and provider identity are complete', configured(project.build?.stakeEngine?.gameId) && configured(project.build?.stakeEngine?.providerName) && Number.isSafeInteger(providerNumber) && providerNumber >= 0, {
+        severity: 'blocker', remedy: 'Set the final game ID and provider name. Use provider number 0 until Stake assigns the team number.',
       }),
       check('release-math', 'release', 'Production math books pass official verification', productionMathReady, {
         severity: 'blocker',

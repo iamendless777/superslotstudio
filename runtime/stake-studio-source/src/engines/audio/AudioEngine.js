@@ -19,6 +19,7 @@ export class AudioEngine {
 
   get layers() { return this.project.audio.layers; }
   get stingers() { return this.project.audio.stingers; }
+  get soundscapeEnabled() { return this.project.audio?.soundscapeEnabled !== false; }
 
   syncMasterVolume() {
     Howler.volume(this.volume * Number(this.director.profile.buses.master ?? 1));
@@ -44,10 +45,12 @@ export class AudioEngine {
   loadFromProject() {
     this.director.refresh();
     this.syncMasterVolume();
-    for (const [key, layer] of Object.entries(this.layers)) {
-      if (!layer?.src) continue;
-      const type = key === 'ambience' ? 'ambience' : 'music';
-      this.load(`music_${key}`, layer.src, { ...layer, type, asset: layer });
+    if (this.soundscapeEnabled) {
+      for (const [key, layer] of Object.entries(this.layers)) {
+        if (!layer?.src) continue;
+        const type = key === 'ambience' ? 'ambience' : 'music';
+        this.load(`music_${key}`, layer.src, { ...layer, type, asset: layer });
+      }
     }
     for (const [event, stinger] of Object.entries(this.stingers)) {
       if (Array.isArray(stinger)) {
@@ -159,6 +162,10 @@ export class AudioEngine {
   }
 
   playMusic(layerKey) {
+    if (!this.soundscapeEnabled) {
+      this.stopMusic();
+      return null;
+    }
     if (this.musicPlaying === `music_${layerKey}` && this.sounds[this.musicPlaying]?.playing()) return this.sounds[this.musicPlaying];
     this.stopMusic();
     const key = `music_${layerKey}`;
@@ -168,6 +175,10 @@ export class AudioEngine {
   }
 
   playAmbience() {
+    if (!this.soundscapeEnabled) {
+      this.stopAmbience();
+      return null;
+    }
     const key = 'music_ambience';
     if (this.ambiencePlaying === key && this.sounds[key]?.playing()) return this.sounds[key];
     const sound = this.play(key);
@@ -176,6 +187,11 @@ export class AudioEngine {
   }
 
   startSoundscape(musicLayer = 'baseMusic') {
+    if (!this.soundscapeEnabled) {
+      this.stopMusic();
+      this.stopAmbience();
+      return null;
+    }
     this.playAmbience();
     return this.playMusic(musicLayer);
   }
@@ -259,13 +275,16 @@ export class AudioEngine {
   }
 
   getMusicForState(state) {
+    if (!this.soundscapeEnabled) return null;
     return state.startsWith('bonus') ? this.layers.bonusMusic : this.layers.baseMusic;
   }
 
   exportAudioManifest() {
     const files = [];
-    for (const [key, layer] of Object.entries(this.layers)) {
-      if (layer?.src) files.push({ type: key === 'ambience' ? 'ambience' : 'music', key, bus: key === 'ambience' ? 'ambience' : 'music', src: layer.src });
+    if (this.soundscapeEnabled) {
+      for (const [key, layer] of Object.entries(this.layers)) {
+        if (layer?.src) files.push({ type: key === 'ambience' ? 'ambience' : 'music', key, bus: key === 'ambience' ? 'ambience' : 'music', src: layer.src });
+      }
     }
     for (const [event, stinger] of Object.entries(this.stingers)) {
       if (Array.isArray(stinger)) {

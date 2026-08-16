@@ -1,4 +1,6 @@
-const LAYOUT_FORMAT = 'stake-studio-viewport-layout-qa-v1';
+const LAYOUT_FORMAT = 'stake-studio-viewport-layout-qa-v2';
+const MINIMUM_CONTROL_TARGET_PX = 44;
+const LAYOUT_MEASUREMENT_TOLERANCE_PX = 0.05;
 export const LAYOUT_VIEWPORTS = ['desktop', 'mobile', 'mini'];
 
 function hashText(value) {
@@ -48,6 +50,10 @@ function normalizeRect(rect = {}) {
   return { x, y, width, height, right: x + width, bottom: y + height };
 }
 
+function normalizeControlTarget(target = {}, index = 0) {
+  return { id: String(target.id || `control-${index + 1}`), ...normalizeRect(target) };
+}
+
 function normalizeSample(sample = {}) {
   return {
     viewport: LAYOUT_VIEWPORTS.includes(sample.viewport) ? sample.viewport : 'desktop',
@@ -60,6 +66,9 @@ function normalizeSample(sample = {}) {
     reels: normalizeRect(sample.reels),
     hud: normalizeRect(sample.hud),
     spin: normalizeRect(sample.spin),
+    controlTargets: Array.isArray(sample.controlTargets)
+      ? sample.controlTargets.map(normalizeControlTarget)
+      : [{ id: 'spin', ...normalizeRect(sample.spin) }],
     minimumSymbolWidth: number(sample.minimumSymbolWidth),
     minimumSymbolHeight: number(sample.minimumSymbolHeight),
     hudLabelFontPx: number(sample.hudLabelFontPx),
@@ -87,7 +96,12 @@ export function evaluateViewportLayoutSamples(project, samples = []) {
     if (outside(sample.stage, sample.viewportWidth, sample.viewportHeight)) issues.push(`${viewport} crops the game stage.`);
     if (outside(sample.reels, sample.viewportWidth, sample.viewportHeight)) issues.push(`${viewport} crops the playable reels.`);
     if (outside(sample.hud, sample.viewportWidth, sample.viewportHeight)) issues.push(`${viewport} crops the balance, bet, spin, or win controls.`);
-    if (sample.spin.width < 44 || sample.spin.height < 44) issues.push(`${viewport} spin control is ${sample.spin.width.toFixed(0)}×${sample.spin.height.toFixed(0)}px; the minimum target is 44×44px.`);
+    for (const target of sample.controlTargets) {
+      if (target.width < MINIMUM_CONTROL_TARGET_PX - LAYOUT_MEASUREMENT_TOLERANCE_PX
+        || target.height < MINIMUM_CONTROL_TARGET_PX - LAYOUT_MEASUREMENT_TOLERANCE_PX) {
+        issues.push(`${viewport} ${target.id} control is ${target.width.toFixed(0)}×${target.height.toFixed(0)}px; the minimum target is 44×44px.`);
+      }
+    }
     if (sample.minimumSymbolWidth < 32 || sample.minimumSymbolHeight < 32) issues.push(`${viewport} symbol cells fall below the 32px legibility floor.`);
     if (sample.hudLabelFontPx < 7 || sample.hudValueFontPx < 11) issues.push(`${viewport} HUD typography is too small (${sample.hudLabelFontPx.toFixed(1)}px labels / ${sample.hudValueFontPx.toFixed(1)}px values).`);
     if (sample.controlsOverlap) issues.push(`${viewport} HUD controls overlap each other.`);
@@ -117,6 +131,8 @@ export function getViewportLayoutSummary(project) {
   const fresh = report?.format === LAYOUT_FORMAT && report.fingerprint === fingerprint;
   const evaluation = fresh ? evaluateViewportLayoutSamples(project, report.samples) : { passed: false, issues: [], samples: [] };
   const tightestSpin = evaluation.samples.reduce((current, sample) => !current || Math.min(sample.spin.width, sample.spin.height) < Math.min(current.spin.width, current.spin.height) ? sample : current, null);
+  const tightestControl = evaluation.samples.flatMap(sample => sample.controlTargets.map(target => ({ viewport: sample.viewport, ...target })))
+    .reduce((current, target) => !current || Math.min(target.width, target.height) < Math.min(current.width, current.height) ? target : current, null);
   const smallestSymbol = evaluation.samples.reduce((current, sample) => !current || Math.min(sample.minimumSymbolWidth, sample.minimumSymbolHeight) < Math.min(current.minimumSymbolWidth, current.minimumSymbolHeight) ? sample : current, null);
   return {
     fingerprint,
@@ -128,6 +144,7 @@ export function getViewportLayoutSummary(project) {
     samples: evaluation.samples,
     runAt: fresh ? report.runAt || null : null,
     tightestSpin,
+    tightestControl,
     smallestSymbol,
   };
 }

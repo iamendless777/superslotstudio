@@ -10,7 +10,7 @@
  * Speaks MCP over stdio as newline-delimited JSON-RPC 2.0.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, renameSync } from 'fs';
+import { writeFileSync, mkdirSync, existsSync, readdirSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -21,6 +21,7 @@ const GAMES = join(HOME, 'games');
 const BRIDGE_URL = (process.env.STAKE_STUDIO_URL || 'http://127.0.0.1:3000').replace(/\/$/, '');
 
 const { createGameProject, generateDefaultReelStrips } = await import(join(STUDIO, 'src/engines/schema.js'));
+const { persistProjectDocument, readProjectDocument } = await import(join(STUDIO, 'server/project-storage.mjs'));
 const { MathEngine } = await import(join(STUDIO, 'src/engines/math/MathEngine.js'));
 const { SeededRNG } = await import(join(STUDIO, 'src/engines/math/SeededRNG.js'));
 const { MathSDKExporter } = await import(join(STUDIO, 'src/engines/build/MathSDKExporter.js'));
@@ -29,13 +30,30 @@ const { applyGameBlueprint, GAME_BLUEPRINTS } = await import(join(STUDIO, 'src/e
 const { calibratePrototypeMath, getMathCalibrationStatus } = await import(join(STUDIO, 'src/engines/math/MathAutopilot.js'));
 const { GAME_TYPES, BONUS_MECHANICS, getCompatibleMechanics } = await import(join(STUDIO, 'src/mechanics/registry.js'));
 const {
+  claimAgentJob,
+  completeAgentJob,
+  createAgentJob,
   ensureProductionWorkflow,
+  failAgentJob,
   getFlagshipWorkflowSummary,
+  heartbeatAgentJob,
+  listAgentJobs,
   normalizeProductionWorkflow,
   recordSpecialtyAgentHandoff,
+  recoverStaleAgentJobLeases,
   setProductionTrack,
+  updateAgentJob,
   upsertSpecialtyAgentWorkItem,
 } = await import(join(STUDIO, 'src/engines/factory/FlagshipWorkflow.js'));
+const {
+  createVisualExcellenceJobPlan,
+  getVisualExcellenceSummary,
+  normalizeVisualExcellenceDepartment,
+  recordHumanVisualSignoff,
+  recordVisualDirectorReview,
+  recordVisualExcellenceDelivery,
+  upsertVisualSequenceBrief,
+} = await import(join(STUDIO, 'src/engines/factory/VisualExcellenceDepartment.js'));
 const {
   getFlagshipScenarioLabSummary,
   runFlagshipScenario,
@@ -59,15 +77,11 @@ function loadProject(id) {
   if (!existsSync(p)) {
     throw new Error(`No project "${id}". Available: ${listProjects().join(', ') || '(none)'} — create one with create_project.`);
   }
-  return JSON.parse(readFileSync(p, 'utf8'));
+  return readProjectDocument(p).project;
 }
 
 function saveProject(id, project) {
-  mkdirSync(join(GAMES, id), { recursive: true });
-  const path = projectPath(id);
-  const temp = `${path}.${process.pid}.tmp`;
-  writeFileSync(temp, JSON.stringify(project, null, 2));
-  renameSync(temp, path);
+  persistProjectDocument(projectPath(id), project);
 }
 
 const delay = ms => new Promise(resolveDelay => setTimeout(resolveDelay, ms));
@@ -110,11 +124,16 @@ async function studioCommand(command, args = {}, timeoutMs = 15000) {
 }
 
 async function sharedFrameContent(context = {}) {
-  const [response, metadata] = await Promise.all([
+  let metadata = await bridgeJson('/frame-meta');
+  if (metadata.stale && context.command !== 'capture_view') {
+    await studioCommand('capture_view', {}, 45000);
+    metadata = await bridgeJson('/frame-meta');
+  }
+  const [response, freshMetadata] = await Promise.all([
     fetch(`${BRIDGE_URL}/__stake_studio/frame`, { signal: AbortSignal.timeout(5000) }).catch(error => {
       throw new Error(`Could not read the shared StakeStudio frame: ${error.message}`);
     }),
-    bridgeJson('/frame-meta'),
+    Promise.resolve(metadata),
   ]);
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
@@ -123,7 +142,7 @@ async function sharedFrameContent(context = {}) {
   const data = Buffer.from(await response.arrayBuffer()).toString('base64');
   return {
     _content: [
-      { type: 'text', text: JSON.stringify({ ...context, frame: metadata }, null, 2) },
+      { type: 'text', text: JSON.stringify({ ...context, frame: freshMetadata }, null, 2) },
       { type: 'image', data, mimeType: 'image/png' },
     ],
   };
@@ -434,6 +453,12 @@ const TOOLS = [
       mode: { type: 'string', description: 'Optional configured mode to select immediately before the spin.' },
     }, required: [] } },
 
+  { name: 'play_published_reviewer_replay', description: 'Play one provenance-bound final-LUT reviewer book through the live Preview without changing its balance. Uses verified production books, not the local design simulator, and captures a fresh shared frame.',
+    inputSchema: { type: 'object', properties: {
+      mode: { type: 'string', description: 'Configured wager mode name.' },
+      category: { type: 'string', enum: ['loss', 'normalWin', 'bigWin', 'wincap', 'bonusTrigger'] },
+    }, required: ['mode', 'category'] } },
+
   { name: 'run_studio_simulation', description: 'Run the Simulation panel visibly, wait for completion, and return the results with a fresh shared frame.',
     inputSchema: { type: 'object', properties: {
       rounds: { type: 'integer', description: 'Default is the panel setting; maximum 2,000,000.' },
@@ -481,6 +506,80 @@ const TOOLS = [
       status: { type: 'string', enum: ['proposed', 'accepted', 'rejected'] },
       contract: { type: 'array', items: { type: 'string' } }, evidence: { type: 'array', items: { type: 'string' } },
     }, required: ['id', 'workItemId', 'to', 'status'] } },
+
+  { name: 'create_agent_job', description: 'Create one bounded externally executed agent job with a specialty lane, one exclusively owned artifact, dependencies, deliverables, and acceptance criteria. StakeStudio records coordination only; it does not launch models or commands.',
+    inputSchema: { type: 'object', properties: {
+      ...idProp, jobId: { type: 'string' }, owner: { type: 'string', enum: ['orchestrator', 'creative', 'mechanic', 'math', 'protocol', 'frontend', 'presentation', 'visual', 'audio', 'information', 'qa'] },
+      artifact: { type: 'string' }, stage: { type: 'string' }, dependencies: { type: 'array', items: { type: 'string' }, maxItems: 50 },
+      deliverables: { type: 'array', items: { type: 'string' }, maxItems: 50 }, acceptance: { type: 'array', items: { type: 'string' }, maxItems: 50 },
+    }, required: ['id', 'jobId', 'owner', 'artifact'] } },
+
+  { name: 'list_agent_jobs', description: 'List StakeStudio agent jobs with dependency readiness and lease state. Expired leases are recovered before the list is returned.',
+    inputSchema: { type: 'object', properties: {
+      ...idProp, owner: { type: 'string' }, status: { type: 'string' }, availableOnly: { type: 'boolean' },
+    }, required: ['id'] } },
+
+  { name: 'claim_agent_job', description: 'Claim one dependency-ready agent job for an independently running agent. Returns a lease token required by heartbeat, update, completion, and failure tools.',
+    inputSchema: { type: 'object', properties: {
+      ...idProp, jobId: { type: 'string' }, agentId: { type: 'string' }, role: { type: 'string', enum: ['orchestrator', 'creative', 'mechanic', 'math', 'protocol', 'frontend', 'presentation', 'visual', 'audio', 'information', 'qa'] },
+      leaseSeconds: { type: 'integer', minimum: 30, maximum: 3600 },
+    }, required: ['id', 'jobId', 'agentId', 'role'] } },
+
+  { name: 'heartbeat_agent_job', description: 'Renew a claimed agent-job lease and mark the job in progress. Requires the exact claimant ID and lease token.',
+    inputSchema: { type: 'object', properties: {
+      ...idProp, jobId: { type: 'string' }, agentId: { type: 'string' }, leaseToken: { type: 'string' },
+      leaseSeconds: { type: 'integer', minimum: 30, maximum: 3600 },
+    }, required: ['id', 'jobId', 'agentId', 'leaseToken'] } },
+
+  { name: 'update_agent_job', description: 'Record bounded progress, evidence, and a history note on a claimed agent job without changing its ownership or dependencies.',
+    inputSchema: { type: 'object', properties: {
+      ...idProp, jobId: { type: 'string' }, agentId: { type: 'string' }, leaseToken: { type: 'string' }, progress: { type: 'string' }, note: { type: 'string' },
+      evidence: { type: 'array', items: { type: 'string' }, maxItems: 100 },
+    }, required: ['id', 'jobId', 'agentId', 'leaseToken'] } },
+
+  { name: 'complete_agent_job', description: 'Complete a claimed agent job, release its artifact lease, and retain completion evidence. At least one evidence item must exist on the job.',
+    inputSchema: { type: 'object', properties: {
+      ...idProp, jobId: { type: 'string' }, agentId: { type: 'string' }, leaseToken: { type: 'string' }, result: { type: 'string' },
+      evidence: { type: 'array', items: { type: 'string' }, maxItems: 100 },
+    }, required: ['id', 'jobId', 'agentId', 'leaseToken'] } },
+
+  { name: 'fail_agent_job', description: 'Fail a claimed agent job with a concrete reason, release its artifact lease, and retain diagnostic evidence.',
+    inputSchema: { type: 'object', properties: {
+      ...idProp, jobId: { type: 'string' }, agentId: { type: 'string' }, leaseToken: { type: 'string' }, reason: { type: 'string' },
+      evidence: { type: 'array', items: { type: 'string' }, maxItems: 100 },
+    }, required: ['id', 'jobId', 'agentId', 'leaseToken', 'reason'] } },
+
+  { name: 'recover_stale_agent_jobs', description: 'Release expired agent-job leases so dependency-ready jobs can be claimed again. This never launches or kills an agent process.',
+    inputSchema: { type: 'object', properties: idProp, required: ['id'] } },
+
+  { name: 'get_visual_excellence_department', description: 'Read the governed Visual Excellence Department: Director, Composition, Motion/VFX, independent QA, briefs, deliveries, reviews, and required human sign-off.',
+    inputSchema: { type: 'object', properties: idProp, required: ['id'] } },
+
+  { name: 'upsert_visual_sequence_brief', description: 'Create or update a machine-readable Visual Director brief for tile connections or tumble choreography. Optionally creates the dependency-ordered leased agent jobs; it never launches models or commands.',
+    inputSchema: { type: 'object', properties: {
+      ...idProp, brief: { type: 'object' }, createJobs: { type: 'boolean', description: 'Create the governed leased job plan for this brief. Defaults to true.' },
+    }, required: ['id', 'brief'] } },
+
+  { name: 'record_visual_specialist_delivery', description: 'Record one separately owned Visual Excellence delivery and its evidence. Accepted delivery records require evidence and cannot conflict with another active writer.',
+    inputSchema: { type: 'object', properties: {
+      ...idProp, deliveryId: { type: 'string' }, briefId: { type: 'string' },
+      owner: { type: 'string', enum: ['visual', 'motion_vfx', 'protocol', 'frontend', 'audio', 'qa'] },
+      artifact: { type: 'string' }, status: { type: 'string', enum: ['planned', 'submitted', 'accepted', 'rejected'] },
+      evidence: { type: 'array', items: { type: 'string' } },
+    }, required: ['id', 'briefId', 'owner', 'artifact', 'status'] } },
+
+  { name: 'record_visual_director_review', description: 'Record the Visual Director review after accepted Protocol, Composition, Motion/VFX, Frontend, independent QA, and any required Audio evidence exist. Approval requires rendered evidence.',
+    inputSchema: { type: 'object', properties: {
+      ...idProp, reviewId: { type: 'string' }, briefId: { type: 'string' },
+      verdict: { type: 'string', enum: ['pending', 'approve', 'revise', 'block'] },
+      evidence: { type: 'array', items: { type: 'string' } }, corrections: { type: 'array', items: { type: 'string' } },
+    }, required: ['id', 'briefId', 'verdict'] } },
+
+  { name: 'record_human_visual_signoff', description: 'Record the human owner’s final approval or rejection for Director-approved visual briefs. This is the final visual authority and becomes a certification gate once governed visual work exists.',
+    inputSchema: { type: 'object', properties: {
+      ...idProp, status: { type: 'string', enum: ['approved', 'rejected'] }, decidedBy: { type: 'string' },
+      briefIds: { type: 'array', items: { type: 'string' } }, notes: { type: 'string' },
+    }, required: ['id', 'status', 'decidedBy', 'briefIds'] } },
 
   { name: 'upsert_flagship_scenario', description: 'Create or update a deterministic Flagship proof scenario for one mode, mechanic, interaction, promise, edge case, or release example.',
     inputSchema: { type: 'object', properties: {
@@ -787,6 +886,14 @@ async function callTool(name, a = {}) {
     return sharedFrameContent({ command: 'spin_preview', result });
   }
 
+  if (name === 'play_published_reviewer_replay') {
+    const result = await studioCommand('play_published_reviewer_replay', {
+      mode: a.mode,
+      category: a.category,
+    }, 160000);
+    return sharedFrameContent({ command: 'play_published_reviewer_replay', result });
+  }
+
   if (name === 'run_studio_simulation') {
     const result = await studioCommand('run_studio_simulation', { rounds: a.rounds, seed: a.seed }, 35000);
     return sharedFrameContent({ command: 'run_studio_simulation', result });
@@ -869,6 +976,141 @@ async function callTool(name, a = {}) {
       });
       saveProject(id, project);
       return { id, handoff, summary: getFlagshipWorkflowSummary(project) };
+    }
+
+    case 'create_agent_job': {
+      setProductionTrack(project, 'flagship');
+      const job = createAgentJob(project, {
+        id: a.jobId, owner: a.owner, artifact: a.artifact, stage: a.stage,
+        dependencies: a.dependencies, deliverables: a.deliverables, acceptance: a.acceptance,
+      });
+      saveProject(id, project);
+      return { id, job, summary: getFlagshipWorkflowSummary(project) };
+    }
+
+    case 'list_agent_jobs': {
+      const result = listAgentJobs(project, { owner: a.owner, status: a.status, availableOnly: a.availableOnly });
+      if (result.recovered.length) saveProject(id, project);
+      return { id, ...result, summary: getFlagshipWorkflowSummary(project) };
+    }
+
+    case 'claim_agent_job': {
+      const job = claimAgentJob(project, {
+        jobId: a.jobId, agentId: a.agentId, role: a.role, leaseSeconds: a.leaseSeconds,
+      });
+      saveProject(id, project);
+      return { id, job, leaseToken: job.lease.token, summary: getFlagshipWorkflowSummary(project) };
+    }
+
+    case 'heartbeat_agent_job': {
+      const job = heartbeatAgentJob(project, {
+        jobId: a.jobId, agentId: a.agentId, leaseToken: a.leaseToken, leaseSeconds: a.leaseSeconds,
+      });
+      saveProject(id, project);
+      return { id, job, summary: getFlagshipWorkflowSummary(project) };
+    }
+
+    case 'update_agent_job': {
+      const job = updateAgentJob(project, {
+        jobId: a.jobId, agentId: a.agentId, leaseToken: a.leaseToken,
+        progress: a.progress, note: a.note, evidence: a.evidence,
+      });
+      saveProject(id, project);
+      return { id, job, summary: getFlagshipWorkflowSummary(project) };
+    }
+
+    case 'complete_agent_job': {
+      const job = completeAgentJob(project, {
+        jobId: a.jobId, agentId: a.agentId, leaseToken: a.leaseToken,
+        result: a.result, evidence: a.evidence,
+      });
+      saveProject(id, project);
+      return { id, job, summary: getFlagshipWorkflowSummary(project) };
+    }
+
+    case 'fail_agent_job': {
+      const job = failAgentJob(project, {
+        jobId: a.jobId, agentId: a.agentId, leaseToken: a.leaseToken,
+        reason: a.reason, evidence: a.evidence,
+      });
+      saveProject(id, project);
+      return { id, job, summary: getFlagshipWorkflowSummary(project) };
+    }
+
+    case 'recover_stale_agent_jobs': {
+      const recovery = recoverStaleAgentJobLeases(project);
+      if (recovery.recovered.length) saveProject(id, project);
+      return { id, ...recovery, jobs: listAgentJobs(project).jobs, summary: getFlagshipWorkflowSummary(project) };
+    }
+
+    case 'get_visual_excellence_department': {
+      const workflow = ensureProductionWorkflow(project);
+      return {
+        id,
+        department: workflow.visualExcellence,
+        summary: getVisualExcellenceSummary(workflow.visualExcellence),
+      };
+    }
+
+    case 'upsert_visual_sequence_brief': {
+      setProductionTrack(project, 'flagship');
+      const workflow = ensureProductionWorkflow(project, 'flagship');
+      workflow.visualExcellence = upsertVisualSequenceBrief(workflow.visualExcellence, a.brief);
+      const brief = workflow.visualExcellence.briefs.find(item => item.id === String(a.brief?.id || '').trim());
+      const jobs = [];
+      if (a.createJobs !== false) {
+        for (const job of createVisualExcellenceJobPlan(brief)) {
+          const existing = workflow.agentCoordination.workItems.find(item => item.id === job.id);
+          jobs.push(existing || createAgentJob(project, job));
+        }
+      }
+      workflow.updatedAt = new Date().toISOString();
+      project.production.qa ||= {};
+      project.production.qa.gameCertification = null;
+      saveProject(id, project);
+      return {
+        id, brief, jobs,
+        department: workflow.visualExcellence,
+        summary: getVisualExcellenceSummary(workflow.visualExcellence),
+      };
+    }
+
+    case 'record_visual_specialist_delivery': {
+      const workflow = ensureProductionWorkflow(project, 'flagship');
+      workflow.visualExcellence = recordVisualExcellenceDelivery(workflow.visualExcellence, {
+        id: a.deliveryId, briefId: a.briefId, owner: a.owner, artifact: a.artifact,
+        status: a.status, evidence: a.evidence,
+      });
+      workflow.updatedAt = new Date().toISOString();
+      project.production.qa ||= {};
+      project.production.qa.gameCertification = null;
+      saveProject(id, project);
+      return { id, department: workflow.visualExcellence, summary: getVisualExcellenceSummary(workflow.visualExcellence) };
+    }
+
+    case 'record_visual_director_review': {
+      const workflow = ensureProductionWorkflow(project, 'flagship');
+      workflow.visualExcellence = recordVisualDirectorReview(workflow.visualExcellence, {
+        id: a.reviewId, briefId: a.briefId, verdict: a.verdict,
+        evidence: a.evidence, corrections: a.corrections,
+      });
+      workflow.updatedAt = new Date().toISOString();
+      project.production.qa ||= {};
+      project.production.qa.gameCertification = null;
+      saveProject(id, project);
+      return { id, department: workflow.visualExcellence, summary: getVisualExcellenceSummary(workflow.visualExcellence) };
+    }
+
+    case 'record_human_visual_signoff': {
+      const workflow = ensureProductionWorkflow(project, 'flagship');
+      workflow.visualExcellence = recordHumanVisualSignoff(workflow.visualExcellence, {
+        status: a.status, decidedBy: a.decidedBy, briefIds: a.briefIds, notes: a.notes,
+      });
+      workflow.updatedAt = new Date().toISOString();
+      project.production.qa ||= {};
+      project.production.qa.gameCertification = null;
+      saveProject(id, project);
+      return { id, department: workflow.visualExcellence, summary: getVisualExcellenceSummary(workflow.visualExcellence) };
     }
 
     case 'upsert_flagship_scenario': {

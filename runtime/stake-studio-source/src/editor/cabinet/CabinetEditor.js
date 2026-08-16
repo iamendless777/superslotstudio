@@ -2,6 +2,14 @@
  * CabinetEditor — layered visual editor for game cabinet composition.
  * Drag/drop layers, position/scale/opacity, add effects, character rigging.
  */
+import {
+  PLAYER_CONTROL_ART_KEYS,
+  listEditableCompositionLayers,
+  updateCharacterPose,
+  updateCompositionLayer,
+  updatePlayerControlArt,
+} from '../composition/CabinetComposition.js';
+
 export class CabinetEditor {
   constructor(container, project, onDirty) {
     this.container = container;
@@ -99,10 +107,10 @@ export class CabinetEditor {
       name: overrides.name || `Layer ${this.project.theme.cabinet.layers.length + 1}`,
       type: overrides.type || 'image',
       src: overrides.src || '',
-      x: overrides.x || 0,
-      y: overrides.y || 0,
-      width: overrides.width || this.project.theme.cabinet.width,
-      height: overrides.height || this.project.theme.cabinet.height,
+      x: overrides.x ?? 0,
+      y: overrides.y ?? 0,
+      width: overrides.width ?? this.project.theme.cabinet.width,
+      height: overrides.height ?? this.project.theme.cabinet.height,
       opacity: overrides.opacity ?? 1,
       zIndex: this.project.theme.cabinet.layers.length,
       visible: true,
@@ -129,13 +137,13 @@ export class CabinetEditor {
 
   renderLayers() {
     const list = document.getElementById('layerList');
-    const layers = [...this.project.theme.cabinet.layers].sort((a, b) => b.zIndex - a.zIndex);
+    const layers = this.compositionLayers().sort((a, b) => b.zIndex - a.zIndex);
 
     list.innerHTML = layers.map(layer => `
       <div class="layer-item ${layer.id === this.selectedLayer ? 'selected' : ''} ${layer.locked ? 'locked' : ''}" data-id="${layer.id}">
         <button class="layer-vis" data-action="visibility" title="Toggle visibility">${layer.visible ? '&#9673;' : '&#9675;'}</button>
         <span class="layer-name">${layer.name}</span>
-        <span class="layer-type">${layer.type}</span>
+        <span class="layer-type">${layer.type}${layer.compositionBinding ? ' · linked' : ''}</span>
         <button class="layer-lock" data-action="lock" title="Toggle lock">${layer.locked ? '&#128274;' : '&#128275;'}</button>
         <button class="layer-del" data-action="delete" title="Delete">&#10005;</button>
       </div>
@@ -150,6 +158,7 @@ export class CabinetEditor {
       item.querySelector('[data-action="visibility"]').addEventListener('click', () => {
         const layer = this.getLayer(item.dataset.id);
         layer.visible = !layer.visible;
+        this.commitLayer(layer);
         this.renderLayers();
         this.renderStage();
         this.onDirty();
@@ -163,7 +172,13 @@ export class CabinetEditor {
       });
 
       item.querySelector('[data-action="delete"]').addEventListener('click', () => {
-        this.project.theme.cabinet.layers = this.project.theme.cabinet.layers.filter(l => l.id !== item.dataset.id);
+        const layer = this.getLayer(item.dataset.id);
+        if (layer?.compositionBinding) {
+          layer.visible = false;
+          this.commitLayer(layer);
+        } else {
+          this.project.theme.cabinet.layers = this.project.theme.cabinet.layers.filter(l => l.id !== item.dataset.id);
+        }
         if (this.selectedLayer === item.dataset.id) this.selectedLayer = null;
         this.renderLayers();
         this.renderStage();
@@ -215,6 +230,7 @@ export class CabinetEditor {
         </select>
       </label>
       <label>Z-Index <input type="number" data-prop="zIndex" value="${layer.zIndex}"></label>
+      ${this.renderBoundAssetProps(layer)}
     `;
 
     grid.querySelectorAll('[data-prop]').forEach(input => {
@@ -226,6 +242,7 @@ export class CabinetEditor {
           const reader = new FileReader();
           reader.onload = (ev) => {
             layer.src = ev.target.result;
+            this.commitLayer(layer);
             this.renderStage();
             this.onDirty();
           };
@@ -234,6 +251,7 @@ export class CabinetEditor {
         }
         const val = input.type === 'number' || input.type === 'range' ? parseFloat(input.value) : input.value;
         layer[prop] = val;
+        this.commitLayer(layer);
         this.renderStage();
         this.renderLayers();
         this.onDirty();
@@ -242,6 +260,22 @@ export class CabinetEditor {
         }
       });
     });
+
+    grid.querySelectorAll('[data-control-art]').forEach(input => input.addEventListener('change', event => {
+      this.readImageFile(event.target.files?.[0], src => {
+        updatePlayerControlArt(this.project, input.dataset.controlArt, src);
+        this.renderProps();
+        this.onDirty();
+      });
+    }));
+    grid.querySelectorAll('[data-character-pose]').forEach(input => input.addEventListener('change', event => {
+      this.readImageFile(event.target.files?.[0], src => {
+        updateCharacterPose(this.project, input.dataset.characterPose, src);
+        this.renderStage();
+        this.renderProps();
+        this.onDirty();
+      });
+    }));
   }
 
   renderStage() {
@@ -250,7 +284,7 @@ export class CabinetEditor {
     stage.style.width = `${cab.width}px`;
     stage.style.height = `${cab.height}px`;
 
-    const layers = [...cab.layers].sort((a, b) => a.zIndex - b.zIndex);
+    const layers = this.compositionLayers().sort((a, b) => a.zIndex - b.zIndex);
 
     stage.innerHTML = layers.map(layer => {
       if (!layer.visible) return '';
@@ -283,7 +317,7 @@ export class CabinetEditor {
       };
 
       return `<div class="stage-layer" data-layer-id="${layer.id}" style="${style};background:${colors[layer.type] || colors.image};display:flex;align-items:center;justify-content:center;border:1px dashed rgba(255,255,255,0.3)">
-        <span style="color:rgba(255,255,255,0.5);font-size:11px">${layer.name}<br>${layer.type}</span>
+        <span style="color:rgba(255,255,255,0.5);font-size:11px">${layer.name}<br>${layer.type}${layer.compositionBinding ? ' · Preview linked' : ''}</span>
       </div>`;
     }).join('');
 
@@ -304,6 +338,7 @@ export class CabinetEditor {
       if (!layer) return;
       layer.x = Math.round(e.clientX - this.dragOffset.x);
       layer.y = Math.round(e.clientY - this.dragOffset.y);
+      this.commitLayer(layer);
       const el = stage.querySelector(`[data-layer-id="${this.dragging}"]`);
       if (el) {
         el.style.left = `${layer.x}px`;
@@ -364,6 +399,41 @@ export class CabinetEditor {
   }
 
   getLayer(id) {
-    return this.project.theme.cabinet.layers.find(l => l.id === id);
+    return this.compositionLayers().find(l => l.id === id);
+  }
+
+  compositionLayers() {
+    return listEditableCompositionLayers(this.project);
+  }
+
+  commitLayer(layer) {
+    if (layer?.compositionBinding) updateCompositionLayer(this.project, layer);
+    return layer;
+  }
+
+  readImageFile(file, done) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = event => done(event.target.result);
+    reader.readAsDataURL(file);
+  }
+
+  renderBoundAssetProps(layer) {
+    if (layer.compositionBinding === 'character') {
+      const poses = this.project.theme?.character?.poses || {};
+      return `<fieldset class="composition-assets"><legend>Character poses used by Preview</legend>
+        ${Object.keys(poses).map(key => `<label>${key} <input type="file" accept="image/*" data-character-pose="${key}"></label>`).join('')}
+      </fieldset>`;
+    }
+    if (layer.compositionBinding === 'hud') {
+      const art = layer.controlArt || {};
+      return `<fieldset class="composition-assets"><legend>Player control artwork</legend>
+        ${PLAYER_CONTROL_ART_KEYS.map(key => `<label>${key}${art[key] ? ' ✓' : ''} <input type="file" accept="image/*" data-control-art="${key}"></label>`).join('')}
+      </fieldset>`;
+    }
+    if (layer.compositionBinding === 'feature:dreamfall') {
+      return '<p class="field-hint">This layer is shown by Preview during the Dreamfall world. Editing it replaces the compatibility default.</p>';
+    }
+    return layer.compositionBinding ? '<p class="field-hint">This linked layer is shared with Preview and export configuration.</p>' : '';
   }
 }

@@ -56,8 +56,11 @@ export class BuildEngine {
     if (!b.stakeEngine.gameId) errors.push('Missing game ID');
     if (!b.stakeEngine.providerName) errors.push('Missing provider name');
     const providerNumber = Number(b.stakeEngine.providerNumber);
-    if (!Number.isSafeInteger(providerNumber) || providerNumber <= 0) {
-      errors.push('Provider number must be the positive integer assigned to the signed-in Stake Engine team');
+    // Stake's current Math SDK samples and game-format documentation use 0
+    // before a provider number is assigned. The upload validator requires the
+    // field but does not require a positive value.
+    if (!Number.isSafeInteger(providerNumber) || providerNumber < 0) {
+      errors.push('Provider number must be a non-negative integer (use 0 until Stake assigns the team number)');
     }
     if (m.rtp < 0.92 || m.rtp > 0.965) errors.push(`RTP ${m.rtp} outside Stake range (92%-96.5%)`);
     const wincapRtp = Number(m.wincapRtp) || 0;

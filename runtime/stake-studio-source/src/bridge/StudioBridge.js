@@ -50,6 +50,8 @@ const BRIDGE_OWNER_LEASE_MS = 6000;
 const BASE_PREVIEW_SPIN_TIMEOUT_MS = 20000;
 const FEATURE_SPIN_PRESENTATION_BUDGET_MS = 12000;
 const MAX_PREVIEW_SPIN_TIMEOUT_MS = 150000;
+const SHARED_FRAME_MAX_WIDTH = 1100;
+const SHARED_FRAME_MAX_HEIGHT = 800;
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -82,6 +84,7 @@ export class StudioBridge {
     this.studio = studio;
     this.instanceId = crypto.randomUUID();
     this.errors = [];
+    this.lastPublishedErrorsSignature = null;
     const storedSequence = Number.parseInt(localStorage.getItem('stakeStudioLastCommandSequence') || '0', 10);
     const requestedSequence = Number.parseInt(new URLSearchParams(location.search).get('bridge_after') || '0', 10);
     this.lastCommandSequence = Math.max(
@@ -100,10 +103,13 @@ export class StudioBridge {
   start() {
     if (this.started) return;
     this.started = true;
-    if (document.visibilityState === 'visible' || this.ownerLeaseExpired()) this.claimOwnership();
+    if (document.visibilityState === 'visible') this.claimOwnership();
     localStorage.setItem('stakeStudioLastCommandSequence', String(this.lastCommandSequence));
     this.onVisibilityChange = () => {
-      if (document.visibilityState !== 'visible') return;
+      if (document.visibilityState !== 'visible') {
+        this.releaseOwnership();
+        return;
+      }
       this.claimOwnership();
       this.publishState('visible-tab-owner');
       this.scheduleCapture('visible-tab-owner', 250);
@@ -117,6 +123,10 @@ export class StudioBridge {
     this.scheduleCapture('startup', 500);
     this.commandTimer = window.setInterval(() => this.pollCommands(), 500);
     this.heartbeatTimer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') {
+        this.releaseOwnership();
+        return;
+      }
       if (!this.isOwner() && document.visibilityState === 'visible' && this.ownerLeaseExpired()) this.claimOwnership();
       if (this.isOwner()) {
         localStorage.setItem(BRIDGE_OWNER_HEARTBEAT_KEY, String(Date.now()));
@@ -136,8 +146,18 @@ export class StudioBridge {
   }
 
   claimOwnership() {
+    if (document.visibilityState !== 'visible') return false;
     localStorage.setItem(BRIDGE_OWNER_KEY, this.instanceId);
     localStorage.setItem(BRIDGE_OWNER_HEARTBEAT_KEY, String(Date.now()));
+    this.lastPublishedErrorsSignature = null;
+    return true;
+  }
+
+  releaseOwnership() {
+    if (!this.isOwner()) return false;
+    localStorage.removeItem(BRIDGE_OWNER_KEY);
+    localStorage.removeItem(BRIDGE_OWNER_HEARTBEAT_KEY);
+    return true;
   }
 
   setStatus(message, state = '') {
@@ -189,10 +209,19 @@ export class StudioBridge {
     this.errors.push({ signature, kind, message, ...extra, at: new Date().toISOString() });
     this.errors = this.errors.slice(-50);
     try {
-      await request('/errors', { method: 'POST', body: JSON.stringify({ errors: this.errors }) });
+      await this.publishDiagnostics();
     } catch {
       // The bridge may be restarting; keep the diagnostic locally for the next publish.
     }
+  }
+
+  async publishDiagnostics({ force = false } = {}) {
+    if (!this.isOwner()) return null;
+    const signature = JSON.stringify(this.errors);
+    if (!force && signature === this.lastPublishedErrorsSignature) return null;
+    const result = await request('/errors', { method: 'POST', body: JSON.stringify({ errors: this.errors }) });
+    this.lastPublishedErrorsSignature = signature;
+    return result;
   }
 
   currentState(reason = 'update') {
@@ -225,6 +254,7 @@ export class StudioBridge {
         balance: preview.balance,
         bet: preview.bet,
         lastWin: preview.lastWin,
+        publishedReplay: preview.publishedReplay,
         playback: {
           events: preview.playbackTrace?.length || 0,
           elapsedMs: preview.playbackTrace?.at(-1)?.elapsedMs || 0,
@@ -234,6 +264,7 @@ export class StudioBridge {
           trace: (preview.playbackTrace || []).slice(-40),
         },
         visualEffect: preview.getVisualEffectState?.() || null,
+        visualChoreography: preview.getVisualChoreographyState?.() || null,
         morpheusDreamfall: preview.getMorpheusDreamfallPreviewState?.() || null,
         morpheusEffectOrchestration: preview.getMorpheusEffectProofState?.() || null,
       } : null,
@@ -242,13 +273,21 @@ export class StudioBridge {
         canSave: Boolean(project),
         canSpin: this.studio.activePanel === 'preview' && Boolean(preview),
       },
-      diagnostics: { errorCount: this.errors.length, latestError: this.errors.at(-1) || null },
+      diagnostics: {
+        errorCount: this.errors.length,
+        latestError: this.errors.at(-1) || null,
+        // The server removes this ledger from the compact state response after
+        // atomically synchronizing /errors. Keeping both writes under the same
+        // owner publication prevents a clean tab from inheriting stale errors.
+        errors: this.errors,
+      },
     };
   }
 
   async publishState(reason = 'update') {
     if (!this.isOwner()) return null;
     try {
+      await this.publishDiagnostics();
       await request('/state', { method: 'POST', body: JSON.stringify(this.currentState(reason)) });
       this.setStatus('Shared', 'connected');
     } catch (error) {
@@ -272,7 +311,19 @@ export class StudioBridge {
 
   scheduleCapture(reason = 'update', delay = 400) {
     window.clearTimeout(this.captureTimer);
-    this.captureTimer = window.setTimeout(() => this.captureView(reason), delay);
+    // Rasterizing the asset-heavy Studio with html2canvas blocks Chromium's UI
+    // thread. Ordinary renders therefore invalidate the shared frame instead
+    // of taking a screenshot behind the user's back. MCP tools that actually
+    // need pixels detect this marker and request one coalesced capture.
+    this.captureTimer = window.setTimeout(() => {
+      if (!this.isOwner()) return;
+      void request('/frame-stale', {
+        method: 'POST',
+        body: JSON.stringify({ reason, markedAt: new Date().toISOString() }),
+      }).catch(error => {
+        if (!String(error?.message || error).includes('fetch')) void this.recordError('bridge.frame-stale', error);
+      });
+    }, Math.max(0, delay));
   }
 
   async saveProject(reason = 'save') {
@@ -343,12 +394,16 @@ export class StudioBridge {
 
   async captureView(reason = 'manual') {
     if (!this.isOwner()) return null;
+    window.clearTimeout(this.captureTimer);
     // Encoding a full Studio screenshot is intentionally expensive. Never let
     // an automatic mutation capture compete with a spin, a measured frame
     // sample, or a live VFX burst; explicit post-action captures still run.
     const preview = this.studio.panels.preview;
     if (reason === 'visual-change' && this.studio.activePanel === 'preview'
-      && (preview?.spinning || preview?.performanceProfiling || preview?.visualEffectRuntime?.playing)) {
+      && (preview?.spinning
+        || preview?.performanceProfiling
+        || preview?.visualEffectRuntime?.playing
+        || preview?.activeVisualChoreography?.size > 0)) {
       this.scheduleCapture(reason, 900);
       return null;
     }
@@ -366,8 +421,8 @@ export class StudioBridge {
     this.captureInFlight = true;
     try {
       await wait(50);
-      const maxWidth = 1800;
-      const maxHeight = 1400;
+      const maxWidth = SHARED_FRAME_MAX_WIDTH;
+      const maxHeight = SHARED_FRAME_MAX_HEIGHT;
       const scale = Math.min(1, maxWidth / Math.max(root.scrollWidth, 1), maxHeight / Math.max(root.scrollHeight, 1));
       // html2canvas cannot reliably clone live WebGL backing stores. Snapshot
       // every Pixi surface explicitly so shared QA frames match the game the
@@ -385,6 +440,7 @@ export class StudioBridge {
         logging: false,
         useCORS: true,
         allowTaint: false,
+        imageTimeout: 4000,
         scale,
         width: root.scrollWidth,
         height: root.scrollHeight,
@@ -915,6 +971,10 @@ export class StudioBridge {
   }
 
   async pollCommands() {
+    if (document.visibilityState !== 'visible') {
+      this.releaseOwnership();
+      return;
+    }
     if (this.commandPollInFlight || !this.isOwner()) return;
     this.commandPollInFlight = true;
     try {
@@ -1107,7 +1167,7 @@ export class StudioBridge {
       }
       case 'clear_diagnostics':
         this.errors = [];
-        await request('/errors', { method: 'POST', body: JSON.stringify({ errors: [] }) });
+        await this.publishDiagnostics({ force: true });
         await this.publishState('diagnostics-cleared');
         return { errorCount: 0 };
       case 'start_math_publisher': {
@@ -1804,6 +1864,50 @@ export class StudioBridge {
           forcedFinish,
           board: preview.board,
           balance: preview.balance,
+          playback: {
+            events: preview.playbackTrace?.length || 0,
+            elapsedMs: preview.playbackTrace?.at(-1)?.elapsedMs || 0,
+            trace: preview.playbackTrace || [],
+          },
+        };
+      }
+      case 'play_published_reviewer_replay': {
+        if (!this.studio.project) throw new Error('Open or create a project first.');
+        if (this.studio.activePanel !== 'preview' || !this.studio.panels.preview) this.studio.activatePanel('preview');
+        let preview = this.studio.panels.preview;
+        const category = String(args.category || 'normalWin');
+        if (!['loss', 'normalWin', 'bigWin', 'wincap', 'bonusTrigger'].includes(category)) {
+          throw new Error(`Unknown published replay category "${category}".`);
+        }
+        const mode = String(args.mode || preview.selectedMode);
+        const configuredMode = preview.mathEngine.getBetMode(mode);
+        if (configuredMode.name !== mode) throw new Error(`Unknown bet mode "${mode}".`);
+        if (preview.selectedMode !== mode) {
+          preview.selectedMode = mode;
+          preview.bet = configuredMode.cost || 1;
+          preview.lastWin = 0;
+          preview.render();
+          await wait(300);
+          preview = this.studio.panels.preview;
+        }
+        const replay = await request(`/projects/${encodeURIComponent(this.studio.projectId)}/published-replay/${encodeURIComponent(mode)}/${encodeURIComponent(category)}`);
+        const provenance = preview.playPublishedReviewerReplay(replay);
+        const started = Date.now();
+        while (preview.spinning && Date.now() - started < MAX_PREVIEW_SPIN_TIMEOUT_MS) await wait(200);
+        const forcedFinish = preview.spinning;
+        if (forcedFinish) await Promise.resolve(preview.finishSpinImmediately());
+        const reason = `published-replay:${mode}:${category}`;
+        await this.publishState(reason);
+        await this.captureView(reason);
+        return {
+          mode,
+          category,
+          totalWin: Number(replay.book?.payoutMultiplier || 0) / 100,
+          criteria: replay.book?.criteria || null,
+          eventCount: replay.book?.events?.length || 0,
+          forcedFinish,
+          provenance,
+          balanceUnchanged: true,
           playback: {
             events: preview.playbackTrace?.length || 0,
             elapsedMs: preview.playbackTrace?.at(-1)?.elapsedMs || 0,

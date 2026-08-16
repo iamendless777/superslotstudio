@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -23,6 +23,13 @@ import {
 
 const jsonResponse = (data, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => data });
 const launch = 'https://studio.test/game/index.html?sessionID=session-1&lang=en&device=desktop&rgs_url=rgs.example.test';
+
+function listFiles(root, relative = '') {
+  return readdirSync(join(root, relative)).flatMap(name => {
+    const path = relative ? `${relative}/${name}` : name;
+    return statSync(join(root, path)).isDirectory() ? listFiles(root, path) : [path];
+  }).sort();
+}
 
 function authPayload(round = null) {
   return {
@@ -58,6 +65,31 @@ test('wallet runtime authenticates, sends base amount, records events, and never
   assert.equal(runtime.balance.amount, 99_000_000);
   assert.throws(() => { runtime.balance.amount = 1; }, TypeError);
   assert.equal(runtime.balance.amount, 99_000_000);
+});
+
+test('inactive zero-win buy modes remain auto-closed and never call end-round', async () => {
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    calls.push({ url, body: init.body ? JSON.parse(init.body) : null });
+    if (url.endsWith('/wallet/authenticate')) return jsonResponse(authPayload());
+    if (url.endsWith('/wallet/play')) return jsonResponse({
+      balance: { amount: 20_000_000, currency: 'USD' },
+      round: { active: false, payoutMultiplier: 0, mode: 'veil_ascent', state: [{ index: 0, type: 'reveal' }] },
+    });
+    if (url.endsWith('/bet/event')) return jsonResponse({ event: '0' });
+    throw new Error(`Unexpected ${url}`);
+  };
+  const runtime = new StakeRuntime({ href: launch, fetchImpl });
+  await runtime.authenticate();
+  const result = await runtime.play({
+    amount: 1_000_000,
+    mode: 'veil_ascent',
+    modeConfig: { isBuyBonus: true, autoCloseDisabled: true },
+    present: async ({ events, recordEvent }) => { for (const event of events) await recordEvent(event.index); },
+  });
+  assert.equal(result.type, 'noWin');
+  assert.equal(runtime.roundActive, false);
+  assert.equal(calls.filter(call => call.url.endsWith('/wallet/end-round')).length, 0);
 });
 
 test('single-round win starts end-round before presentation and withholds payout balance until presentation ends', async () => {
@@ -151,8 +183,13 @@ test('frontend config carries project-authored environment and symbol motion pro
   assert.deepEqual(config.presentationEffects.winConnections.origin, { x: 182, y: 166 });
   assert.equal(config.controls.spinButtonAsset, project.theme.presentationEffects.spinButtonAsset);
   assert.equal(config.presentationDirector.recipes.length, project.presentationDirector.recipes.length);
+  assert.equal(config.visualChoreography.format, 'stake-studio-portable-visual-choreography-v1');
+  assert.deepEqual(config.visualChoreography.sequences.tileConnection.phases, ['interaction', 'reaction', 'propagation', 'resolution']);
+  assert.deepEqual(config.visualChoreography.sequences.tumble.phases, ['recognition', 'reaction', 'clear', 'space', 'enter', 'fall', 'settle', 'evaluate']);
+  assert.equal(config.visualChoreography.motionProfiles.reduced.motionEnabled, false);
   assert.equal(config.presentationAssets.modePortal, project.theme.presentationAssets.modePortal);
   assert.equal(config.audio.enabled, true);
+  assert.equal(config.audio.soundscapeEnabled, true);
   assert.equal(config.audio.layers.baseMusic.volume, 0.6);
   assert.equal(config.audio.stingers.spinStart[0].volume, 0.9);
   for (const control of ['menu', 'bonus', 'autoplay', 'turbo', 'sound', 'info', 'decrease', 'increase', 'modeCard']) {
@@ -160,6 +197,21 @@ test('frontend config carries project-authored environment and symbol motion pro
   }
   assert.ok(config.cabinetSize.width > 0 && config.cabinetSize.height > 0);
   assert.notEqual(animationRuntimeFingerprint(project), before);
+});
+
+test('frontend can suspend looping soundscape while preserving gameplay effects', () => {
+  const project = createGameProject({ name: 'Silent Visual Development Proof' });
+  project.audio.soundscapeEnabled = false;
+  project.audio.layers.baseMusic = { src: 'data:audio/wav;base64,UklGRg==', loop: true, volume: 0.6 };
+  project.audio.layers.bonusMusic = { src: 'data:audio/wav;base64,UklGRg==', loop: true, volume: 0.7 };
+  project.audio.layers.ambience = { src: 'data:audio/wav;base64,UklGRg==', loop: true, volume: 0.4 };
+  project.audio.stingers.spinStart = { src: 'data:audio/wav;base64,UklGRg==', volume: 0.9 };
+
+  const config = createFrontendConfig(project);
+  assert.equal(config.audio.enabled, true, 'SFX remain enabled');
+  assert.equal(config.audio.soundscapeEnabled, false);
+  assert.deepEqual(config.audio.layers, {}, 'looping layers are excluded from the package');
+  assert.equal(config.audio.stingers.spinStart[0].volume, 0.9);
 });
 
 test('motion-atlas-only projects bundle Pixi without requiring a procedural event recipe', async () => {
@@ -275,6 +327,10 @@ test('frontend compiler writes a portable package and records honest capabilitie
     assert.equal(saved.build.frontend.entry, 'frontend/index.html');
     assert.equal(saved.build.frontend.verification.balanceAuthority, 'server-only');
     const config = JSON.parse(readFileSync(join(root, 'frontend', 'game-config.json'), 'utf8'));
+    const compiledHtml = readFileSync(join(root, 'frontend', 'index.html'), 'utf8');
+    assert.match(compiledHtml, new RegExp(`styles\\.css\\?v=${FRONTEND_COMPILER_VERSION}-[a-f0-9]{12}`));
+    assert.match(compiledHtml, new RegExp(`game-app\\.js\\?v=${FRONTEND_COMPILER_VERSION}-[a-f0-9]{12}`));
+    assert.doesNotMatch(compiledHtml, /__STAKE_STUDIO_FRONTEND_VERSION__/);
     assert.equal(result.initialFiles.includes(config.controls.modeCard), false);
     assert.ok(result.files.includes(config.controls.modeCard));
     assert.equal(config.providerName, 'Proof Studio');
@@ -365,6 +421,7 @@ test('registered visual effects are fingerprinted and bundled into the portable 
     mkdirSync(root, { recursive: true });
     writeFileSync(join(root, 'project.json'), JSON.stringify(project));
     const result = await compileFrontendProject({ studioHome: home, projectId: 'frontend_vfx_proof' });
+    assert.deepEqual(listFiles(join(root, 'frontend')), [...result.files].sort());
     assert.ok(result.files.includes('visual-effects-runtime.js'));
     assert.equal(result.verification.visualEffects.runtimeBundled, true);
     assert.equal(result.verification.visualEffects.bindingCount, 1);
@@ -387,6 +444,8 @@ test('compiled shell contains CSP, every jurisdiction flag, and desktop/mobile/m
   const visualRuntime = readFileSync(new URL('../server/frontend-runtime/visual-effects-entry.js', import.meta.url), 'utf8');
   const spineRuntime = readFileSync(new URL('../server/frontend-runtime/spine-entry.js', import.meta.url), 'utf8');
   assert.match(html, /Content-Security-Policy/);
+  assert.match(html, /styles\.css\?v=__STAKE_STUDIO_FRONTEND_VERSION__/);
+  assert.match(html, /game-app\.js\?v=__STAKE_STUDIO_FRONTEND_VERSION__/);
   assert.doesNotMatch(html, /'unsafe-eval'/);
   assert.match(visualRuntime, /import 'pixi\.js\/unsafe-eval'/);
   assert.match(spineRuntime, /import 'pixi\.js\/unsafe-eval'/);
@@ -408,17 +467,23 @@ test('compiled shell contains CSP, every jurisdiction flag, and desktop/mobile/m
   assert.match(appSource, /showModeMenu/);
   assert.match(appSource, /START AUTOPLAY/);
   assert.match(appSource, /mode\.cost/);
+  assert.match(appSource, /const mayDisplayRtp = \(\) => Boolean\(runtime\?\.launch\.replay \|\| runtime\?\.launch\.studioPreview \|\| runtime\?\.jurisdiction\?\.displayRTP\)/);
+  assert.match(appSource, /node\('small', 'mode-math', modeMathText\(mode\)\)/);
+  assert.doesNotMatch(appSource, /mode\.label}: \$\{mode\.cost}× play amount · \$\{\(mode\.rtp \* 100\)/);
   assert.match(styles, /Authored player dashboard/);
   assert.match(appSource, /function renderBoard\(board\)[\s\S]*?clearWinHighlights\(\);[\s\S]*?ui\.board\.replaceChildren\(\)/);
   assert.match(appSource, /async function preloadBoardAssets\(board\)/);
-  assert.match(appSource, /case 'reveal':[\s\S]{0,500}await settleReelMotion\(event\.board, instant\)/);
+  assert.match(appSource, /function hasRevealAnticipation\(value\)[\s\S]{0,350}value\.some\(Boolean\)/);
+  assert.match(appSource, /case 'reveal':[\s\S]{0,1600}const anticipated = hasRevealAnticipation\(event\.anticipation\);[\s\S]{0,160}await settleReelMotion\(event\.board, instant, anticipated\)/);
+  assert.doesNotMatch(appSource, /Boolean\(event\.anticipation\)/);
   assert.match(appSource, /ui\.featureProgress = node\('section', 'feature-progress'\)/);
   assert.match(appSource, /ui\.featureFinale = node\('section', 'feature-finale'\)/);
   assert.match(appSource, /queueCheckpoint\(event\.index\)/);
   assert.match(appSource, /if \(!snapshot\) await recordEvent\(combined\[index\]\.index\)/);
   assert.match(appSource, /const governedPresentation = Boolean\(event\?\.morpheusAuthoritative\)/);
-  assert.match(appSource, /governedPresentation \? Promise\.resolve\(false\) : effectsReady/);
-  assert.match(appSource, /governedPresentation \? Promise\.resolve\(false\) : spineReady/);
+  assert.match(appSource, /governedPresentation && event\?\.type === 'winInfo'[\s\S]*?playTileConnections/);
+  assert.match(appSource, /trackChannel\('effects', governedPresentation \? governedEffectMotion : settleOptionalEnhancement\(/);
+  assert.match(appSource, /governedPresentation \? Promise\.resolve\(false\) : settleOptionalEnhancement\(\s*spineReady/);
   assert.match(appSource, /const payMultiplier = Number\(selectedMode\.settlementMultiplier\) \|\| 1/);
   assert.match(appSource, /resulting spin win settles in 0\.1× increments/);
   assert.match(appSource, /is-dreamfall-world/);
@@ -443,15 +508,52 @@ test('compiled frontend preserves authored cabinet foreground and environment as
   const project = createGameProject({ name: 'World Layer Proof' });
   const png = 'data:image/png;base64,iVBORw0KGgo=';
   project.theme.cabinet.layers.push({ id: 'foreground-proof', type: 'image', assetPackRole: 'foreground', src: png, x: 0, y: 0, width: 1280, height: 800, opacity: 1, zIndex: 58, blendMode: 'normal' });
+  project.theme.cabinet.layers.push({ id: 'reel-window-proof', type: 'reel-area', x: 320, y: 104, width: 640, height: 496, visible: true });
   project.theme.environmentAssets = { crownSigil: { src: png, x: 550, y: -8, width: 180, height: 112 } };
   const config = createFrontendConfig(project);
   assert.equal(config.cabinetLayers[0].id, 'foreground-proof');
   assert.equal(config.cabinetLayers[0].role, 'foreground');
   assert.equal(config.environmentAssets.crownSigil.width, 180);
+  assert.deepEqual(config.reelArea, { x: 320, y: 104, width: 640, height: 496 });
+  assert.equal(config.playerInterface.hud.authored, true);
+  assert.equal(config.playerInterface.hud.zIndex, 67);
   const appSource = readFileSync(new URL('../server/frontend-template/game-app.js', import.meta.url), 'utf8');
   assert.match(appSource, /config\.cabinetLayers/);
   assert.match(appSource, /config\.environmentAssets/);
   assert.match(appSource, /authoredWorldLayers/);
+  assert.match(appSource, /dreamfallWorldActive \? dreamfallProfile\?\.world : config\.reelArea/);
+});
+
+test('compiled frontend consumes the same authored composition fields as Preview', () => {
+  const project = createGameProject({ name: 'MORPHEUS: DREAMFALL' });
+  project.name = 'MORPHEUS: DREAMFALL';
+  project.build.stakeEngine.gameId = 'morpheus_dreamfall';
+  project.theme.playerInterface = {
+    hud: { x: 16, y: 612, width: 1248, height: 176, zIndex: 67, visible: true },
+    controls: { spin: 'data:image/png;base64,c3Bpbg==', menu: 'data:image/png;base64,bWVudQ==' },
+  };
+  project.theme.featureOverlays = {
+    dreamfall: {
+      id: 'authored-dreamfall', src: 'data:image/png;base64,b3ZlcmxheQ==',
+      x: 12, y: 8, width: 1256, height: 776, opacity: .82, zIndex: 63,
+      visible: true, activation: 'dreamfall-world', replacesBaseForeground: true,
+    },
+  };
+  project.theme.environmentAssets = {
+    mist: { src: 'data:image/png;base64,bWlzdA==', x: 3, y: 4, width: 500, height: 240, opacity: .45, zIndex: 9, blendMode: 'screen' },
+  };
+
+  const config = createFrontendConfig(project);
+  assert.equal(config.compositionMode, 'full-canvas-cabinet-v1');
+  assert.equal(config.controls.spinButtonAsset, project.theme.playerInterface.controls.spin);
+  assert.equal(config.controls.menu, project.theme.playerInterface.controls.menu);
+  assert.deepEqual(config.playerInterface.hud, { ...project.theme.playerInterface.hud, authored: true });
+  assert.equal(config.environmentAssets.mist.opacity, .45);
+  assert.equal(config.environmentAssets.mist.zIndex, 9);
+  assert.equal(config.environmentAssets.mist.blendMode, 'screen');
+  assert.equal(config.renderProfiles.morpheusDreamfall.cabinet.asset.src, project.theme.featureOverlays.dreamfall.src);
+  assert.equal(config.renderProfiles.morpheusDreamfall.cabinet.asset.x, 12);
+  assert.equal(config.renderProfiles.morpheusDreamfall.cabinet.asset.opacity, .82);
 });
 
 test('social casino copy removes restricted gambling terminology from authored rules', () => {

@@ -99,13 +99,13 @@ test('Veil Ascent upgrades repaint the authoritative board before recognition', 
   assert.match(preview, /sourceEvent\.type === 'symbolUpgrade'[\s\S]*payload\.boardBefore[\s\S]*playStakeBoardTransform[\s\S]*payload\.boardAfter/);
 });
 
-test('v7 pre-reveal capture producer is cache-bound and never requests symbol recognition before reveal', async () => {
+test('pre-reveal capture producer is cache-bound and never requests symbol recognition before reveal', async () => {
   const [index, app, bridge] = await Promise.all([
     readFile(indexUrl, 'utf8'), readFile(appUrl, 'utf8'), readFile(bridgeUrl, 'utf8'),
   ]);
-  assert.match(index, /app\.js\?v=morpheus-orchestration-20260813-35/);
-  assert.match(app, /PreviewPanel\.js\?orchestration=20260813-27/);
-  assert.match(app, /StudioBridge\.js\?orchestration=20260813-26/);
+  assert.match(index, /app\.js\?v=visual-excellence-20260815-22/);
+  assert.match(app, /PreviewPanel\.js\?orchestration=20260815-40/);
+  assert.match(app, /StudioBridge\.js\?orchestration=20260815-32/);
   assert.match(bridge, /let authoritativeRevealCommitted = false/);
   assert.match(bridge, /if \(observation\.sourceEvent\.type === 'reveal'\) authoritativeRevealCommitted = true/);
   assert.match(bridge, /const boardCommitted = authoritativeRevealCommitted/);

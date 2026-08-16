@@ -40,7 +40,7 @@ test('the live Studio cache key advances with the governed per-cell grid stylesh
     source('../index.html'),
     source('../src/styles.css'),
   ]);
-  assert.match(index, /styles\.css\?v=morpheus-orchestration-20260812-23/);
+  assert.match(index, /styles\.css\?v=control-targets-20260815-9/);
   assert.match(styles, /\.preview-position-grid-plate\s*\{[\s\S]*?position:\s*absolute/);
   assert.match(styles, /\.preview-position-grid-plate b\s*\{[\s\S]*?position:\s*absolute/);
 });

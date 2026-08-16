@@ -9,11 +9,11 @@ export const MATH_AUTOPILOT_SEED = 0x51a7e;
 // calibration verifies and trims them instead of rediscovering orders of
 // magnitude from 1× on every new game. Custom games simply use iteration.
 const BLUEPRINT_FACTOR_HINTS = Object.freeze({
-  rapid_ways: { base: 1.25, bonus: 13.6 },
-  multiplier_arena: { base: 0.0275, bonus: 0.111 },
-  sticky_reel_forge: { base: 0.00668, bonus: 0.00372 },
-  wild_forge: { base: 0.55, bonus: 4.68 },
-  cascade_colossus: { base: 0.033, bonus: 0.129 },
+  rapid_ways: { base: 0.647794, bonus: 6.539082 },
+  multiplier_arena: { base: 0.013, bonus: 0.043126 },
+  sticky_reel_forge: { base: 0.008447, bonus: 0.004062 },
+  wild_forge: { base: 0.267181, bonus: 2.237799 },
+  cascade_colossus: { base: 0.029634, bonus: 0.090767 },
 });
 
 const cleanNumber = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -137,6 +137,24 @@ function modeSeed(baseSeed, index) {
   return (baseSeed + Math.imul(index + 1, 0x9e3779b1)) >>> 0;
 }
 
+function targetBracket(probes, target) {
+  const below = probes
+    .filter(probe => probe.realizedRtp < target)
+    .sort((left, right) => Math.abs(left.realizedRtp - target) - Math.abs(right.realizedRtp - target))[0];
+  const above = probes
+    .filter(probe => probe.realizedRtp > target)
+    .sort((left, right) => Math.abs(left.realizedRtp - target) - Math.abs(right.realizedRtp - target))[0];
+  return below && above ? { below, above } : null;
+}
+
+function bracketedFactor(probes, target) {
+  const bracket = targetBracket(probes, target);
+  if (!bracket || bracket.above.realizedRtp === bracket.below.realizedRtp) return null;
+  return bracket.below.factor + (target - bracket.below.realizedRtp)
+    * (bracket.above.factor - bracket.below.factor)
+    / (bracket.above.realizedRtp - bracket.below.realizedRtp);
+}
+
 export function calibratePrototypeMath(project, options = {}) {
   const modes = project.math?.betModes || [];
   if (!modes.length) throw new Error('Math Autopilot needs at least one executable wager mode.');
@@ -181,8 +199,40 @@ export function calibratePrototypeMath(project, options = {}) {
       if (Math.abs(result.realizedRtp - calibrationTarget) <= tolerance) break;
       if (!(result.realizedRtp > 0)) throw new Error(`${mode.name} produced zero simulated return; its paytable cannot be scaled to the declared RTP.`);
       if (pass < maxPasses - 1) {
-        factor = Math.min(10000, Math.max(0.000001, factor * calibrationTarget / result.realizedRtp));
+        // Quantized payouts can make ratio-only correction bounce across a
+        // threshold forever. Once deterministic probes straddle the target,
+        // interpolate their factors so the remaining passes converge inside that
+        // executable interval instead of repeating the same overshoot.
+        const corrected = bracketedFactor(passes, calibrationTarget)
+          ?? factor * calibrationTarget / result.realizedRtp;
+        factor = Math.min(10000, Math.max(0.000001, corrected));
       }
+    }
+
+    // A 0.1x payout quantum can leave the final coarse pass just outside the
+    // tolerance even though its probes now contain a valid target bracket.
+    // Refine only that proven bracket; never expand an uncalibratable search.
+    for (let refinement = 0;
+      Math.abs(result.realizedRtp - calibrationTarget) > tolerance && refinement < 8;
+      refinement++) {
+      const bracket = targetBracket(passes, calibrationTarget);
+      if (!bracket) break;
+      const corrected = (bracket.below.factor + bracket.above.factor) / 2;
+      if (!Number.isFinite(corrected) || passes.some(probe => Math.abs(probe.factor - corrected) < 1e-12)) break;
+      factor = Math.min(10000, Math.max(0.000001, corrected));
+      mode.profile[field] = factor;
+      result = simulateMathMode(project, mode.name, {
+        rounds,
+        seed: selectedSeed,
+        includeAllocatedMax: !separateMaxCriterion,
+      });
+      passes.push({
+        pass: passes.length + 1,
+        phase: 'quantum-refinement',
+        factor,
+        realizedRtp: result.realizedRtp,
+        standardError: result.standardError,
+      });
     }
 
     mode.profile[field] = factor;
@@ -190,7 +240,7 @@ export function calibratePrototypeMath(project, options = {}) {
     const calibrationDelta = result.realizedRtp - calibrationTarget;
     const aligned = Math.abs(calibrationDelta) <= tolerance;
     if (!aligned) {
-      throw new Error(`${mode.name} remains ${(Math.abs(calibrationDelta) * 100).toFixed(3)} RTP points from its normal-return target after ${maxPasses} calibration passes.`);
+      throw new Error(`${mode.name} remains ${(Math.abs(calibrationDelta) * 100).toFixed(3)} RTP points from its normal-return target after ${passes.length} calibration probes.`);
     }
     if (result.invalidPayouts > 0) {
       throw new Error(`${mode.name} produced ${result.invalidPayouts.toLocaleString()} payouts outside the 0.1x Stake increment after calibration.`);

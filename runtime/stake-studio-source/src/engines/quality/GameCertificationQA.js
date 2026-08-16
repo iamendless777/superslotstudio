@@ -15,6 +15,7 @@ import {
   getMorpheusSignatureCaptureSummary,
 } from './morpheus/MorpheusSignatureCaptureQA.js';
 import { getMorpheusEffectRouteCaptureSummary } from './morpheus/MorpheusEffectRouteCaptureQA.js';
+import { getVisualExcellenceSummary } from '../factory/VisualExcellenceDepartment.js';
 
 export const GAME_CERTIFICATION_FORMAT = 'stake-studio-game-certification-v1';
 
@@ -52,6 +53,8 @@ function collectEvidence(project) {
   const morpheusCapture = getMorpheusSignatureCaptureSummary(project);
   const morpheusEffectCapture = getMorpheusEffectRouteCaptureSummary(project);
   const assetOrchestration = getAssetOrchestrationSummary(project);
+  const visualExcellence = getVisualExcellenceSummary(project.production?.workflow?.visualExcellence);
+  const requiresVisualExcellence = visualExcellence.briefCount > 0;
   const requiresAssetOrchestration = project.production?.workflow?.track === 'flagship';
   const requiresMorpheusCapture = (project.production?.workflow?.verticalSlice?.scenarioIds || [])
     .includes(MORPHEUS_SIGNATURE_SCENARIO_ID);
@@ -61,6 +64,15 @@ function collectEvidence(project) {
     { id: 'audio', label: 'Audio mastering', panel: 'audio', complete: audio.complete, details: `${audio.decodedAssets}/${audio.totalAssets} decoded` },
     { id: 'rig', label: 'Rig certification', panel: 'spine', complete: !hasSpine || rig.complete, details: hasSpine ? `${rig.motionFrames} motion frames · ${rig.stressRenders} stress renders` : 'Not applicable' },
     { id: 'presentation', label: 'Presentation', panel: 'preview', complete: interruption.complete && polish.complete, details: `${interruption.passed}/${interruption.total} transitions · ${polish.issues.length} polish findings` },
+    ...(requiresVisualExcellence ? [{
+      id: 'visual-excellence-human-signoff',
+      label: 'Visual Excellence sign-off',
+      panel: 'quality',
+      complete: visualExcellence.firstProofComplete,
+      details: visualExcellence.firstProofComplete
+        ? `Human approved ${visualExcellence.humanApprovedTypes.length}/${visualExcellence.coveredTypes.length} governed visual sequences`
+        : `${visualExcellence.humanApprovedTypes.length}/${visualExcellence.coveredTypes.length} governed visual sequences have final human approval`,
+    }] : []),
     ...(requiresMorpheusCapture ? [{
       id: 'signature-visual-proof',
       label: 'Morpheus signature visual proof',

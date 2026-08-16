@@ -53,3 +53,31 @@ test('projects without Spine rigs treat the rig stage as not applicable', () => 
   assert.equal(rig.complete, true);
   assert.equal(rig.details, 'Not applicable');
 });
+
+test('governed visual work requires final human approval before certification', () => {
+  const project = createGameProject({ name: 'Visual Approval Fixture' });
+  const brief = type => ({
+    id: `${type}-brief`, type, title: type, status: 'director-approved',
+    objective: 'Prove the rendered sequence.', playerNeed: 'Understand the game result.',
+    phases: [{ id: 'resolve', intent: 'Resolve the result.' }],
+    authoritativeEventInputs: [{
+      event: type === 'tumble' ? 'tumbleBoard' : 'winInfo', schema: 'fixture-v1',
+      positionSource: 'event.positions', ordering: 'event-order',
+    }],
+  });
+  project.production.workflow ||= {};
+  project.production.workflow.visualExcellence = {
+    briefs: [brief('tile-connections'), brief('tumble')],
+  };
+
+  let stage = getGameCertificationSummary(project).stages
+    .find(item => item.id === 'visual-excellence-human-signoff');
+  assert.equal(stage.complete, false);
+  assert.match(stage.details, /0\/2/);
+
+  project.production.workflow.visualExcellence.briefs.forEach(item => { item.status = 'human-approved'; });
+  stage = getGameCertificationSummary(project).stages
+    .find(item => item.id === 'visual-excellence-human-signoff');
+  assert.equal(stage.complete, true);
+  assert.match(stage.details, /2\/2/);
+});

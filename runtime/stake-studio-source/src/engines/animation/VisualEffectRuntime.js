@@ -663,15 +663,15 @@ export class VisualEffectRuntime {
     }
   }
 
-  enablePresentationEnergy({ points = [], color = '#55d6f2', coreColor = '#ffffff', count = 18, reducedMotion = false, motionAssetId = null, motionDuration = 1, motionFps = null } = {}) {
+  enablePresentationEnergy({ points = [], color = '#55d6f2', coreColor = '#ffffff', count = 18, reducedMotion = false, motionAssetId = null, motionDuration = 1, motionFps = null, motionPlacement = null } = {}) {
     if (!this.scene || (!motionAssetId && (!Array.isArray(points) || points.length === 0))) return false;
     this.destroyFlipbooks(this.presentationFlipbooks, { defer: true });
     const authored = motionAssetId ? this.createFlipbook(motionAssetId, {
-      layer: 'overlay', blendMode: 'screen', x: DESIGN_WIDTH / 2, y: DESIGN_HEIGHT * 0.52,
-      width: 430, height: 330, loop: false,
+      layer: 'overlay', blendMode: 'screen', x: Number(motionPlacement?.x) || DESIGN_WIDTH / 2, y: Number(motionPlacement?.y) || DESIGN_HEIGHT * 0.52,
+      width: Number(motionPlacement?.width) || 430, height: Number(motionPlacement?.height) || 330, loop: false,
       fps: reducedMotion ? 6 : motionFps,
       duration: Math.max(0.5, Number(motionDuration) || 1),
-      fadeIn: 0.08, fadeOut: 0.14, alpha: reducedMotion ? 0.6 : 0.9,
+      fadeIn: 0.08, fadeOut: 0.14, alpha: reducedMotion ? Math.min(.6, Number(motionPlacement?.alpha) || .6) : Number(motionPlacement?.alpha) || 0.9,
       semanticFrame: 9,
     }) : null;
     if (authored) this.presentationFlipbooks.push(authored);
@@ -748,6 +748,7 @@ export class VisualEffectRuntime {
     color = '#62e7ff', coreColor = '#ffffff', rimColor = '#d6a84b', origin = null,
     groups = null, launchDuration = 0.3, launchHold = 0.04, hopDuration = 0.11,
     messengerSize = 32, impactSize = 30, impactAlpha = 0.58,
+    routeWidth = 7.5, routeAlpha = 1, messengerRadius = 13, impactRadius = 25,
     reducedMotion = false, messengerAssetId = null, impactAssetId = null,
   } = {}) {
     if (!this.scene || !Array.isArray(points) || points.length === 0) return null;
@@ -818,6 +819,10 @@ export class VisualEffectRuntime {
       color,
       coreColor,
       rimColor,
+      routeWidth: Math.max(2.5, Math.min(10, Number(routeWidth) || 7.5)),
+      routeAlpha: Math.max(0, Math.min(1, Number(routeAlpha) || 0)),
+      messengerRadius: Math.max(5, Math.min(18, Number(messengerRadius) || 13)),
+      impactRadius: Math.max(12, Math.min(34, Number(impactRadius) || 25)),
       reducedMotion,
       elapsed: 0,
       duration: Math.max(0.38, Math.max(0, ...routes.map(route => route.duration)) + 0.22),
@@ -939,6 +944,29 @@ export class VisualEffectRuntime {
 
     for (const route of effect.routes || []) {
       const lastContact = route.contactTimes.at(-1) || 0;
+      const routeFade = clamp01(1 - Math.max(0, time - lastContact - 0.08) / 0.34);
+      if (routeFade > 0) {
+        for (const leg of route.legs || []) {
+          const progress = clamp01((time - leg.start) / Math.max(0.001, leg.duration));
+          if (progress <= 0) continue;
+          const current = this.energyPositionAt(Math.min(time, leg.start + leg.duration), {
+            ...route,
+            legs: [leg],
+            points: [leg.from, leg.to],
+          });
+          const controlX = (leg.from.x + leg.to.x) * 0.5;
+          const controlY = (leg.from.y + leg.to.y) * 0.5 + (leg.curveY || 0) * 1.7;
+          graphic.moveTo(leg.from.x, leg.from.y)
+            .quadraticCurveTo(controlX, controlY, current.x, current.y)
+            .stroke({ color: effect.color, width: effect.routeWidth, alpha: routeFade * 0.08 * effect.routeAlpha });
+          graphic.moveTo(leg.from.x, leg.from.y)
+            .quadraticCurveTo(controlX, controlY, current.x, current.y)
+            .stroke({ color: effect.rimColor, width: effect.routeWidth * 0.293, alpha: routeFade * 0.34 * effect.routeAlpha });
+          graphic.moveTo(leg.from.x, leg.from.y)
+            .quadraticCurveTo(controlX, controlY, current.x, current.y)
+            .stroke({ color: effect.coreColor, width: Math.max(0.65, effect.routeWidth * 0.107), alpha: routeFade * 0.72 * effect.routeAlpha });
+        }
+      }
       if (time <= lastContact + 0.16) {
         for (let trailIndex = 7; trailIndex >= 0; trailIndex--) {
           const point = this.energyPositionAt(Math.max(0, time - trailIndex * 0.018), route);
@@ -946,9 +974,9 @@ export class VisualEffectRuntime {
           graphic.circle(point.x, point.y, 1.1 + strength * 3.2).fill({ color: effect.color, alpha: 0.035 + strength * 0.17 });
         }
         const current = this.energyPositionAt(time, route);
-        graphic.circle(current.x, current.y, 13).fill({ color: effect.color, alpha: 0.08 });
-        graphic.circle(current.x, current.y, 6).fill({ color: effect.color, alpha: 0.26 });
-        graphic.circle(current.x, current.y, 2.2).fill({ color: effect.coreColor, alpha: 0.96 });
+        graphic.circle(current.x, current.y, effect.messengerRadius).fill({ color: effect.color, alpha: 0.08 });
+        graphic.circle(current.x, current.y, effect.messengerRadius * 0.46).fill({ color: effect.color, alpha: 0.26 });
+        graphic.circle(current.x, current.y, Math.max(1.4, effect.messengerRadius * 0.17)).fill({ color: effect.coreColor, alpha: 0.96 });
       }
     }
 
@@ -968,7 +996,7 @@ export class VisualEffectRuntime {
       const contact = (time - effect.contactTimes[index]) / 0.24;
       if (contact < 0 || contact > 1) return;
       const spread = easeOut(contact);
-      graphic.circle(point.x, point.y, 5 + spread * 25).stroke({ color: effect.color, width: Math.max(0.7, 2.2 - contact * 1.5), alpha: (1 - contact) * 0.48 });
+      graphic.circle(point.x, point.y, 5 + spread * effect.impactRadius).stroke({ color: effect.color, width: Math.max(0.7, 2.2 - contact * 1.5), alpha: (1 - contact) * 0.48 });
       for (let spark = 0; spark < 8; spark++) {
         const angle = spark * Math.PI / 4 + index * 0.47;
         const distance = 4 + spread * (13 + (spark % 3) * 4);

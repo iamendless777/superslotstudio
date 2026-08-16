@@ -19,12 +19,13 @@ test('studio profile sanitizes identity and keeps Spine optional', () => {
   assert.equal(profile.animationPipeline, 'native-spine-ready');
 });
 
-test('production can start before the provider number but release cannot', () => {
-  assert.deepEqual(getStudioProfileReadiness({ providerName: '' }).missing, ['providerName', 'providerNumber']);
+test('provider number zero is valid until Stake assigns a team number', () => {
+  assert.deepEqual(getStudioProfileReadiness({ providerName: '' }).missing, ['providerName']);
   const readiness = getStudioProfileReadiness({ providerName: 'Phantom Factory' });
   assert.equal(readiness.productionReady, true);
-  assert.equal(readiness.releaseReady, false);
-  assert.deepEqual(readiness.missing, ['providerNumber']);
+  assert.equal(readiness.releaseReady, true);
+  assert.deepEqual(readiness.missing, []);
+  assert.equal(getStudioProfileReadiness({ providerName: 'Phantom Factory', providerNumber: '-1' }).releaseReady, false);
 });
 
 test('factory launch inherits profile defaults without overriding explicit choices', () => {

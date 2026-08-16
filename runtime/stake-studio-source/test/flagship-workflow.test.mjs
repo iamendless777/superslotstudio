@@ -12,14 +12,23 @@ import {
   upsertFlagshipScenario,
 } from '../src/engines/quality/FlagshipScenarioLab.js';
 import {
+  AGENT_JOB_LIMITS,
   FLAGSHIP_FACTORY_STAGE_ORDER,
   SPECIALTY_AGENT_ROLES,
+  claimAgentJob,
+  completeAgentJob,
+  createAgentJob,
   ensureProductionWorkflow,
+  failAgentJob,
   getFactoryStageOrder,
   getFlagshipWorkflowSummary,
   getSpecialtyAgentCoordinationSummary,
+  heartbeatAgentJob,
+  listAgentJobs,
   recordSpecialtyAgentHandoff,
+  recoverStaleAgentJobLeases,
   setProductionTrack,
+  updateAgentJob,
   upsertSpecialtyAgentWorkItem,
 } from '../src/engines/factory/FlagshipWorkflow.js';
 
@@ -124,6 +133,105 @@ test('specialty work rejects conflicting writers and downstream work requires an
   assert.doesNotThrow(() => upsertSpecialtyAgentWorkItem(project, {
     id: 'math-contract-consumer', owner: 'math', artifact: 'mechanicContract', stage: 'math',
   }));
+});
+
+test('independent agents claim dependency-ready jobs through guarded leases and evidence completion', () => {
+  const project = createGameProject({ name: 'Agent Job Protocol Fixture' });
+  setProductionTrack(project, 'flagship');
+  createAgentJob(project, {
+    id: 'contract-job', owner: 'mechanic', artifact: 'contract.rules', stage: 'contract',
+    deliverables: ['Typed rules'], acceptance: ['Rules compile'],
+  });
+  createAgentJob(project, {
+    id: 'frontend-job', owner: 'frontend', artifact: 'frontend.runtime', stage: 'frontend',
+    dependencies: ['contract-job'], deliverables: ['Runtime adapter'], acceptance: ['Replay passes'],
+  });
+  assert.throws(() => claimAgentJob(project, {
+    jobId: 'frontend-job', agentId: 'frontend-agent-1', role: 'frontend', now: '2026-08-13T12:00:00.000Z',
+  }), /blocked by: contract-job/);
+
+  const claimed = claimAgentJob(project, {
+    jobId: 'contract-job', agentId: 'mechanic-agent-1', role: 'mechanic', leaseSeconds: 60,
+    now: '2026-08-13T12:00:00.000Z',
+  });
+  assert.equal(claimed.status, 'claimed');
+  assert.equal(claimed.lease.holder, 'mechanic-agent-1');
+  assert.throws(() => heartbeatAgentJob(project, {
+    jobId: 'contract-job', agentId: 'mechanic-agent-2', leaseToken: claimed.lease.token,
+    now: '2026-08-13T12:00:10.000Z',
+  }), /another agent/);
+  const heartbeat = heartbeatAgentJob(project, {
+    jobId: 'contract-job', agentId: 'mechanic-agent-1', leaseToken: claimed.lease.token,
+    now: '2026-08-13T12:00:10.000Z', leaseSeconds: 120,
+  });
+  assert.equal(heartbeat.status, 'in-progress');
+  assert.equal(heartbeat.lease.expiresAt, '2026-08-13T12:02:10.000Z');
+  const updated = updateAgentJob(project, {
+    jobId: 'contract-job', agentId: 'mechanic-agent-1', leaseToken: claimed.lease.token,
+    now: '2026-08-13T12:00:20.000Z', progress: 'Rules compiled', evidence: ['test:contract-rules'],
+  });
+  assert.deepEqual(updated.evidence, ['test:contract-rules']);
+  const completed = completeAgentJob(project, {
+    jobId: 'contract-job', agentId: 'mechanic-agent-1', leaseToken: claimed.lease.token,
+    now: '2026-08-13T12:00:30.000Z', result: 'Ready for frontend', evidence: ['artifact:contract-v1'],
+  });
+  assert.equal(completed.status, 'completed');
+  assert.equal(completed.lease, null);
+
+  const available = listAgentJobs(project, { availableOnly: true, now: '2026-08-13T12:00:31.000Z' });
+  assert.deepEqual(available.jobs.map(job => job.id), ['frontend-job']);
+  const frontend = claimAgentJob(project, {
+    jobId: 'frontend-job', agentId: 'frontend-agent-1', role: 'frontend', now: '2026-08-13T12:00:31.000Z',
+  });
+  assert.equal(frontend.lease.holder, 'frontend-agent-1');
+});
+
+test('agent jobs prevent artifact conflicts, recover stale leases, and retain bounded failure evidence', () => {
+  const project = createGameProject({ name: 'Agent Recovery Fixture' });
+  setProductionTrack(project, 'flagship');
+  createAgentJob(project, { id: 'visual-job', owner: 'visual', artifact: 'assets.hero', stage: 'visual' });
+  assert.throws(() => createAgentJob(project, {
+    id: 'visual-conflict', owner: 'visual', artifact: 'assets.hero', stage: 'visual',
+  }), /active writer/);
+  const claimed = claimAgentJob(project, {
+    jobId: 'visual-job', agentId: 'visual-agent-1', role: 'visual', leaseSeconds: 30,
+    now: '2026-08-13T12:00:00.000Z',
+  });
+  const recovery = recoverStaleAgentJobLeases(project, { now: '2026-08-13T12:00:31.000Z' });
+  assert.deepEqual(recovery.recovered, ['visual-job']);
+  const reClaimed = claimAgentJob(project, {
+    jobId: 'visual-job', agentId: 'visual-agent-2', role: 'visual', leaseSeconds: 30,
+    now: '2026-08-13T12:00:32.000Z',
+  });
+  assert.notEqual(reClaimed.lease.token, claimed.lease.token);
+  const failed = failAgentJob(project, {
+    jobId: 'visual-job', agentId: 'visual-agent-2', leaseToken: reClaimed.lease.token,
+    now: '2026-08-13T12:00:40.000Z', reason: 'Source rig is missing', evidence: ['capture:rig-missing'],
+  });
+  assert.equal(failed.status, 'failed');
+  assert.equal(failed.failureReason, 'Source rig is missing');
+  assert.equal(failed.lease, null);
+  assert.equal(getSpecialtyAgentCoordinationSummary(project).failed, 1);
+});
+
+test('agent-job evidence and history remain bounded during long-running coordination', () => {
+  const project = createGameProject({ name: 'Agent Job Bounds Fixture' });
+  setProductionTrack(project, 'flagship');
+  createAgentJob(project, { id: 'bounded-job', owner: 'qa', artifact: 'qa.bounds' });
+  const claimed = claimAgentJob(project, {
+    jobId: 'bounded-job', agentId: 'qa-agent', role: 'qa', leaseSeconds: 3600,
+    now: '2026-08-13T12:00:00.000Z',
+  });
+  for (let index = 0; index < 120; index++) {
+    updateAgentJob(project, {
+      jobId: 'bounded-job', agentId: 'qa-agent', leaseToken: claimed.lease.token,
+      now: '2026-08-13T12:00:01.000Z', note: `update ${index}`, evidence: [`evidence ${index}`],
+    });
+  }
+  const job = listAgentJobs(project, { now: '2026-08-13T12:00:02.000Z' }).jobs[0];
+  assert.equal(job.evidence.length, AGENT_JOB_LIMITS.evidence);
+  assert.equal(job.history.length, AGENT_JOB_LIMITS.history);
+  assert.equal(job.evidence.at(-1), 'evidence 119');
 });
 
 test('Flagship launch uses a blueprint as inspiration without compiling it into a design ceiling', () => {

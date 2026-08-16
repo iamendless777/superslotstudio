@@ -41,7 +41,7 @@ body
 
 function project() {
   return {
-    theme: { character: { poses: { idle: 'fallback.png' } } },
+    theme: { cabinet: { width: 1280, height: 800 }, character: { poses: { idle: 'fallback.png' } } },
     animation: {
       states: { idle: { layers: [], duration: null }, winSmall: { layers: [], duration: 1200 } },
       runtime: { version: 1, defaultMix: 0.12 },
@@ -108,6 +108,7 @@ test('detects atlas pages and creates a portable runtime bundle', () => {
   }], drawOrderRules: [{ id: 'layer', name: 'Root layer', asset: 'hero', bone: 'root', slot: 'body', relativeTo: 'body-shadow', position: 'after' }], anchors: [], secondaryMotion: [] } };
   const manifest = createAnimationManifest(source);
   assert.equal(manifest.format, 'stake-studio-animation-v1');
+  assert.deepEqual(manifest.cabinetSize, { width: 1280, height: 800 });
   assert.equal(manifest.states.winMega.resolvedState, 'winSmall');
 
   const files = generateAnimationFiles(source);

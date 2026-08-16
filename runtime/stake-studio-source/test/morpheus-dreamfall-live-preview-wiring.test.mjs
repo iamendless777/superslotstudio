@@ -7,7 +7,9 @@ const source = path => readFile(new URL(path, import.meta.url), 'utf8');
 test('Morpheus live Preview uses the existing reel renderer with a project-gated reserved world branch', async () => {
   const preview = await source('../src/editor/preview/PreviewPanel.js');
   assert.match(preview, /new MorpheusDreamfallPreviewDriver/);
-  assert.match(preview, /reservedWorld \? MORPHEUS_RESERVED_WORLD_ROWS : Math\.max/);
+  assert.match(preview, /const profile = reservedWorld \? createMorpheusDreamfallRenderProfile/);
+  assert.match(preview, /reservedWorld \? MORPHEUS_RESERVED_WORLD_ROWS : Math\.max\(\.\.\.rows\)/);
+  assert.match(preview, /reservedWorld \? MORPHEUS_RESERVED_WORLD_ROWS : Math\.max\(\.\.\.counts\)/);
   assert.match(preview, /\(maxRows - reelRows\) \* cellH \/ \(reservedWorld \? 1 : 2\)/);
   assert.match(preview, /class="reel-cap"/);
   assert.match(preview, /data-visible="\$\{visible\}"/);
@@ -18,6 +20,9 @@ test('Morpheus live Preview uses the existing reel renderer with a project-gated
   assert.match(preview, /visiblyUnoccluded: painted && insideViewport && targetHit && occludedBy\.length === 0/);
   assert.match(preview, /presentMorpheusMaxGrowthForAudit/);
   assert.match(preview, /prepareMorpheusSignatureRenderEvidence/);
+  assert.match(preview, /viewport-layout-audit-base-state/);
+  assert.match(preview, /const originalWorldState = this\.morpheusDreamfallWorldState/);
+  assert.match(preview, /this\.setMorpheusDreamfallWorldState\(originalWorldState\)/);
   assert.match(preview, /decodedImages\.length === expectedCells/);
   assert.match(preview, /motionCount === expectedCells/);
   assert.match(preview, /syncSymbolMotionFlipbooks\(\{ authoritativeLanded: true \}\)/);
