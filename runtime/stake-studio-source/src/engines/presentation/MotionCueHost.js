@@ -7,11 +7,15 @@
  * This module is intentionally plain JS with no import of the TypeScript motion
  * package so the studio can run standalone. Keep CUE_BRIDGE in sync with
  * src/studio/stake-runtime-bridge.ts.
+ *
+ * IMPORTANT: presentationEvent values must be SAFE for motion rehearsal.
+ * Never map board.shake → wincap or win.pulse → setWin; those fire full
+ * max-win / payout overlays and make cascade previews look broken.
  */
 
 import { PresentationDirectorRuntime } from './PresentationDirector.js';
 
-export const MOTION_CUE_HOST_VERSION = 1;
+export const MOTION_CUE_HOST_VERSION = 2;
 
 /** @typedef {{ cue: string, startMs: number, durationMs: number, easing?: string, staggerMs?: number, cells?: string[], stepKind?: string, depth?: number }} MotionCue */
 /** @typedef {{ styleId: string, catalogVersion?: number, totalDurationMs: number, cues: MotionCue[] }} MotionCueSheet */
@@ -21,16 +25,17 @@ export const CUE_BRIDGE = Object.freeze({
   'reel.stop': { animState: 'spinStop', presentationEvent: 'reveal', tumbleAction: null, tumblePhase: null, vfxEvent: null },
   'reel.anticipation': { animState: 'anticipation', presentationEvent: 'anticipation', tumbleAction: null, tumblePhase: null, vfxEvent: null },
   'symbol.dropIn': { animState: 'spinStart', presentationEvent: null, tumbleAction: 'stage-entry', tumblePhase: 'enter', vfxEvent: null },
-  'cluster.remove': { animState: null, presentationEvent: 'tumbleBoard', tumbleAction: 'clear-tile', tumblePhase: 'clear', vfxEvent: null },
+  'cluster.remove': { animState: null, presentationEvent: null, tumbleAction: 'clear-tile', tumblePhase: 'clear', vfxEvent: null },
   'symbol.pop': { animState: null, presentationEvent: null, tumbleAction: 'react-before-clear', tumblePhase: 'reaction', vfxEvent: null },
-  'cluster.fall': { animState: null, presentationEvent: 'tumbleBoard', tumbleAction: 'travel-to-destination', tumblePhase: 'fall', vfxEvent: null },
-  'cluster.refill': { animState: null, presentationEvent: 'tumbleBoard', tumbleAction: 'stage-entry', tumblePhase: 'enter', vfxEvent: null },
+  'cluster.fall': { animState: null, presentationEvent: null, tumbleAction: 'travel-to-destination', tumblePhase: 'fall', vfxEvent: null },
+  'cluster.refill': { animState: null, presentationEvent: null, tumbleAction: 'stage-entry', tumblePhase: 'enter', vfxEvent: null },
   'board.settle': { animState: null, presentationEvent: null, tumbleAction: 'settle-at-destination', tumblePhase: 'settle', vfxEvent: null },
-  'win.pulse': { animState: 'winSmall', presentationEvent: 'winInfo', tumbleAction: null, tumblePhase: null, vfxEvent: 'winInfo' },
-  'win.lineTrace': { animState: null, presentationEvent: 'winInfo', tumbleAction: null, tumblePhase: null, vfxEvent: 'winInfo' },
-  'win.multiplierFloat': { animState: null, presentationEvent: 'setWin', tumbleAction: null, tumblePhase: null, vfxEvent: 'winInfo' },
+  // Win cues: local highlight only — never setWin / wincap during motion play.
+  'win.pulse': { animState: 'winSmall', presentationEvent: null, tumbleAction: 'win-highlight', tumblePhase: 'win', vfxEvent: null },
+  'win.lineTrace': { animState: null, presentationEvent: null, tumbleAction: 'win-highlight', tumblePhase: 'win', vfxEvent: null },
+  'win.multiplierFloat': { animState: null, presentationEvent: null, tumbleAction: null, tumblePhase: null, vfxEvent: null },
   'wild.stickyMorph': { animState: null, presentationEvent: null, tumbleAction: null, tumblePhase: null, vfxEvent: null },
-  'board.shake': { animState: null, presentationEvent: 'wincap', tumbleAction: null, tumblePhase: null, vfxEvent: 'winInfo' },
+  'board.shake': { animState: null, presentationEvent: null, tumbleAction: null, tumblePhase: null, vfxEvent: null },
   'symbol.fadeOut': { animState: null, presentationEvent: null, tumbleAction: 'clear-tile', tumblePhase: 'clear', vfxEvent: null },
 });
 
