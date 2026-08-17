@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node scripts/start-stake-studio.mjs",
+    "dev": "PORT=3000 node scripts/start-stake-studio.mjs",
+    "dev:agent": "PORT=3001 STAKE_STUDIO_AGENT=1 STAKE_STUDIO_LIVE_RELOAD=1 node scripts/start-stake-studio.mjs",
     "dev:live": "STAKE_STUDIO_LIVE_RELOAD=1 node scripts/start-stake-studio.mjs",
     "build": "vite build",
     "preview": "vite preview",
