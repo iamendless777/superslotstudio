@@ -1,0 +1,12 @@
+{
+  "styleId": "classic-lines",
+  "catalogVersion": 1,
+  "totalDurationMs": 1530,
+  "cues": [
+    { "cue": "reel.blur", "startMs": 0, "durationMs": 400, "stepKind": "reveal", "depth": 0, "cells": [] },
+    { "cue": "reel.stop", "startMs": 400, "durationMs": 280, "stepKind": "reveal", "depth": 0, "cells": [] },
+    { "cue": "board.settle", "startMs": 680, "durationMs": 120, "stepKind": "reveal", "depth": 0, "cells": [] },
+    { "cue": "win.pulse", "startMs": 800, "durationMs": 450, "stepKind": "win", "depth": 0, "cells": ["0:0", "1:0", "2:0"] },
+    { "cue": "win.lineTrace", "startMs": 1030, "durationMs": 500, "stepKind": "win", "depth": 0, "cells": ["0:0", "1:0", "2:0"] }
+  ]
+}
