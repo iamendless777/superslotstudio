@@ -1,7 +1,7 @@
 {
   "styleId": "cluster-snap",
   "catalogVersion": 1,
-  "totalDurationMs": 3200,
+  "totalDurationMs": 3680,
   "cues": [
     {
       "cue": "symbol.dropIn",
