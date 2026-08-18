@@ -7,6 +7,20 @@ import { playMotionTemplate } from '../../engines/presentation/playMotionTemplat
 
 const MOTION_STYLE_ID = 'stake-studio-motion-cascade-css';
 
+const PHASE_LABELS = {
+  'symbol.dropIn': 'Board fills',
+  'board.settle': 'Settle',
+  'cluster.remove': 'Cluster marked',
+  'symbol.pop': 'Symbols pop',
+  'cluster.fall': 'Tiles fall',
+  'cluster.refill': 'New tiles drop in',
+  'win.pulse': 'Win pulse',
+  'board.shake': 'Board shake',
+  'reel.blur': 'Reels spin',
+  'reel.stop': 'Reels stop',
+  'reel.anticipation': 'Anticipation',
+};
+
 function ensureMotionCascadeStyles() {
   if (document.getElementById(MOTION_STYLE_ID)) return;
   const style = document.createElement('style');
@@ -14,43 +28,42 @@ function ensureMotionCascadeStyles() {
   style.textContent = `
     .motion-overlay {
       position: absolute;
-      inset: 0;
+      inset: 12% 18% 22% 18%;
       display: grid;
       pointer-events: none;
       z-index: 40;
-      padding: 2%;
       box-sizing: border-box;
     }
     .motion-overlay-cell {
       border-radius: 10px;
-      margin: 4%;
-      background: radial-gradient(circle at 40% 30%, rgba(255,255,255,0.35), rgba(120,180,255,0.08) 55%, rgba(0,0,0,0.05));
-      border: 1px solid rgba(255,255,255,0.12);
+      margin: 6%;
+      background: radial-gradient(circle at 40% 30%, rgba(255,255,255,0.28), rgba(120,180,255,0.06) 55%, transparent);
+      border: 1px solid rgba(255,255,255,0.08);
       opacity: 0;
-      transform: scale(0.92);
-      transition: opacity 80ms linear;
+      transform: scale(0.94);
+      transition: opacity 100ms linear;
     }
     .motion-overlay-cell.is-live {
-      opacity: 0.55;
+      opacity: 0.45;
       transform: scale(1);
     }
     .motion-overlay-cell.motion-cell-pop {
       animation: motion-pop 260ms ease-out forwards !important;
-      background: radial-gradient(circle, rgba(255,220,120,0.85), rgba(255,80,40,0.35));
+      background: radial-gradient(circle, rgba(255,220,120,0.9), rgba(255,80,40,0.4));
       opacity: 1 !important;
     }
     .motion-overlay-cell.motion-cell-clear {
       animation: motion-clear 220ms ease-in forwards !important;
-      background: radial-gradient(circle, rgba(255,120,80,0.9), rgba(80,20,20,0.2));
+      background: radial-gradient(circle, rgba(255,120,80,0.95), rgba(80,20,20,0.25));
       opacity: 1 !important;
     }
     .motion-overlay-cell.motion-cell-fall {
       animation: motion-fall 300ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards !important;
-      opacity: 0.7 !important;
+      opacity: 0.85 !important;
     }
     .motion-overlay-cell.motion-cell-refill {
       animation: motion-refill 340ms cubic-bezier(0.2, 0.9, 0.3, 1) forwards !important;
-      background: radial-gradient(circle, rgba(140,220,255,0.75), rgba(40,80,160,0.25));
+      background: radial-gradient(circle, rgba(140,220,255,0.8), rgba(40,80,160,0.3));
       opacity: 1 !important;
     }
     .motion-overlay-cell.motion-cell-win {
@@ -64,16 +77,25 @@ function ensureMotionCascadeStyles() {
     }
     .motion-overlay-label {
       position: absolute;
-      left: 8px;
-      top: 8px;
-      padding: 4px 8px;
-      border-radius: 6px;
-      background: rgba(0,0,0,0.55);
-      color: #9fd3ff;
-      font: 600 11px/1.2 system-ui, sans-serif;
-      letter-spacing: 0.04em;
+      left: 12px;
+      top: 12px;
+      max-width: 60%;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: rgba(0,0,0,0.72);
+      color: #d7ecff;
+      font: 600 13px/1.35 system-ui, sans-serif;
+      letter-spacing: 0.02em;
       z-index: 41;
       pointer-events: none;
+      border: 1px solid rgba(160,210,255,0.25);
+    }
+    .motion-overlay-label small {
+      display: block;
+      margin-top: 2px;
+      color: #8eb6d8;
+      font-weight: 500;
+      font-size: 11px;
     }
     @keyframes motion-pop {
       0% { transform: scale(1); filter: brightness(1); opacity: 1; }
@@ -86,11 +108,11 @@ function ensureMotionCascadeStyles() {
     }
     @keyframes motion-fall {
       0% { transform: translateY(-35%); opacity: 0.4; }
-      100% { transform: translateY(0); opacity: 0.75; }
+      100% { transform: translateY(0); opacity: 0.85; }
     }
     @keyframes motion-refill {
       0% { transform: translateY(-120%) scale(0.85); opacity: 0; }
-      100% { transform: translateY(0) scale(1); opacity: 0.7; }
+      100% { transform: translateY(0) scale(1); opacity: 0.75; }
     }
     @keyframes motion-win {
       0%, 100% { transform: scale(1); filter: brightness(1); }
@@ -212,7 +234,7 @@ export class PreviewPanel extends BasePreviewPanel {
       badge.className = 'motion-overlay-label';
       host.appendChild(badge);
     }
-    badge.textContent = 'MOTION PREVIEW';
+    badge.innerHTML = 'MOTION PREVIEW<small>cue timeline rehearsal — not final art motion</small>';
 
     this.motionOverlay = overlay;
     this.motionOverlayHost = host;
@@ -225,12 +247,21 @@ export class PreviewPanel extends BasePreviewPanel {
     this.motionOverlayBadge?.remove();
     this.motionOverlay = null;
     this.motionOverlayBadge = null;
+    this.motionOverlayHost = null;
+  }
+
+  setMotionBadge(title, detail = '') {
+    if (!this.motionOverlayBadge) return;
+    this.motionOverlayBadge.innerHTML = detail
+      ? `${title}<small>${detail}</small>`
+      : title;
   }
 
   overlayCells(positions) {
     const overlay = this.ensureMotionOverlay();
     if (!overlay) return [];
-    if (!positions.length) return [...overlay.querySelectorAll('.motion-overlay-cell')];
+    // Never animate the whole board unless positions are explicit.
+    if (!positions.length) return [];
     const found = [];
     for (const [reel, row] of positions) {
       const el = overlay.querySelector(`[data-reel="${reel}"][data-row="${row}"]`);
@@ -282,9 +313,15 @@ export class PreviewPanel extends BasePreviewPanel {
       depth: cue?.depth,
     });
 
-    if (this.motionOverlayBadge) {
-      this.motionOverlayBadge.textContent = `${cue?.cue || action} · d${cue?.depth ?? 0}`;
-    }
+    const cueName = cue?.cue || action;
+    const human = PHASE_LABELS[cueName] || cueName;
+    const cellsLabel = Array.isArray(cue?.cells) && cue.cells.length
+      ? cue.cells.join(' · ')
+      : 'board-wide timing only';
+    this.setMotionBadge(
+      `${human}  ·  depth ${cue?.depth ?? 0}`,
+      cellsLabel,
+    );
 
     const positions = parseCells(cue?.cells);
     const duration = Number(cue?.durationMs) || 300;
@@ -300,39 +337,46 @@ export class PreviewPanel extends BasePreviewPanel {
       }
     }
 
-    if (action === 'react-before-clear' || phase === 'reaction') {
+    // drop-in / reveal: show listed cells as the board coming online
+    if (cueName === 'symbol.dropIn' || action === 'stage-entry' && phase === 'enter' && positions.length > 6) {
+      for (const el of cells) {
+        el.style.opacity = '';
+        el.classList.add('is-live');
+      }
+      this.applyMotionClass(cells, 'motion-cell-refill', duration);
+      return;
+    }
+
+    if (action === 'react-before-clear' || phase === 'reaction' || cueName === 'symbol.pop') {
       this.applyMotionClass(cells, 'motion-cell-pop', duration);
       return;
     }
-    if (action === 'clear-tile' || phase === 'clear' || phase === 'remove') {
+    if (action === 'clear-tile' || phase === 'clear' || phase === 'remove' || cueName === 'cluster.remove') {
       this.applyMotionClass(cells, 'motion-cell-clear', duration);
       return;
     }
-    if (action === 'travel-to-destination' || phase === 'fall') {
-      this.applyMotionClass(cells.length ? cells : this.overlayCells([]), 'motion-cell-fall', duration);
+    if (action === 'travel-to-destination' || phase === 'fall' || cueName === 'cluster.fall') {
+      // Only explicit fall cells — never whole board.
+      this.applyMotionClass(cells, 'motion-cell-fall', duration);
       return;
     }
-    if (action === 'stage-entry' || phase === 'enter' || phase === 'refill') {
-      const targets = cells.length ? cells : this.overlayCells([]);
-      for (const el of targets) {
+    if (action === 'stage-entry' || phase === 'enter' || phase === 'refill' || cueName === 'cluster.refill') {
+      for (const el of cells) {
         el.style.opacity = '';
         el.classList.add('is-live');
       }
-      this.applyMotionClass(targets, 'motion-cell-refill', duration);
+      this.applyMotionClass(cells, 'motion-cell-refill', duration);
       return;
     }
-    if (action === 'settle-at-destination' || phase === 'settle') {
-      for (const el of cells.length ? cells : this.overlayCells([])) {
-        el.style.opacity = '';
-        el.classList.add('is-live');
-      }
+    if (action === 'settle-at-destination' || phase === 'settle' || cueName === 'board.settle') {
+      // Timing beat only — no flash.
       return;
     }
-    if (action === 'win-highlight' || phase === 'win') {
+    if (action === 'win-highlight' || phase === 'win' || cueName === 'win.pulse') {
       this.applyMotionClass(cells, 'motion-cell-win', duration);
       return;
     }
-    if (cue?.cue === 'board.shake') {
+    if (cueName === 'board.shake') {
       this.shakeMotionBoard();
     }
   }
@@ -352,8 +396,8 @@ export class PreviewPanel extends BasePreviewPanel {
         onTumbleAction: (action, phase, cue) => this.handleMotionTumble(action, phase, cue),
         onLog: (line) => console.log('[motion]', line),
         onComplete: () => {
-          if (this.motionOverlayBadge) this.motionOverlayBadge.textContent = 'MOTION DONE';
-          window.setTimeout(() => this.clearMotionOverlay(), 600);
+          this.setMotionBadge('Done', 'timeline rehearsal finished');
+          window.setTimeout(() => this.clearMotionOverlay(), 800);
         },
         executePresentation: () => {},
       });
