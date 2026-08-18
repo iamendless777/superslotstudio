@@ -1,6 +1,6 @@
 /**
  * Thin wrapper around PreviewPanel that injects Motion template playback
- * and a DOM overlay grid so cascade is visible even when the board is Pixi.
+ * and a fixed-position overlay locked to the visible reel window.
  */
 import { PreviewPanel as BasePreviewPanel } from './PreviewPanel.js?orchestration=20260815-40';
 import { playMotionTemplate } from '../../engines/presentation/playMotionTemplate.js';
@@ -26,69 +26,74 @@ function ensureMotionCascadeStyles() {
   const style = document.createElement('style');
   style.id = MOTION_STYLE_ID;
   style.textContent = `
+    .motion-overlay-root {
+      position: fixed;
+      z-index: 99990;
+      pointer-events: none;
+      box-sizing: border-box;
+    }
     .motion-overlay {
       position: absolute;
-      inset: 12% 18% 22% 18%;
+      inset: 0;
       display: grid;
       pointer-events: none;
-      z-index: 40;
       box-sizing: border-box;
     }
     .motion-overlay-cell {
-      border-radius: 10px;
-      margin: 6%;
-      background: radial-gradient(circle at 40% 30%, rgba(255,255,255,0.28), rgba(120,180,255,0.06) 55%, transparent);
-      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      margin: 5%;
+      background: rgba(80, 160, 255, 0.12);
+      border: 2px solid rgba(140, 200, 255, 0.35);
       opacity: 0;
-      transform: scale(0.94);
-      transition: opacity 100ms linear;
+      transform: scale(0.96);
+      box-sizing: border-box;
     }
     .motion-overlay-cell.is-live {
-      opacity: 0.45;
+      opacity: 0.55;
       transform: scale(1);
+      background: rgba(100, 180, 255, 0.22);
     }
     .motion-overlay-cell.motion-cell-pop {
       animation: motion-pop 260ms ease-out forwards !important;
-      background: radial-gradient(circle, rgba(255,220,120,0.9), rgba(255,80,40,0.4));
+      background: rgba(255, 200, 80, 0.75) !important;
+      border-color: rgba(255, 230, 120, 0.95) !important;
       opacity: 1 !important;
     }
     .motion-overlay-cell.motion-cell-clear {
       animation: motion-clear 220ms ease-in forwards !important;
-      background: radial-gradient(circle, rgba(255,120,80,0.95), rgba(80,20,20,0.25));
+      background: rgba(255, 90, 60, 0.8) !important;
+      border-color: rgba(255, 160, 120, 0.9) !important;
       opacity: 1 !important;
     }
     .motion-overlay-cell.motion-cell-fall {
       animation: motion-fall 300ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards !important;
-      opacity: 0.85 !important;
+      background: rgba(120, 200, 255, 0.55) !important;
+      opacity: 1 !important;
     }
     .motion-overlay-cell.motion-cell-refill {
       animation: motion-refill 340ms cubic-bezier(0.2, 0.9, 0.3, 1) forwards !important;
-      background: radial-gradient(circle, rgba(140,220,255,0.8), rgba(40,80,160,0.3));
+      background: rgba(90, 220, 255, 0.65) !important;
       opacity: 1 !important;
     }
     .motion-overlay-cell.motion-cell-win {
       animation: motion-win 450ms ease-in-out !important;
-      box-shadow: 0 0 22px 6px rgba(255, 215, 100, 0.9) !important;
-      border-color: rgba(255, 230, 140, 0.95);
+      background: rgba(255, 215, 100, 0.55) !important;
+      box-shadow: 0 0 24px 6px rgba(255, 215, 100, 0.85) !important;
+      border-color: rgba(255, 235, 150, 1) !important;
       opacity: 1 !important;
     }
-    .motion-board-shake {
-      animation: motion-shake 180ms ease-in-out !important;
-    }
     .motion-overlay-label {
-      position: absolute;
-      left: 12px;
-      top: 12px;
-      max-width: 60%;
+      position: fixed;
+      z-index: 99991;
       padding: 8px 12px;
       border-radius: 8px;
-      background: rgba(0,0,0,0.72);
+      background: rgba(0,0,0,0.78);
       color: #d7ecff;
       font: 600 13px/1.35 system-ui, sans-serif;
       letter-spacing: 0.02em;
-      z-index: 41;
       pointer-events: none;
-      border: 1px solid rgba(160,210,255,0.25);
+      border: 1px solid rgba(160,210,255,0.3);
+      max-width: min(420px, 70vw);
     }
     .motion-overlay-label small {
       display: block;
@@ -98,30 +103,25 @@ function ensureMotionCascadeStyles() {
       font-size: 11px;
     }
     @keyframes motion-pop {
-      0% { transform: scale(1); filter: brightness(1); opacity: 1; }
-      40% { transform: scale(1.2); filter: brightness(1.4); opacity: 1; }
-      100% { transform: scale(0.15); opacity: 0; filter: brightness(2); }
+      0% { transform: scale(1); opacity: 1; }
+      40% { transform: scale(1.18); opacity: 1; }
+      100% { transform: scale(0.12); opacity: 0; }
     }
     @keyframes motion-clear {
       0% { transform: scale(1); opacity: 1; }
-      100% { transform: scale(0.1); opacity: 0; }
+      100% { transform: scale(0.08); opacity: 0; }
     }
     @keyframes motion-fall {
-      0% { transform: translateY(-35%); opacity: 0.4; }
-      100% { transform: translateY(0); opacity: 0.85; }
+      0% { transform: translateY(-40%); opacity: 0.35; }
+      100% { transform: translateY(0); opacity: 1; }
     }
     @keyframes motion-refill {
-      0% { transform: translateY(-120%) scale(0.85); opacity: 0; }
-      100% { transform: translateY(0) scale(1); opacity: 0.75; }
+      0% { transform: translateY(-130%) scale(0.85); opacity: 0; }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
     }
     @keyframes motion-win {
-      0%, 100% { transform: scale(1); filter: brightness(1); }
-      50% { transform: scale(1.1); filter: brightness(1.5); }
-    }
-    @keyframes motion-shake {
-      0%, 100% { transform: translateX(0); }
-      25% { transform: translateX(-7px); }
-      75% { transform: translateX(7px); }
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.12); }
     }
   `;
   document.head.appendChild(style);
@@ -178,39 +178,77 @@ export class PreviewPanel extends BasePreviewPanel {
     return { reels, rows };
   }
 
-  findBoardHost() {
+  /**
+   * Prefer the tightest on-screen rectangle that looks like the reel window.
+   */
+  findReelRect() {
     const root = this.container || document;
-    return (
-      root.querySelector('[data-preview-grid]') ||
-      root.querySelector('.preview-reels') ||
-      root.querySelector('.reel-grid') ||
-      root.querySelector('.symbol-grid') ||
-      root.querySelector('.game-grid') ||
-      root.querySelector('.preview-stage') ||
-      root.querySelector('.preview-cabinet') ||
-      root.querySelector('.cabinet-stage') ||
-      root.querySelector('.cabinet-frame') ||
-      root.querySelector('canvas')?.parentElement ||
-      root.querySelector('.preview-panel, .preview, main') ||
-      root
-    );
+    const candidates = [
+      ...root.querySelectorAll('[data-preview-grid], .preview-reels, .reel-grid, .symbol-grid, .game-grid'),
+      ...root.querySelectorAll('canvas'),
+      ...root.querySelectorAll('.preview-stage, .preview-cabinet, .cabinet-stage, .cabinet-frame'),
+    ];
+
+    let best = null;
+    let bestScore = -1;
+    for (const el of candidates) {
+      const r = el.getBoundingClientRect();
+      if (r.width < 120 || r.height < 120) continue;
+      // Prefer ~square-ish mid-size frames over full-page shells.
+      const area = r.width * r.height;
+      const aspect = r.width / r.height;
+      const aspectScore = aspect > 0.7 && aspect < 2.2 ? 1 : 0.4;
+      const sizeScore = area > 80000 && area < 900000 ? 1 : 0.5;
+      const score = area * aspectScore * sizeScore;
+      if (score > bestScore) {
+        bestScore = score;
+        best = r;
+      }
+    }
+
+    if (best) return best;
+
+    // Fallback: center box in the preview container.
+    const host = root.getBoundingClientRect?.() || { left: 80, top: 120, width: 700, height: 480 };
+    const w = Math.min(640, host.width * 0.55);
+    const h = Math.min(420, host.height * 0.55);
+    return {
+      left: host.left + (host.width - w) / 2,
+      top: host.top + (host.height - h) / 2.4,
+      width: w,
+      height: h,
+      right: 0,
+      bottom: 0,
+      x: 0,
+      y: 0,
+      toJSON() {},
+    };
   }
 
   ensureMotionOverlay() {
-    const host = this.findBoardHost();
-    if (!host) return null;
-    const style = getComputedStyle(host);
-    if (style.position === 'static') host.style.position = 'relative';
+    const rect = this.findReelRect();
+    const { reels, rows } = this.gridSize();
 
-    let overlay = host.querySelector(':scope > .motion-overlay');
+    let root = document.getElementById('stake-motion-overlay-root');
+    if (!root) {
+      root = document.createElement('div');
+      root.id = 'stake-motion-overlay-root';
+      root.className = 'motion-overlay-root';
+      document.body.appendChild(root);
+    }
+
+    root.style.left = `${Math.round(rect.left)}px`;
+    root.style.top = `${Math.round(rect.top)}px`;
+    root.style.width = `${Math.round(rect.width)}px`;
+    root.style.height = `${Math.round(rect.height)}px`;
+
+    let overlay = root.querySelector('.motion-overlay');
     if (!overlay) {
       overlay = document.createElement('div');
       overlay.className = 'motion-overlay';
-      overlay.setAttribute('data-motion-overlay', '1');
-      host.appendChild(overlay);
+      root.appendChild(overlay);
     }
 
-    const { reels, rows } = this.gridSize();
     const needed = reels * rows;
     if (overlay.childElementCount !== needed) {
       overlay.innerHTML = '';
@@ -228,40 +266,39 @@ export class PreviewPanel extends BasePreviewPanel {
       }
     }
 
-    let badge = host.querySelector(':scope > .motion-overlay-label');
+    let badge = document.getElementById('stake-motion-overlay-label');
     if (!badge) {
       badge = document.createElement('div');
+      badge.id = 'stake-motion-overlay-label';
       badge.className = 'motion-overlay-label';
-      host.appendChild(badge);
+      document.body.appendChild(badge);
     }
-    badge.innerHTML = 'MOTION PREVIEW<small>cue timeline rehearsal — not final art motion</small>';
+    badge.style.left = `${Math.round(rect.left + 8)}px`;
+    badge.style.top = `${Math.max(8, Math.round(rect.top - 40))}px`;
+    badge.innerHTML = 'MOTION PREVIEW<small>cue timeline on reel window</small>';
 
+    this.motionOverlayRoot = root;
     this.motionOverlay = overlay;
-    this.motionOverlayHost = host;
     this.motionOverlayBadge = badge;
     return overlay;
   }
 
   clearMotionOverlay() {
-    this.motionOverlay?.remove();
+    this.motionOverlayRoot?.remove();
     this.motionOverlayBadge?.remove();
+    this.motionOverlayRoot = null;
     this.motionOverlay = null;
     this.motionOverlayBadge = null;
-    this.motionOverlayHost = null;
   }
 
   setMotionBadge(title, detail = '') {
     if (!this.motionOverlayBadge) return;
-    this.motionOverlayBadge.innerHTML = detail
-      ? `${title}<small>${detail}</small>`
-      : title;
+    this.motionOverlayBadge.innerHTML = detail ? `${title}<small>${detail}</small>` : title;
   }
 
   overlayCells(positions) {
     const overlay = this.ensureMotionOverlay();
-    if (!overlay) return [];
-    // Never animate the whole board unless positions are explicit.
-    if (!positions.length) return [];
+    if (!overlay || !positions.length) return [];
     const found = [];
     for (const [reel, row] of positions) {
       const el = overlay.querySelector(`[data-reel="${reel}"][data-row="${row}"]`);
@@ -296,15 +333,6 @@ export class PreviewPanel extends BasePreviewPanel {
     }
   }
 
-  shakeMotionBoard() {
-    const host = this.motionOverlayHost || this.findBoardHost();
-    if (!host) return;
-    host.classList.remove('motion-board-shake');
-    void host.offsetWidth;
-    host.classList.add('motion-board-shake');
-    window.setTimeout(() => host.classList.remove('motion-board-shake'), 200);
-  }
-
   handleMotionTumble(action, phase, cue) {
     this.recordPlaybackEvent?.('motionCue', {
       action,
@@ -317,11 +345,8 @@ export class PreviewPanel extends BasePreviewPanel {
     const human = PHASE_LABELS[cueName] || cueName;
     const cellsLabel = Array.isArray(cue?.cells) && cue.cells.length
       ? cue.cells.join(' · ')
-      : 'board-wide timing only';
-    this.setMotionBadge(
-      `${human}  ·  depth ${cue?.depth ?? 0}`,
-      cellsLabel,
-    );
+      : 'timing only';
+    this.setMotionBadge(`${human}  ·  depth ${cue?.depth ?? 0}`, cellsLabel);
 
     const positions = parseCells(cue?.cells);
     const duration = Number(cue?.durationMs) || 300;
@@ -337,8 +362,7 @@ export class PreviewPanel extends BasePreviewPanel {
       }
     }
 
-    // drop-in / reveal: show listed cells as the board coming online
-    if (cueName === 'symbol.dropIn' || action === 'stage-entry' && phase === 'enter' && positions.length > 6) {
+    if (cueName === 'symbol.dropIn') {
       for (const el of cells) {
         el.style.opacity = '';
         el.classList.add('is-live');
@@ -346,7 +370,6 @@ export class PreviewPanel extends BasePreviewPanel {
       this.applyMotionClass(cells, 'motion-cell-refill', duration);
       return;
     }
-
     if (action === 'react-before-clear' || phase === 'reaction' || cueName === 'symbol.pop') {
       this.applyMotionClass(cells, 'motion-cell-pop', duration);
       return;
@@ -356,7 +379,6 @@ export class PreviewPanel extends BasePreviewPanel {
       return;
     }
     if (action === 'travel-to-destination' || phase === 'fall' || cueName === 'cluster.fall') {
-      // Only explicit fall cells — never whole board.
       this.applyMotionClass(cells, 'motion-cell-fall', duration);
       return;
     }
@@ -369,15 +391,11 @@ export class PreviewPanel extends BasePreviewPanel {
       return;
     }
     if (action === 'settle-at-destination' || phase === 'settle' || cueName === 'board.settle') {
-      // Timing beat only — no flash.
       return;
     }
     if (action === 'win-highlight' || phase === 'win' || cueName === 'win.pulse') {
       this.applyMotionClass(cells, 'motion-cell-win', duration);
       return;
-    }
-    if (cueName === 'board.shake') {
-      this.shakeMotionBoard();
     }
   }
 
@@ -397,7 +415,7 @@ export class PreviewPanel extends BasePreviewPanel {
         onLog: (line) => console.log('[motion]', line),
         onComplete: () => {
           this.setMotionBadge('Done', 'timeline rehearsal finished');
-          window.setTimeout(() => this.clearMotionOverlay(), 800);
+          window.setTimeout(() => this.clearMotionOverlay(), 900);
         },
         executePresentation: () => {},
       });
