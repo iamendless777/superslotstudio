@@ -141,4 +141,14 @@ test('retargetFromBoard pops the largest matching cluster', () => {
   );
 });
 
+test('retargetFromBoard falls back to fixture cells when every symbol is unique', () => {
+  const events = cueSheetToTumbleEvents(oneDepthSheet, board6x4, { retargetFromBoard: true });
+  assert.deepEqual(events[0].explodingSymbols, [
+    { reel: 1, row: 2 },
+    { reel: 2, row: 2 },
+    { reel: 3, row: 2 },
+  ]);
+});
+
+
 

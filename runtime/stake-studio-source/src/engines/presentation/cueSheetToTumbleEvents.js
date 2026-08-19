@@ -139,9 +139,11 @@ export function cueSheetToTumbleEvents(sheet, board, options = {}) {
   const events = [];
   for (const depth of depths) {
     const depthCues = cues.filter((cue) => (Number(cue.depth) || 0) === depth);
-    const exploding = options.retargetFromBoard
-      ? (largestEqualCluster(current, 2) || explodingForDepth(depthCues))
-      : explodingForDepth(depthCues);
+    const live = options.retargetFromBoard ? largestEqualCluster(current, 2) : [];
+    const exploding = (live.length ? live : explodingForDepth(depthCues))
+      .filter(([reel, row]) => Number.isFinite(reel) && Number.isFinite(row)
+        && reel >= 0 && reel < current.length
+        && row >= 0 && row < (current[reel] || []).length);
     if (!exploding.length) continue;
 
     const reelCount = current.length;

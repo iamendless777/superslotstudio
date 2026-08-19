@@ -1901,10 +1901,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 }
 #previewMotionDebug {
   color: #7dffce;
-  font: 700 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 700 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: 0;
   text-transform: none;
-  max-width: 42rem;
+  max-width: 22rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
