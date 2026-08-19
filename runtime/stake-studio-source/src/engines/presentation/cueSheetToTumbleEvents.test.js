@@ -8,6 +8,7 @@ import {
   cueSheetHasReel,
   cueSheetHasTumble,
   cueSheetToTumbleEvents,
+  largestEqualCluster,
 } from './cueSheetToTumbleEvents.js';
 import { applyTumbleEvent } from '../math/StakeRoundBook.js';
 
@@ -121,4 +122,23 @@ test('checked-in cluster-hex fixture is a two-depth tumbleBoard sequence', () =>
   const after = applyTumbleEvent(board6x4, events[0]);
   assert.equal(after[1].length, 4);
 });
+
+test('retargetFromBoard pops the largest matching cluster', () => {
+  const board = [
+    ['A', 'B', 'C', 'D'],
+    ['A', 'A', 'X', 'Y'],
+    ['A', 'Z', 'Q', 'W'],
+    ['M', 'N', 'O', 'P'],
+    ['E', 'F', 'G', 'H'],
+    ['I', 'J', 'K', 'L'],
+  ];
+  const cluster = largestEqualCluster(board, 2).map(([reel, row]) => `${reel}:${row}`).sort();
+  assert.deepEqual(cluster, ['0:0', '1:0', '1:1', '2:0']);
+  const events = cueSheetToTumbleEvents(oneDepthSheet, board, { retargetFromBoard: true });
+  assert.deepEqual(
+    events[0].explodingSymbols.map((cell) => `${cell.reel}:${cell.row}`).sort(),
+    cluster,
+  );
+});
+
 

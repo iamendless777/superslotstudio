@@ -213,6 +213,7 @@ export class PreviewPanel extends BasePreviewPanel {
     const sourceBoard = cloneBoard(this.board);
     const events = cueSheetToTumbleEvents(sheet, sourceBoard, {
       fillerSymbol: this.motionFillerSymbol(),
+      retargetFromBoard: true,
     });
     if (!events.length) return false;
 

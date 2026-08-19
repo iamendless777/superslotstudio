@@ -79,10 +79,50 @@ function nextFiller(pool, index, fallback) {
   return fallback;
 }
 
+const ORTHO = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+];
+
+/** Largest 4-connected same-name group. Rehearsal uses this so pops look like a win. */
+export function largestEqualCluster(board, minSize = 2) {
+  const source = cloneBoard(board);
+  const seen = new Set();
+  let best = [];
+  for (let reel = 0; reel < source.length; reel++) {
+    for (let row = 0; row < (source[reel] || []).length; row++) {
+      const start = `${reel},${row}`;
+      if (seen.has(start)) continue;
+      const name = source[reel][row];
+      if (!name) continue;
+      const stack = [[reel, row]];
+      const group = [];
+      seen.add(start);
+      while (stack.length) {
+        const [x, y] = stack.pop();
+        group.push([x, y]);
+        for (const [dx, dy] of ORTHO) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= source.length || ny >= (source[nx] || []).length) continue;
+          const key = `${nx},${ny}`;
+          if (seen.has(key) || source[nx][ny] !== name) continue;
+          seen.add(key);
+          stack.push([nx, ny]);
+        }
+      }
+      if (group.length > best.length) best = group;
+    }
+  }
+  return best.length >= minSize ? best : [];
+}
+
 /**
  * @param {object} sheet MotionCueSheet
  * @param {string[][]|object[][]} board current preview board (reel → row, row 0 = top)
- * @param {{ fillerSymbol?: string, maxDepth?: number }} [options]
+ * @param {{ fillerSymbol?: string, maxDepth?: number, retargetFromBoard?: boolean }} [options]
  * @returns {Array<{ type: string, explodingSymbols: object[], newSymbols: object[][] }>}
  */
 export function cueSheetToTumbleEvents(sheet, board, options = {}) {
@@ -99,7 +139,9 @@ export function cueSheetToTumbleEvents(sheet, board, options = {}) {
   const events = [];
   for (const depth of depths) {
     const depthCues = cues.filter((cue) => (Number(cue.depth) || 0) === depth);
-    const exploding = explodingForDepth(depthCues);
+    const exploding = options.retargetFromBoard
+      ? (largestEqualCluster(current, 2) || explodingForDepth(depthCues))
+      : explodingForDepth(depthCues);
     if (!exploding.length) continue;
 
     const reelCount = current.length;

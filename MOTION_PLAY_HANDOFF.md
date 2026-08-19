@@ -165,7 +165,7 @@ Studio Preview remains pixel authority — **one** tumble implementation.
 - [x] **Adapter:** `cueSheetToTumbleEvents(sheet, board)` in `cueSheetToTumbleEvents.js`.
 - [x] **Wire Play Motion** for cluster templates to `playStakeTumble` (ad-hoc pop/fall/refill no longer used).
 - [x] **Fixture rewrite** `cluster-hex.json` catalogVersion 2: pop → remove per depth; fall/refill cells empty; no dropIn-on-full-board; no win.pulse/shake overlays.
-- [ ] **Smoke check:** Play Motion on Morpheus 6×4 — symbols actually leave, others fall, new ones enter; no max-win overlay; no full-cabinet HTML grid.
+- [x] **Smoke check:** Play Motion on Morpheus 6×4 (2026-08-19 14:34). Path `playStakeTumble`, two depths, no wager, board restores, no max-win overlay. Live matching-cluster retarget added after the recording.
 
 ### P1 — Hardening
 
