@@ -1889,7 +1889,26 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 }
 @media (prefers-reduced-motion: reduce) { .preview-position-grid-plate.is-newly-charged { animation: none !important; } }
 .reel-frame.is-tumbling > .reel-mask { visibility: visible; }
-.reel-frame.is-tumbling > .reel-mask .reel-sym img { visibility: hidden; }
+.reel-frame.is-tumbling > .reel-mask .reel-sym,
+.reel-frame.is-tumbling > .reel-mask .reel-sym > * { visibility: hidden !important; }
+.preview-stage:has(.reel-frame.is-tumbling) #previewVisualEffectLayer {
+  visibility: hidden !important;
+}
+.preview-tumble-symbol.is-exploding {
+  outline: 3px solid #00e5ff;
+  outline-offset: -3px;
+  z-index: 2;
+}
+#previewMotionDebug {
+  color: #7dffce;
+  font: 700 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0;
+  text-transform: none;
+  max-width: 42rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .preview-tumble-layer {
   position: absolute;
   inset: 0;

@@ -78,9 +78,15 @@ export class PreviewPanel extends BasePreviewPanel {
     status.style.minWidth = '10rem';
     status.textContent = '';
 
+    const debug = document.createElement('span');
+    debug.id = 'previewMotionDebug';
+    debug.className = 'preview-mode';
+    debug.textContent = 'motion idle';
+
     trigger.insertAdjacentElement('afterend', label);
     label.insertAdjacentElement('afterend', button);
     button.insertAdjacentElement('afterend', status);
+    status.insertAdjacentElement('afterend', debug);
 
     button.addEventListener('click', () => {
       void this.playMotionStylePreview();
@@ -126,6 +132,33 @@ export class PreviewPanel extends BasePreviewPanel {
     if (el) el.textContent = text || '';
   }
 
+  setMotionDebug(info) {
+    const snapshot = {
+      at: new Date().toISOString(),
+      ...info,
+    };
+    window.__MOTION_LAST_PLAY__ = snapshot;
+    const el = this.container?.querySelector('#previewMotionDebug');
+    if (!el) return;
+    const exploding = Array.isArray(info.exploding)
+      ? info.exploding.map((cell) => `${cell.reel}:${cell.row}`).join(',')
+      : (info.exploding || '');
+    el.textContent = [
+      info.path || 'idle',
+      info.grid,
+      info.step,
+      exploding ? `pop ${exploding}` : '',
+      info.tumbling ? 'layer-on' : '',
+      info.note,
+    ].filter(Boolean).join(' · ');
+  }
+
+  motionGridLabel() {
+    const reels = this.board?.length || this.project?.math?.grid?.reels || 0;
+    const rows = this.board?.[0]?.length || this.project?.math?.grid?.rows?.[0] || 0;
+    return `${reels}x${rows}`;
+  }
+
   syncMotionArtStatus() {
     if (this.motionPlaying) return;
     const select = this.container?.querySelector('#previewMotionTemplate');
@@ -159,6 +192,12 @@ export class PreviewPanel extends BasePreviewPanel {
       this.motionRestoreTimer = null;
       this.restoreMotionBoard();
       this.syncMotionArtStatus();
+      this.setMotionDebug({
+        path: 'idle',
+        grid: this.motionGridLabel(),
+        step: 'restored',
+        tumbling: false,
+      });
     }, 1200);
   }
 
@@ -178,6 +217,14 @@ export class PreviewPanel extends BasePreviewPanel {
     if (!events.length) return false;
 
     this.motionSourceBoard = sourceBoard;
+    this.setMotionDebug({
+      path: 'tumble',
+      grid: this.motionGridLabel(),
+      step: `d0/${events.length}`,
+      exploding: events[0].explodingSymbols,
+      tumbling: true,
+      note: 'playStakeTumble',
+    });
     this.recordPlaybackEvent?.('motionTumbleStart', {
       depths: events.length,
       exploding: events[0].explodingSymbols,
@@ -187,10 +234,25 @@ export class PreviewPanel extends BasePreviewPanel {
       let current = sourceBoard;
       for (let index = 0; index < events.length; index++) {
         this.setMotionStatus(`Cascade ${index + 1} / ${events.length}`);
+        this.setMotionDebug({
+          path: 'tumble',
+          grid: this.motionGridLabel(),
+          step: `d${index + 1}/${events.length}`,
+          exploding: events[index].explodingSymbols,
+          tumbling: true,
+          note: 'playStakeTumble',
+        });
         current = await this.playStakeTumble(current, events[index]);
         this.board = current;
       }
       this.setMotionStatus('Done');
+      this.setMotionDebug({
+        path: 'tumble',
+        grid: this.motionGridLabel(),
+        step: 'done',
+        tumbling: false,
+        note: 'restore queued',
+      });
       this.scheduleMotionBoardRestore();
       return true;
     } catch (error) {
@@ -220,6 +282,13 @@ export class PreviewPanel extends BasePreviewPanel {
     const board = this.board;
 
     this.setMotionStatus('Reels spinning');
+    this.setMotionDebug({
+      path: 'reel',
+      grid: this.motionGridLabel(),
+      step: 'blur',
+      tumbling: false,
+      note: hasAnticipation ? 'anticipation' : 'classic',
+    });
     this.setAnimationState?.('spinning');
     this.clearPreviewReelSpinTracks?.();
 
@@ -415,6 +484,12 @@ export class PreviewPanel extends BasePreviewPanel {
     this.restoreMotionBoard();
     this.resetMotionStyles();
     this.setMotionStatus('Playing…');
+    this.setMotionDebug({
+      path: 'start',
+      grid: this.motionGridLabel(),
+      step: templateId,
+      tumbling: false,
+    });
     this.motionPlaying = true;
 
     try {
