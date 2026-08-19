@@ -1,6 +1,6 @@
 # Motion / Play Motion — Full Handoff
 
-**Date:** 2026-08-18  
+**Date:** 2026-08-19  
 **Branch:** `integrate/studio-motion`  
 **Repo:** https://github.com/iamendless777/superslotstudio  
 **Local path:** `~/Developer/superslotstudio`  
@@ -34,13 +34,34 @@ This document is the single handoff for humans or agents continuing the work.
 
 | Piece | Role |
 |--------|------|
-| `MotionCueHost.js` | Plays a cue sheet on a clock; maps cue names → animState / tumbleAction / presentationEvent |
-| `playMotionTemplate.js` | Loads `/motion-fixtures/<id>.json`, rAF ticks the host |
-| `public/motion-fixtures/classic-nine.json`, `cluster-hex.json` | Static rehearsal sheets |
-| `PreviewPanelMotion.js` | Wraps PreviewPanel; injects Motion dropdown + **Play Motion** |
-| `src/app.js` | Should import `PreviewPanelMotion` instead of base `PreviewPanel` |
-| `CUE_BRIDGE` safety | `win.pulse` / `board.shake` must **not** fire wincap / setWin during rehearsal |
+| `MotionCueHost.js` | Plays a cue sheet on a clock (classic-nine fallback) |
+| `playMotionTemplate.js` | Loads `/motion-fixtures/<id>.json` |
+| `cueSheetToTumbleEvents.js` | Adapter: cue sheet → `tumbleBoard` payloads |
+| `public/motion-fixtures/classic-nine.json`, `cluster-hex.json` | Rehearsal sheets |
+| `PreviewPanelMotion.js` | Motion dropdown + **Play Motion** → `playStakeTumble` for cluster |
+| `PreviewPanel.playStakeTumble(board, event)` | **Pixel authority** for cascade |
+| `CUE_BRIDGE` safety | `win.pulse` / `board.shake` must **not** fire wincap / setWin |
 | `npm run dev:agent` | `PORT=3001 STAKE_STUDIO_AGENT=1 STAKE_STUDIO_LIVE_RELOAD=1` |
+
+### Authoritative tumble API (located 2026-08-19)
+
+**Preview (studio):** `PreviewPanel.playStakeTumble(board, event)`  
+Triggered by book events `type === 'tumbleBoard'`.
+
+**Portable frontend:** `game-app.js` → `playTumbleBoard(event)`
+
+**Payload shape:**
+
+```js
+{
+  type: 'tumbleBoard',
+  explodingSymbols: [{ reel, row }, ...],   // also accepts [reel, row]
+  newSymbols: [[{ name }, ...], ...],       // per reel, prepended at top
+}
+```
+
+Occupancy: `applyTumbleEvent` / `applyTumbleOccupancy`  
+→ survivors compact, incoming prepended (`[...incoming, ...survivors]`). Row 0 = top.
 
 ### Operational setup that works
 
@@ -58,54 +79,31 @@ git pull origin integrate/studio-motion
 
 Open preview on **3001**, load project, use **Motion → cluster-hex → Play Motion**.
 
+Adapter unit test (no studio):
+
+```bash
+node --test runtime/stake-studio-source/src/engines/presentation/cueSheetToTumbleEvents.test.js
+```
+
 ---
 
-## 3. What is broken / wrong (read before coding)
+## 3. What was broken / still watch
 
-### Core architectural mistake
+### Core architectural mistake (fixed for cluster-hex)
 
-**Play Motion is a parallel toy animator.** It does **not** drive the same path as a real `tumbleBoard` / cascade in Preview or the portable frontend.
+Play Motion used to be a parallel toy animator (DOM guess + ad-hoc WAAPI).  
+Cluster templates now call `playStakeTumble` only. Classic-nine still uses the cue clock (P2).
 
-Portable game already has correct cascade logic in:
+### Remaining risks
 
-`runtime/stake-studio-source/server/frontend-template/game-app.js` → `playTumbleBoard()`
-
-That path:
-
-- Marks exploding symbols
-- Pops / clears with Web Animations
-- Rebuilds reel children (survivors + incoming)
-- Gravity fall + refill + settle
-- Uses `.board > .reel > .symbol`
-
-Play Motion instead:
-
-1. Runs a fixture cue clock
-2. Guesses DOM nodes via `findPreviewBoard` / `findSymbolAt`
-3. Runs ad-hoc `element.animate()` without changing board occupancy
-
-So timing can be correct while **pixels never look like a slot.**
-
-### Fixture physics mistakes (`cluster-hex.json`)
-
-- `cluster.remove` then `symbol.pop` — reaction should come **before** clear.
-- Fall/refill cells are cosmetic; board state never updates.
-- Win pulse targets cells that were already “cleared.”
-- Multi-depth cascades are independent timed flashes, not dependent state.
-- Full-board `symbol.dropIn` on an already-full board is misleading.
-
-### DOM / Preview mistakes
-
-- Studio Morpheus preview structure may **not** match portable `.board` layout.
-- `board.children[reel].children[row]` can hit overlays / non-symbol nodes.
-- Flat `.symbol` index (column-major + row-major) can pick wrong tiles silently.
-- WAAPI `fill: 'forwards'` leaves opacity/transform stuck until reset.
-- Clock does not wait for animation duration → overlapping cues.
-- `symbol.dropIn` maps to `animState: 'spinStart'` (wrong for cascade rehearsal).
+- Morpheus preview DOM may still differ from portable `.board` — `playStakeTumble` uses `.reel-frame` + tumble layer, not portable children.
+- Classic-nine is not on the real reel-stop path yet.
+- Unknown cues in MotionCueHost still throw (P1).
+- Incoming rehearsal symbols are filled from surviving board art (not a math book). Fine for occupancy rehearsal; not a certified round.
 
 ### Overlay era (already rejected)
 
-- Full-cabinet HTML grid was correctly removed. **Do not bring it back** as product UX. Debug-only overlays only if temporary and off by default.
+Full-cabinet HTML grid was correctly removed. **Do not bring it back.**
 
 ---
 
@@ -114,13 +112,10 @@ So timing can be correct while **pixels never look like a slot.**
 ```text
 Template / planner / fixture
     → MotionCueSheet (timing + cells + stepKind + depth)
-        → Adapter
-            → tumbleBoard-shaped payload
-                { explodingSymbols, newSymbols?, board? }
-            → OR classic reveal / reel payloads
-        → Existing Preview presentation path
-            (same code as live / replay tumble)
-                → Real symbols move
+        → cueSheetToTumbleEvents(sheet, board)
+            → tumbleBoard { explodingSymbols, newSymbols }
+        → PreviewPanel.playStakeTumble
+            → Real symbols move
 ```
 
 **Not:**
@@ -138,27 +133,25 @@ Studio Preview remains pixel authority — **one** tumble implementation.
 
 ### P0 — Make Play Motion real
 
-- [ ] **Locate** how `PreviewPanel` applies cascade / tumble today (search for `tumbleBoard`, `is-tumbling`, `playTumble`, mechanic clear). Document the exact function names and required payload shape in this file when found.
-- [ ] **Adapter:** `motionCueSheetToTumbleEvents(sheet)` → one or more event objects the Preview path already understands.
-- [ ] **Wire Play Motion** to call that path only (delete or gut ad-hoc `motionPop` / `motionFall` / `motionRefill` once wired).
-- [ ] **Fixture rewrite** for `cluster-hex.json`:
-  - Legal order: recognition/reaction → clear → fall → refill → settle (per depth).
-  - Cells consistent with gravity (no win on empty cells unless intentional highlight of prior cluster).
-  - Prefer generating fixture from a tiny synthetic board + explode set rather than hand-waving cells.
+- [x] **Locate** cascade path: `PreviewPanel.playStakeTumble(board, event)` + portable `playTumbleBoard(event)`. Payload `{ explodingSymbols, newSymbols }`.
+- [x] **Adapter:** `cueSheetToTumbleEvents(sheet, board)` in `cueSheetToTumbleEvents.js`.
+- [x] **Wire Play Motion** for cluster templates to `playStakeTumble` (ad-hoc pop/fall/refill no longer used).
+- [x] **Fixture rewrite** `cluster-hex.json` catalogVersion 2: pop → remove per depth; fall/refill cells empty; no dropIn-on-full-board; no win.pulse/shake overlays.
 - [ ] **Smoke check:** Play Motion on Morpheus 6×4 — symbols actually leave, others fall, new ones enter; no max-win overlay; no full-cabinet HTML grid.
 
 ### P1 — Hardening
 
-- [ ] Integration test: Play Motion triggers same board class / plan markers as a real tumble (or shared helper unit test).
+- [x] Unit test: occupancy + one-depth + sequential second depth (`cueSheetToTumbleEvents.test.js`).
+- [ ] Integration test: Play Motion triggers same board class / plan markers as a real tumble.
 - [ ] Cue host: unknown cue → warn + skip, not throw whole play.
-- [ ] Stop mapping `symbol.dropIn` → `spinStart` for cascade templates (neutral or cascade-specific anim state).
-- [ ] `reel.stop` → `presentationEvent: 'reveal'` only when executePresentation is explicitly allowed; keep rehearsal no-op by default.
+- [ ] Stop mapping `symbol.dropIn` → `spinStart` for cascade templates.
+- [ ] `reel.stop` → `presentationEvent: 'reveal'` only when executePresentation is explicitly allowed.
 - [ ] Ensure `app.js` import of `PreviewPanelMotion` is stable and documented.
 - [ ] Confirm fixtures served under Vite on 3001 (`/motion-fixtures/*.json`).
 
 ### P2 — Multi-style + art loop (2-day goal)
 
-- [ ] CLI: `npm run studio -- cues <template>` writes or refreshes `runtime/.../public/motion-fixtures/<template>.json` automatically.
+- [ ] CLI: `npm run studio -- cues <template>` writes or refreshes fixtures automatically.
 - [ ] Templates each lock a recommended style; Play Motion dropdown lists all templates that have fixtures.
 - [ ] Art brief: missing symbols + role guidance; no motion work blocked on art.
 - [ ] Classic-nine path: reel blur/stop/anticipation via same Preview reel motion path (not only cluster).
@@ -167,9 +160,9 @@ Studio Preview remains pixel authority — **one** tumble implementation.
 ### P3 — Cleanup
 
 - [ ] Remove dead overlay CSS/IDs if any remain.
-- [ ] Trim MotionCueHost comments that claim TumbleChoreography is wired when it is not (or actually wire it).
-- [ ] Optional: merge `integrate/studio-motion` → `main` after P0 green and smoke pass.
-- [ ] Large binary assets: keep out of motion-only PRs; use Git LFS or asset pipeline if push size hurts again.
+- [ ] Trim MotionCueHost comments that claim TumbleChoreography is wired when it is not.
+- [ ] Optional: merge `integrate/studio-motion` → `main` after P0 smoke pass.
+- [ ] Large binary assets: keep out of motion-only PRs.
 
 ---
 
@@ -186,17 +179,15 @@ src/studio/stake-runtime-bridge.ts
 # Studio presentation
 runtime/stake-studio-source/src/engines/presentation/MotionCueHost.js
 runtime/stake-studio-source/src/engines/presentation/playMotionTemplate.js
+runtime/stake-studio-source/src/engines/presentation/cueSheetToTumbleEvents.js
+runtime/stake-studio-source/src/engines/presentation/cueSheetToTumbleEvents.test.js
 runtime/stake-studio-source/src/editor/preview/PreviewPanelMotion.js
-runtime/stake-studio-source/src/editor/preview/PreviewPanel.js          ← find real tumble here
+runtime/stake-studio-source/src/editor/preview/PreviewPanel.js          ← playStakeTumble
 runtime/stake-studio-source/src/app.js
 runtime/stake-studio-source/public/motion-fixtures/*.json
 
 # Reference implementation of correct cascade pixels
 runtime/stake-studio-source/server/frontend-template/game-app.js       ← playTumbleBoard()
-
-# Dev scripts
-runtime/stake-studio-source/package.json                               ← dev:agent
-runtime/stake-studio-source/scripts/start-stake-studio.mjs
 ```
 
 ---
@@ -211,6 +202,7 @@ npm test
 npm run studio -- templates
 npm run studio -- cues cluster-hex
 npm run studio -- cues classic-nine
+node --test runtime/stake-studio-source/src/engines/presentation/cueSheetToTumbleEvents.test.js
 ```
 
 ### Studio
@@ -218,7 +210,6 @@ npm run studio -- cues classic-nine
 ```bash
 cd ~/Developer/superslotstudio/runtime/stake-studio-source
 npm run dev:agent          # 3001, live reload, leave running
-# optional: PORT=3000 npm run dev   # human / other tools
 ```
 
 ### Git
@@ -231,31 +222,22 @@ git pull origin integrate/studio-motion
 git status
 ```
 
-### If checkout blocked by local edits
-
-```bash
-git stash push -u -m "wip"
-git pull origin integrate/studio-motion
-# or commit on a side branch — do not force-lose Morpheus art work blindly
-```
-
 ---
 
 ## 8. Play Motion expected behavior (definition of done for P0)
 
 When user clicks **Play Motion** with **cluster-hex**:
 
-1. Toolbar/status shows phase names (optional but useful).
+1. Status shows `Cascade 1 / N` then `Done`.
 2. **No** HTML grid covering the cabinet.
 3. **No** MAXIMUM WIN / 100,000× overlay from motion cues.
 4. A coherent cascade:
    - Cluster tiles react and clear
-   - Tiles above fall into gaps (real layout or shared tumble helper)
+   - Tiles above fall into gaps (real `playStakeTumble` layer)
    - New tiles enter from above
    - Board settles
-   - Optional win pulse on a **sensible** set of cells
-5. After completion, board returns to a clean settled state (or explicit reset).
-6. Console may log `[motion]` cue lines; failures should surface clearly.
+5. After completion, board is the post-tumble occupancy (not a cosmetic reset to the pre-spin board unless you spin again).
+6. Failures should surface clearly.
 
 ---
 
@@ -272,21 +254,19 @@ Local highlight / shared tumble win classes only.
 
 ---
 
-## 10. Suggested next implementation session (concrete)
+## 10. Next session
 
-1. Open `PreviewPanel.js` and search: `tumble`, `is-tumbling`, `exploding`, `cascade`, `mechanic`.
-2. Note the public method that presents a tumble (or mirror `playTumbleBoard` logic into a shared module both portable + Preview can call).
-3. Implement `cueSheetToTumblePayload(sheet)` for one depth of cluster-hex.
-4. Point `playMotionStylePreview()` at that method; remove DOM-guess animators.
-5. Fix fixture order + cells; re-test on 3001.
-6. Add a small test or checklist entry to this handoff when green.
+1. Smoke Play Motion cluster-hex on Morpheus 6×4 (P0 last box).
+2. If pixels are wrong, inspect `playStakeTumble` vs current `this.board` shape — do not revive ad-hoc WAAPI.
+3. P1: unknown-cue warn+skip; confirm Vite serves fixtures.
+4. P2: classic-nine via real reel path; auto-write fixtures from CLI.
 
 ---
 
 ## 11. Branch / PR notes
 
 - Active integration branch: **`integrate/studio-motion`**
-- Related historical branches: `motion/multi-style-foundation`, `agent/recover-game-source` (heavy studio WIP / art)
+- Related historical branches: `motion/multi-style-foundation`, `agent/recover-game-source`
 - Prefer small commits on motion wiring; avoid mixing 50MB art blobs into motion-only commits
 - Remote: `https://github.com/iamendless777/superslotstudio.git` (account `iamendless777`)
 
@@ -297,10 +277,11 @@ Local highlight / shared tumble win classes only.
 - Rebuilding Morpheus art or math from scratch
 - New HTML overlay “motion preview grid” as user-facing UI
 - Perfect multi-style VFX polish before tumble path is shared
-- Blocking art pipeline on motion perfection — after P0, art-brief can proceed in parallel
+- Three.js / minimax — noise for the 2-day cascade ship loop
+- Blocking art pipeline on motion perfection — after P0 smoke, art-brief can proceed in parallel
 
 ---
 
 ## 13. One-line summary for the next agent
 
-**Wire Play Motion to the existing tumble/cascade presentation path; stop inventing a second animator; fix fixtures to match real board state; then expand templates and art-brief for the 2-day ship loop.**
+**Cluster Play Motion now goes through playStakeTumble. Smoke it on Morpheus 6×4; then classic-nine real reel path and auto fixtures. Do not invent a second animator.**

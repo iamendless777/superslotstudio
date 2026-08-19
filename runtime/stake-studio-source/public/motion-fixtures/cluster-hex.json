@@ -1,118 +1,78 @@
 {
   "styleId": "cluster-snap",
-  "catalogVersion": 1,
-  "totalDurationMs": 3680,
+  "catalogVersion": 2,
+  "totalDurationMs": 2200,
   "cues": [
     {
-      "cue": "symbol.dropIn",
-      "startMs": 0,
-      "durationMs": 320,
-      "stepKind": "reveal",
-      "depth": 0,
-      "cells": ["0:0", "1:0", "2:0", "3:0", "4:0", "5:0", "0:1", "1:1", "2:1", "3:1", "4:1", "5:1", "0:2", "1:2", "2:2", "3:2", "4:2", "5:2", "0:3", "1:3", "2:3", "3:3", "4:3", "5:3"]
-    },
-    {
-      "cue": "board.settle",
-      "startMs": 320,
-      "durationMs": 120,
-      "stepKind": "reveal",
-      "depth": 0,
-      "cells": []
-    },
-    {
-      "cue": "cluster.remove",
-      "startMs": 500,
-      "durationMs": 220,
-      "stepKind": "remove",
-      "depth": 0,
-      "cells": ["1:2", "2:2", "3:2"]
-    },
-    {
       "cue": "symbol.pop",
-      "startMs": 720,
+      "startMs": 0,
       "durationMs": 260,
       "stepKind": "remove",
       "depth": 0,
       "cells": ["1:2", "2:2", "3:2"]
     },
     {
+      "cue": "cluster.remove",
+      "startMs": 260,
+      "durationMs": 220,
+      "stepKind": "remove",
+      "depth": 0,
+      "cells": ["1:2", "2:2", "3:2"]
+    },
+    {
       "cue": "cluster.fall",
-      "startMs": 1000,
+      "startMs": 480,
       "durationMs": 320,
       "stepKind": "fall",
       "depth": 0,
-      "cells": ["1:1", "2:1", "3:1", "1:0", "2:0", "3:0"]
+      "cells": []
     },
     {
       "cue": "cluster.refill",
-      "startMs": 1340,
+      "startMs": 800,
       "durationMs": 360,
       "stepKind": "refill",
       "depth": 0,
-      "cells": ["1:0", "2:0", "3:0"]
+      "cells": []
     },
     {
       "cue": "board.settle",
-      "startMs": 1720,
+      "startMs": 1160,
       "durationMs": 140,
       "stepKind": "settle",
       "depth": 0,
       "cells": []
     },
     {
-      "cue": "cluster.remove",
-      "startMs": 1900,
-      "durationMs": 220,
-      "stepKind": "remove",
-      "depth": 1,
-      "cells": ["2:1", "2:2"]
-    },
-    {
       "cue": "symbol.pop",
-      "startMs": 2120,
+      "startMs": 1400,
       "durationMs": 240,
       "stepKind": "remove",
       "depth": 1,
       "cells": ["2:1", "2:2"]
     },
     {
+      "cue": "cluster.remove",
+      "startMs": 1640,
+      "durationMs": 220,
+      "stepKind": "remove",
+      "depth": 1,
+      "cells": ["2:1", "2:2"]
+    },
+    {
       "cue": "cluster.fall",
-      "startMs": 2380,
-      "durationMs": 300,
+      "startMs": 1860,
+      "durationMs": 200,
       "stepKind": "fall",
-      "depth": 1,
-      "cells": ["2:0"]
-    },
-    {
-      "cue": "cluster.refill",
-      "startMs": 2700,
-      "durationMs": 320,
-      "stepKind": "refill",
-      "depth": 1,
-      "cells": ["2:0"]
-    },
-    {
-      "cue": "board.settle",
-      "startMs": 3040,
-      "durationMs": 120,
-      "stepKind": "settle",
       "depth": 1,
       "cells": []
     },
     {
-      "cue": "win.pulse",
-      "startMs": 3180,
-      "durationMs": 400,
-      "stepKind": "win",
-      "depth": 2,
-      "cells": ["1:2", "2:2", "3:2"]
-    },
-    {
-      "cue": "board.shake",
-      "startMs": 3500,
-      "durationMs": 160,
-      "stepKind": "win",
-      "depth": 2,
+      "cue": "cluster.refill",
+      "startMs": 2060,
+      "durationMs": 140,
+      "stepKind": "refill",
+      "depth": 1,
       "cells": []
     }
   ]
