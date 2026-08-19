@@ -12,6 +12,8 @@ describe("art brief + runtime adapter", () => {
     assert.ok(brief.missingCount > 0);
     assert.ok(brief.slots.every((s) => s.guidance.length > 10));
     assert.ok(brief.slots.some((s) => s.status === "missing"));
+    assert.ok(brief.slots.some((s) => s.role === "high"));
+    assert.ok(brief.slots.some((s) => s.role === "wild"));
   });
 
   it("bindCueSheet fires host playCue for planned cues", () => {

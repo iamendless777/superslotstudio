@@ -60,6 +60,8 @@ describe("motion fixtures", () => {
     assert.equal(byId["classic-nine"]?.kind, "reel");
     assert.equal(byId["sticky-five"]?.kind, "reel");
     assert.equal(byId["anticipation-five"]?.kind, "reel");
+    assert.equal(typeof byId["cluster-hex"]?.missingArt, "number");
+    assert.ok((byId["cluster-hex"]?.missingArt ?? 0) > 0);
     assert.equal(fixtureKind(buildMotionFixture("cluster-hex")), "tumble");
   });
 
@@ -84,6 +86,11 @@ describe("motion fixtures", () => {
     );
     for (const id of listMotionFixtureIds()) {
       assert.equal(existsSync(join(root, MOTION_FIXTURE_DIR, `${id}.json`)), true, id);
+      assert.equal(
+        existsSync(join(root, MOTION_FIXTURE_DIR, "art-briefs", `${id}.json`)),
+        true,
+        `brief ${id}`,
+      );
     }
   });
 });

@@ -97,6 +97,7 @@ export class PreviewPanel extends BasePreviewPanel {
       const index = await response.json();
       const templates = Array.isArray(index?.templates) ? index.templates : [];
       if (!templates.length) return;
+      this.motionTemplateIndex = templates;
       const current = select.value || 'cluster-hex';
       select.replaceChildren();
       for (const template of templates) {
@@ -110,6 +111,11 @@ export class PreviewPanel extends BasePreviewPanel {
         const cluster = [...select.options].find((option) => option.value === 'cluster-hex');
         (cluster || select.options[0]).selected = true;
       }
+      if (!select.dataset.artBound) {
+        select.dataset.artBound = '1';
+        select.addEventListener('change', () => this.syncMotionArtStatus());
+      }
+      this.syncMotionArtStatus();
     } catch {
       /* keep the static fallback options */
     }
@@ -118,6 +124,19 @@ export class PreviewPanel extends BasePreviewPanel {
   setMotionStatus(text) {
     const el = this.container?.querySelector('#previewMotionStatus');
     if (el) el.textContent = text || '';
+  }
+
+  syncMotionArtStatus() {
+    if (this.motionPlaying) return;
+    const select = this.container?.querySelector('#previewMotionTemplate');
+    const id = select?.value;
+    const entry = (this.motionTemplateIndex || []).find((template) => template.id === id);
+    if (!entry) return;
+    if (Number(entry.missingArt) > 0) {
+      this.setMotionStatus(`${entry.missingArt} art missing · motion still plays`);
+    } else {
+      this.setMotionStatus('Art assigned');
+    }
   }
 
   motionFillerSymbol() {
@@ -139,7 +158,7 @@ export class PreviewPanel extends BasePreviewPanel {
     this.motionRestoreTimer = window.setTimeout(() => {
       this.motionRestoreTimer = null;
       this.restoreMotionBoard();
-      this.setMotionStatus('');
+      this.syncMotionArtStatus();
     }, 1200);
   }
 

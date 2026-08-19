@@ -1,0 +1,68 @@
+{
+  "gameId": "classic-nine",
+  "title": "Classic Nine",
+  "styleId": "classic-lines",
+  "grid": "3x3",
+  "winType": "lines",
+  "notes": "Fruit machine classic. Clean icons, high contrast, no clutter.",
+  "slots": [
+    {
+      "symbolId": "cherry",
+      "label": "Cherry",
+      "role": "high",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Hero symbol; stronger silhouette and color; supports win-pulse emphasis."
+    },
+    {
+      "symbolId": "lemon",
+      "label": "Lemon",
+      "role": "low",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Simple readable icon; secondary in wins; keep silhouette clear at small size."
+    },
+    {
+      "symbolId": "orange",
+      "label": "Orange",
+      "role": "low",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Simple readable icon; secondary in wins; keep silhouette clear at small size."
+    },
+    {
+      "symbolId": "plum",
+      "label": "Plum",
+      "role": "low",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Simple readable icon; secondary in wins; keep silhouette clear at small size."
+    },
+    {
+      "symbolId": "bell",
+      "label": "Bell",
+      "role": "low",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Simple readable icon; secondary in wins; keep silhouette clear at small size."
+    },
+    {
+      "symbolId": "seven",
+      "label": "Seven",
+      "role": "low",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Simple readable icon; secondary in wins; keep silhouette clear at small size."
+    },
+    {
+      "symbolId": "wild",
+      "label": "Wild",
+      "role": "wild",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Clear wild badge; works under win-pulse and line-trace."
+    }
+  ],
+  "missingCount": 7,
+  "readyToCommission": true
+}

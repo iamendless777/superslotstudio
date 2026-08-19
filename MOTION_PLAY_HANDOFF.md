@@ -25,6 +25,13 @@ cd ~/Developer/superslotstudio
 
 Open Preview on **3001**, load a project, **Motion → cluster-hex → Play Motion**.
 
+Smoke (60 seconds):
+1. cluster-hex — tiles leave, survivors fall, new tiles enter, board restores, no max-win overlay
+2. classic-nine — reels blur and stop, no wager deducted
+3. sticky-five — stop + sticky pulse
+4. anticipation-five — last-reel hold
+Status may say “N art missing · motion still plays”. That is the point.
+
 Equivalent (if Terminal 1 is already in the studio folder):
 
 ```bash

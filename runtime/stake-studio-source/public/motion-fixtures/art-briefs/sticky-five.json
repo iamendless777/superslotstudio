@@ -1,0 +1,68 @@
+{
+  "gameId": "sticky-five",
+  "title": "Sticky Five",
+  "styleId": "sticky-lock",
+  "grid": "5x3",
+  "winType": "lines",
+  "notes": "Card-room premium. Sticky wilds lock with metallic frame morph. Clean royals.",
+  "slots": [
+    {
+      "symbolId": "ace",
+      "label": "Ace",
+      "role": "high",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Hero symbol; stronger silhouette and color; supports win-pulse emphasis."
+    },
+    {
+      "symbolId": "king",
+      "label": "King",
+      "role": "low",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Simple readable icon; secondary in wins; keep silhouette clear at small size."
+    },
+    {
+      "symbolId": "queen",
+      "label": "Queen",
+      "role": "low",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Simple readable icon; secondary in wins; keep silhouette clear at small size."
+    },
+    {
+      "symbolId": "jack",
+      "label": "Jack",
+      "role": "low",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Simple readable icon; secondary in wins; keep silhouette clear at small size."
+    },
+    {
+      "symbolId": "ten",
+      "label": "Ten",
+      "role": "low",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Simple readable icon; secondary in wins; keep silhouette clear at small size."
+    },
+    {
+      "symbolId": "wild",
+      "label": "Sticky Wild",
+      "role": "wild",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Wild must read as lockable/sticky; distinct edge treatment for sticky-morph."
+    },
+    {
+      "symbolId": "scatter",
+      "label": "Bonus",
+      "role": "scatter",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Must read at a glance for anticipation-heavy stops; high contrast."
+    }
+  ],
+  "missingCount": 7,
+  "readyToCommission": true
+}

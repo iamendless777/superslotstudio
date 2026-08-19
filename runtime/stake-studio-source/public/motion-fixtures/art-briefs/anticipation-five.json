@@ -1,0 +1,52 @@
+{
+  "gameId": "anticipation-five",
+  "title": "Anticipation Five",
+  "styleId": "anticipation-heavy",
+  "grid": "5x3",
+  "winType": "lines",
+  "notes": "Night forest. Final reel anticipation glow. Soft wildlife icons, strong silhouette.",
+  "slots": [
+    {
+      "symbolId": "fox",
+      "label": "Fox",
+      "role": "high",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Hero symbol; stronger silhouette and color; supports win-pulse emphasis."
+    },
+    {
+      "symbolId": "owl",
+      "label": "Owl",
+      "role": "low",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Simple readable icon; secondary in wins; keep silhouette clear at small size."
+    },
+    {
+      "symbolId": "wolf",
+      "label": "Wolf",
+      "role": "low",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Simple readable icon; secondary in wins; keep silhouette clear at small size."
+    },
+    {
+      "symbolId": "moon",
+      "label": "Moon",
+      "role": "scatter",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Must read at a glance for anticipation-heavy stops; high contrast."
+    },
+    {
+      "symbolId": "wild",
+      "label": "Spirit Wild",
+      "role": "wild",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Clear wild badge; works under win-pulse and line-trace."
+    }
+  ],
+  "missingCount": 5,
+  "readyToCommission": true
+}

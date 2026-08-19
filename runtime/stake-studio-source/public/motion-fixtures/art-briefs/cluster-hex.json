@@ -1,0 +1,60 @@
+{
+  "gameId": "cluster-hex",
+  "title": "Cluster Hex",
+  "styleId": "cluster-snap",
+  "grid": "6x6",
+  "winType": "cluster",
+  "notes": "Gem cluster. Saturated stones on dark field. Explode-clean remove, snappy fall.",
+  "slots": [
+    {
+      "symbolId": "red",
+      "label": "Ruby",
+      "role": "high",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Hero symbol; stronger silhouette and color; supports win-pulse emphasis."
+    },
+    {
+      "symbolId": "blue",
+      "label": "Sapphire",
+      "role": "low",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Simple readable icon; secondary in wins; keep silhouette clear at small size."
+    },
+    {
+      "symbolId": "green",
+      "label": "Emerald",
+      "role": "low",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Simple readable icon; secondary in wins; keep silhouette clear at small size."
+    },
+    {
+      "symbolId": "yellow",
+      "label": "Topaz",
+      "role": "low",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Simple readable icon; secondary in wins; keep silhouette clear at small size."
+    },
+    {
+      "symbolId": "purple",
+      "label": "Amethyst",
+      "role": "low",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Simple readable icon; secondary in wins; keep silhouette clear at small size."
+    },
+    {
+      "symbolId": "wild",
+      "label": "Crystal Wild",
+      "role": "wild",
+      "artKey": null,
+      "status": "missing",
+      "guidance": "Clear wild badge; works under win-pulse and line-trace."
+    }
+  ],
+  "missingCount": 6,
+  "readyToCommission": true
+}

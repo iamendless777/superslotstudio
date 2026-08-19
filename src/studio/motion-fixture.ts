@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { RuntimeCueName } from "../motion/runtime-cues.js";
+import { buildArtBrief } from "./art-brief.js";
 import { planFromBlueprint } from "./pipeline.js";
 import {
   listTemplateIds,
@@ -91,6 +92,9 @@ export interface MotionFixtureIndexEntry {
   readonly styleId: string;
   readonly kind: "tumble" | "reel";
   readonly totalDurationMs: number;
+  readonly title: string;
+  readonly missingArt: number;
+  readonly readyToCommission: boolean;
 }
 
 export interface MotionFixtureIndex {
@@ -105,11 +109,15 @@ export function buildMotionFixtureIndex(
     catalogVersion: 2,
     templates: ids.map((id) => {
       const sheet = buildMotionFixture(id);
+      const brief = buildArtBrief(loadTemplate(id));
       return {
         id,
         styleId: sheet.styleId,
         kind: fixtureKind(sheet),
         totalDurationMs: sheet.totalDurationMs,
+        title: brief.title,
+        missingArt: brief.missingCount,
+        readyToCommission: brief.readyToCommission,
       };
     }),
   };
@@ -120,10 +128,16 @@ export function writeMotionFixtures(
   ids: readonly TemplateId[] = listTemplateIds(),
 ): { dir: string; written: readonly string[]; indexPath: string } {
   const dir = join(repoRoot, MOTION_FIXTURE_DIR);
+  const briefDir = join(dir, "art-briefs");
   mkdirSync(dir, { recursive: true });
+  mkdirSync(briefDir, { recursive: true });
   const written = ids.map((id) => {
     const path = join(dir, `${id}.json`);
     writeFileSync(path, `${JSON.stringify(buildMotionFixture(id), null, 2)}\n`);
+    writeFileSync(
+      join(briefDir, `${id}.json`),
+      `${JSON.stringify(buildArtBrief(loadTemplate(id)), null, 2)}\n`,
+    );
     return path;
   });
   const indexPath = join(dir, "index.json");

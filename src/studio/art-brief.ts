@@ -24,10 +24,10 @@ export interface ArtBrief {
   readonly readyToCommission: boolean;
 }
 
-function roleForSymbol(symbol: SymbolSlot): ArtRole {
+function roleForSymbol(symbol: SymbolSlot, regularIndex: number): ArtRole {
   if (symbol.isWild) return "wild";
   if (symbol.isScatter) return "scatter";
-  return "low";
+  return regularIndex === 0 ? "high" : "low";
 }
 
 function guidanceForRole(role: ArtRole, styleId: string): string {
@@ -52,8 +52,10 @@ function guidanceForRole(role: ArtRole, styleId: string): string {
 /** Turn a blueprint into a commissionable art checklist. */
 export function buildArtBrief(blueprint: Blueprint): ArtBrief {
   const missing = new Set(missingArt(blueprint));
+  let regularIndex = 0;
   const slots = blueprint.symbols.map((s) => {
-    const role = roleForSymbol(s);
+    const role = roleForSymbol(s, regularIndex);
+    if (role === "high" || role === "low") regularIndex += 1;
     return {
       symbolId: s.id,
       label: s.label,
