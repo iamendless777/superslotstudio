@@ -165,29 +165,46 @@ export class PreviewPanel extends BasePreviewPanel {
     return `${reels}x${rows}`;
   }
 
+  escapeMotionText(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&' + 'amp;')
+      .replace(/</g, '&' + 'lt;')
+      .replace(/>/g, '&' + 'gt;')
+      .replace(/"/g, '&' + 'quot;');
+  }
+
+  liveProjectArtGaps() {
+    return (this.project?.theme?.symbols || [])
+      .filter((symbol) => {
+        if (!symbol || symbol.special?.includes?.('empty')) return false;
+        if (!symbol.src) return true;
+        const image = this.preloadedImages?.get(symbol.src);
+        return Boolean(image?.complete && !image.naturalWidth);
+      })
+      .map((symbol) => ({
+        name: symbol.name || symbol.id || 'symbol',
+        reason: symbol.src ? 'failed' : 'unassigned',
+      }));
+  }
+
   syncMotionArtStatus() {
     if (this.motionPlaying) return;
     const select = this.container?.querySelector('#previewMotionTemplate');
     const id = select?.value;
     const entry = (this.motionTemplateIndex || []).find((template) => template.id === id);
-    if (!entry) return;
-    if (Number(entry.missingArt) > 0) {
-      this.setMotionStatus(`${entry.missingArt} art missing · motion still plays`);
+    const liveGaps = this.liveProjectArtGaps();
+    const templateMissing = Number(entry?.missingArt) || 0;
+    if (liveGaps.length) {
+      this.setMotionStatus(`Board ${liveGaps.length} art gaps`);
+    } else if (templateMissing) {
+      this.setMotionStatus(`Board art ready · ${id} recipe ${templateMissing} unassigned`);
     } else {
       this.setMotionStatus('Art assigned');
     }
-    void this.loadMotionArtBrief(id);
+    void this.loadMotionArtBrief(id, liveGaps);
   }
 
-  escapeMotionText(value) {
-    return String(value ?? '')
-      .replaceAll('&', '&')
-      .replaceAll('<', '<')
-      .replaceAll('>', '>')
-      .replaceAll('"', '"');
-  }
-
-  async loadMotionArtBrief(templateId) {
+  async loadMotionArtBrief(templateId, liveGaps = this.liveProjectArtGaps()) {
     const host = this.container?.querySelector('#previewMotionArt');
     if (!host || !templateId) return;
     const summary = host.querySelector('summary');
@@ -197,19 +214,27 @@ export class PreviewPanel extends BasePreviewPanel {
       if (!response.ok) return;
       const brief = await response.json();
       this.motionArtBrief = brief;
+      const esc = (value) => this.escapeMotionText(value);
       if (summary) {
-        summary.textContent = brief.missingCount
-          ? `Art ${brief.missingCount} missing`
-          : 'Art ready';
+        summary.textContent = liveGaps.length
+          ? `Art · ${liveGaps.length} board gaps`
+          : 'Art · board ready';
       }
       if (body) {
+        const liveItems = liveGaps.length
+          ? liveGaps.map((gap) => `<li data-status="missing"><strong>${esc(gap.name)}</strong> · ${esc(gap.reason)}</li>`).join('')
+          : '<li data-status="assigned"><strong>Loaded project</strong> · art assigned</li>';
         const slots = (brief.slots || [])
-          .map((slot) => {
-            const esc = this.escapeMotionText.bind(this);
-            return `<li data-status="${esc(slot.status)}"><strong>${esc(slot.label)}</strong> · ${esc(slot.role)} · ${esc(slot.status)}<span>${esc(slot.guidance)}</span></li>`;
-          })
+          .map((slot) => (
+            `<li data-status="${esc(slot.status)}"><strong>${esc(slot.label)}</strong> · ${esc(slot.role)} · ${esc(slot.status)}<span>${esc(slot.guidance)}</span></li>`
+          ))
           .join('');
-        body.innerHTML = `<p>${this.escapeMotionText(brief.notes || brief.title || '')}</p><ol>${slots}</ol><button type="button" class="tool-btn" id="previewMotionArtCopy">Copy brief</button>`;
+        body.innerHTML = `
+          <p>This board</p>
+          <ol>${liveItems}</ol>
+          <p>${esc(brief.title)} recipe · ${esc(brief.notes || '')}</p>
+          <ol>${slots}</ol>
+          <button type="button" class="tool-btn" id="previewMotionArtCopy">Copy recipe brief</button>`;
         body.querySelector('#previewMotionArtCopy')?.addEventListener('click', (event) => {
           event.preventDefault();
           void navigator.clipboard?.writeText(JSON.stringify(brief, null, 2));
