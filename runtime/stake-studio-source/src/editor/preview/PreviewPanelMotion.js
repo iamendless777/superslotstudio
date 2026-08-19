@@ -187,6 +187,36 @@ export class PreviewPanel extends BasePreviewPanel {
       }));
   }
 
+  liveProjectArtBrief() {
+    const gaps = new Set(this.liveProjectArtGaps().map((gap) => gap.name));
+    let regular = 0;
+    const slots = (this.project?.theme?.symbols || [])
+      .filter((symbol) => symbol && !symbol.special?.includes?.('empty'))
+      .map((symbol) => {
+        const name = symbol.name || symbol.id || 'symbol';
+        const special = symbol.special || [];
+        let role = 'low';
+        if (special.includes('wild') || /wild/i.test(name)) role = 'wild';
+        else if (special.includes('scatter') || /scatter/i.test(name)) role = 'scatter';
+        else if (regular++ === 0) role = 'high';
+        return {
+          symbolId: symbol.id || name,
+          label: name,
+          role,
+          artKey: symbol.src || null,
+          status: gaps.has(name) ? 'missing' : 'assigned',
+        };
+      });
+    return {
+      gameId: this.project?.id || 'preview',
+      title: this.project?.name || this.project?.id || 'Loaded project',
+      grid: this.motionGridLabel(),
+      slots,
+      missingCount: slots.filter((slot) => slot.status === 'missing').length,
+      readyToCommission: slots.length > 0,
+    };
+  }
+
   syncMotionArtStatus() {
     if (this.motionPlaying) return;
     const select = this.container?.querySelector('#previewMotionTemplate');
@@ -213,7 +243,8 @@ export class PreviewPanel extends BasePreviewPanel {
       const response = await fetch(`/motion-fixtures/art-briefs/${templateId}.json`);
       if (!response.ok) return;
       const brief = await response.json();
-      this.motionArtBrief = brief;
+      const boardBrief = this.liveProjectArtBrief();
+      this.motionArtBrief = { board: boardBrief, recipe: brief };
       const esc = (value) => this.escapeMotionText(value);
       if (summary) {
         summary.textContent = liveGaps.length
@@ -223,22 +254,28 @@ export class PreviewPanel extends BasePreviewPanel {
       if (body) {
         const liveItems = liveGaps.length
           ? liveGaps.map((gap) => `<li data-status="missing"><strong>${esc(gap.name)}</strong> · ${esc(gap.reason)}</li>`).join('')
-          : '<li data-status="assigned"><strong>Loaded project</strong> · art assigned</li>';
+          : `<li data-status="assigned"><strong>${esc(boardBrief.title)}</strong> · ${boardBrief.slots.length} symbols assigned</li>`;
         const slots = (brief.slots || [])
           .map((slot) => (
             `<li data-status="${esc(slot.status)}"><strong>${esc(slot.label)}</strong> · ${esc(slot.role)} · ${esc(slot.status)}<span>${esc(slot.guidance)}</span></li>`
           ))
           .join('');
         body.innerHTML = `
-          <p>This board</p>
+          <p>This board · ${esc(boardBrief.grid)}</p>
           <ol>${liveItems}</ol>
           <p>${esc(brief.title)} recipe · ${esc(brief.notes || '')}</p>
           <ol>${slots}</ol>
+          <button type="button" class="tool-btn" id="previewMotionArtCopyBoard">Copy board brief</button>
           <button type="button" class="tool-btn" id="previewMotionArtCopy">Copy recipe brief</button>`;
+        body.querySelector('#previewMotionArtCopyBoard')?.addEventListener('click', (event) => {
+          event.preventDefault();
+          void navigator.clipboard?.writeText(JSON.stringify(boardBrief, null, 2));
+          this.setMotionStatus('Board art brief copied');
+        });
         body.querySelector('#previewMotionArtCopy')?.addEventListener('click', (event) => {
           event.preventDefault();
           void navigator.clipboard?.writeText(JSON.stringify(brief, null, 2));
-          this.setMotionStatus('Art brief copied');
+          this.setMotionStatus('Recipe art brief copied');
         });
       }
     } catch {
