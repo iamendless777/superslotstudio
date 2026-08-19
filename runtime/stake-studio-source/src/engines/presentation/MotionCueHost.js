@@ -2,20 +2,20 @@
  * MotionCueHost — plays a planned motion cue sheet inside stake-studio-source.
  *
  * Timing authority: the cue sheet (from src/motion on the domain side).
- * Pixel authority: PresentationDirectorRuntime, TumbleChoreography, AnimationEngine.
- *
- * This module is intentionally plain JS with no import of the TypeScript motion
- * package so the studio can run standalone. Keep CUE_BRIDGE in sync with
- * src/studio/stake-runtime-bridge.ts.
+ * Pixel authority for cascades: PreviewPanel.playStakeTumble (not this host).
+ * This host remains the classic-nine / reel-cue clock.
  *
  * IMPORTANT: presentationEvent values must be SAFE for motion rehearsal.
  * Never map board.shake → wincap or win.pulse → setWin; those fire full
  * max-win / payout overlays and make cascade previews look broken.
+ *
+ * Rehearsal default: presentation events are NOT dispatched unless
+ * allowPresentationEvents is explicitly true.
  */
 
 import { PresentationDirectorRuntime } from './PresentationDirector.js';
 
-export const MOTION_CUE_HOST_VERSION = 2;
+export const MOTION_CUE_HOST_VERSION = 3;
 
 /** @typedef {{ cue: string, startMs: number, durationMs: number, easing?: string, staggerMs?: number, cells?: string[], stepKind?: string, depth?: number }} MotionCue */
 /** @typedef {{ styleId: string, catalogVersion?: number, totalDurationMs: number, cues: MotionCue[] }} MotionCueSheet */
@@ -24,13 +24,13 @@ export const CUE_BRIDGE = Object.freeze({
   'reel.blur': { animState: 'spinning', presentationEvent: null, tumbleAction: null, tumblePhase: null, vfxEvent: null },
   'reel.stop': { animState: 'spinStop', presentationEvent: 'reveal', tumbleAction: null, tumblePhase: null, vfxEvent: null },
   'reel.anticipation': { animState: 'anticipation', presentationEvent: 'anticipation', tumbleAction: null, tumblePhase: null, vfxEvent: null },
-  'symbol.dropIn': { animState: 'spinStart', presentationEvent: null, tumbleAction: 'stage-entry', tumblePhase: 'enter', vfxEvent: null },
+  // Cascade rehearsal must not kick spinStart. Classic-nine uses reel.blur/stop.
+  'symbol.dropIn': { animState: null, presentationEvent: null, tumbleAction: 'stage-entry', tumblePhase: 'enter', vfxEvent: null },
   'cluster.remove': { animState: null, presentationEvent: null, tumbleAction: 'clear-tile', tumblePhase: 'clear', vfxEvent: null },
   'symbol.pop': { animState: null, presentationEvent: null, tumbleAction: 'react-before-clear', tumblePhase: 'reaction', vfxEvent: null },
   'cluster.fall': { animState: null, presentationEvent: null, tumbleAction: 'travel-to-destination', tumblePhase: 'fall', vfxEvent: null },
   'cluster.refill': { animState: null, presentationEvent: null, tumbleAction: 'stage-entry', tumblePhase: 'enter', vfxEvent: null },
   'board.settle': { animState: null, presentationEvent: null, tumbleAction: 'settle-at-destination', tumblePhase: 'settle', vfxEvent: null },
-  // Win cues: local highlight only — never setWin / wincap during motion play.
   'win.pulse': { animState: 'winSmall', presentationEvent: null, tumbleAction: 'win-highlight', tumblePhase: 'win', vfxEvent: null },
   'win.lineTrace': { animState: null, presentationEvent: null, tumbleAction: 'win-highlight', tumblePhase: 'win', vfxEvent: null },
   'win.multiplierFloat': { animState: null, presentationEvent: null, tumbleAction: null, tumblePhase: null, vfxEvent: null },
@@ -39,10 +39,11 @@ export const CUE_BRIDGE = Object.freeze({
   'symbol.fadeOut': { animState: null, presentationEvent: null, tumbleAction: 'clear-tile', tumblePhase: 'clear', vfxEvent: null },
 });
 
-export function resolveCueBridge(cueName) {
+export function resolveCueBridge(cueName, { strict = false } = {}) {
   const target = CUE_BRIDGE[cueName];
-  if (!target) throw new RangeError(`No bridge target for cue: ${cueName}`);
-  return target;
+  if (target) return target;
+  if (strict) throw new RangeError(`No bridge target for cue: ${cueName}`);
+  return null;
 }
 
 function parseCell(cell) {
@@ -54,16 +55,13 @@ function parseCell(cell) {
 
 /**
  * @param {object} options
- * @param {object} [options.project] presentation director project blob
- * @param {(cue: MotionCue, bridge: object) => void} [options.onCue]
- * @param {(state: string, cue: MotionCue) => void} [options.onAnimState]
- * @param {(action: string, phase: string, cue: MotionCue) => void} [options.onTumbleAction]
- * @param {(event: string, cue: MotionCue) => void} [options.onPresentationEvent]
- * @param {(item: object, payload: object) => void} [options.executePresentation]
- * @param {(ms: number) => Promise<void>} [options.wait]
+ * @param {object} [options.project]
+ * @param {boolean} [options.allowPresentationEvents=false]
+ * @param {(message: string, cue: MotionCue) => void} [options.onWarn]
  */
 export function createMotionCueHost(options = {}) {
   const project = options.project || { presentationDirector: null };
+  const allowPresentationEvents = options.allowPresentationEvents === true;
   const director = new PresentationDirectorRuntime(project, {
     execute: options.executePresentation || (() => {}),
     wait: options.wait,
@@ -76,12 +74,18 @@ export function createMotionCueHost(options = {}) {
 
   function dispatchCue(cue) {
     const bridge = resolveCueBridge(cue.cue);
+    if (!bridge) {
+      const message = `unknown cue skipped: ${cue.cue}`;
+      options.onWarn?.(message, cue);
+      console.warn(`[motion] ${message}`);
+      return;
+    }
     options.onCue?.(cue, bridge);
     if (bridge.animState) options.onAnimState?.(bridge.animState, cue);
     if (bridge.tumbleAction && bridge.tumblePhase) {
       options.onTumbleAction?.(bridge.tumbleAction, bridge.tumblePhase, cue);
     }
-    if (bridge.presentationEvent) {
+    if (allowPresentationEvents && bridge.presentationEvent) {
       const cells = (cue.cells || []).map(parseCell).filter(Boolean);
       const payload = {
         cells,
@@ -94,7 +98,6 @@ export function createMotionCueHost(options = {}) {
         motionCue: cue.cue,
       };
       options.onPresentationEvent?.(bridge.presentationEvent, cue);
-      // Fire-and-forget; host clock owns overall sequence timing.
       void director.dispatch(bridge.presentationEvent, payload);
     }
   }
@@ -102,6 +105,7 @@ export function createMotionCueHost(options = {}) {
   return {
     version: MOTION_CUE_HOST_VERSION,
     director,
+    allowPresentationEvents,
 
     /** @param {MotionCueSheet} next */
     load(next) {
@@ -151,9 +155,6 @@ export function createMotionCueHost(options = {}) {
 
 /**
  * Convenience: play an entire sheet with rAF-style stepping via wait().
- * @param {MotionCueSheet} cueSheet
- * @param {object} hostOptions same as createMotionCueHost
- * @param {number} [stepMs=16]
  */
 export async function playCueSheet(cueSheet, hostOptions = {}, stepMs = 16) {
   const host = createMotionCueHost(hostOptions);

@@ -143,11 +143,11 @@ Studio Preview remains pixel authority — **one** tumble implementation.
 
 - [x] Unit test: occupancy + one-depth + sequential second depth (`cueSheetToTumbleEvents.test.js`).
 - [ ] Integration test: Play Motion triggers same board class / plan markers as a real tumble.
-- [ ] Cue host: unknown cue → warn + skip, not throw whole play.
-- [ ] Stop mapping `symbol.dropIn` → `spinStart` for cascade templates.
-- [ ] `reel.stop` → `presentationEvent: 'reveal'` only when executePresentation is explicitly allowed.
-- [ ] Ensure `app.js` import of `PreviewPanelMotion` is stable and documented.
-- [ ] Confirm fixtures served under Vite on 3001 (`/motion-fixtures/*.json`).
+- [x] Cue host: unknown cue → warn + skip, not throw whole play.
+- [x] Stop mapping `symbol.dropIn` → `spinStart` for cascade templates.
+- [x] `reel.stop` → `presentationEvent: 'reveal'` only when `allowPresentationEvents` is explicitly true; rehearsal default is no-op.
+- [x] Ensure `app.js` import of `PreviewPanelMotion` is stable and documented.
+- [x] Confirm fixtures served under Vite on 3001 (`publicDir: 'public'` → `/motion-fixtures/*.json`).
 
 ### P2 — Multi-style + art loop (2-day goal)
 

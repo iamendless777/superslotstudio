@@ -3,6 +3,7 @@ import { generateDefaultPaylines, getExecutableWinType } from './engines/math/Wi
 import { GAME_TYPES, BONUS_MECHANICS, getCompatibleMechanics } from './mechanics/registry.js';
 import { CabinetEditor } from './editor/cabinet/CabinetEditor.js';
 import { ConfigPanel } from './editor/configurator/ConfigPanel.js';
+// Preview MUST use PreviewPanelMotion (Play Motion → playStakeTumble for cluster templates).
 import { PreviewPanel } from './editor/preview/PreviewPanelMotion.js';
 import { ReelStripEditor } from './editor/reelstrip/ReelStripEditor.js';
 import { SimulationDashboard } from './editor/simulation/SimulationDashboard.js';
