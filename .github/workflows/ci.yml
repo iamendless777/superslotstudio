@@ -37,5 +37,8 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Motion fixtures stay generated from the planner
+        run: git diff --exit-code -- runtime/stake-studio-source/public/motion-fixtures
+
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high

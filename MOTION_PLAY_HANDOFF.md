@@ -8,6 +8,35 @@
 
 This document is the single handoff for humans or agents continuing the work.
 
+## Start here — 3001 (agent lane, live reload)
+
+```bash
+# Terminal 1 — leave this running
+cd ~/Developer/superslotstudio
+git checkout integrate/studio-motion
+git pull origin integrate/studio-motion
+npm run dev:agent
+# → http://127.0.0.1:3001/
+#    rebuilds planner, writes motion fixtures, starts studio with live reload
+
+# Terminal 2 — git / commands only
+cd ~/Developer/superslotstudio
+```
+
+Open Preview on **3001**, load a project, **Motion → cluster-hex → Play Motion**.
+
+Equivalent (if Terminal 1 is already in the studio folder):
+
+```bash
+cd ~/Developer/superslotstudio/runtime/stake-studio-source
+npm run dev:agent
+```
+
+Port split: **3000** = ChatGPT/human lane (`npm run dev`). **3001** = agent lane (`npm run dev:agent`). Do not mix them.
+
+Fixtures regenerate on `npm run build` and on 3001 boot. You do not need to remember `studio:fixtures`.
+
+
 ---
 
 ## 1. Product goal (do not lose this)
@@ -66,15 +95,9 @@ Occupancy: `applyTumbleEvent` / `applyTumbleOccupancy`
 ### Operational setup that works
 
 ```bash
-# Terminal 1 — leave running (agent lane)
-cd ~/Developer/superslotstudio/runtime/stake-studio-source
+cd ~/Developer/superslotstudio
 npm run dev:agent
 # → http://127.0.0.1:3001/
-
-# Terminal 2 — git / commands only
-cd ~/Developer/superslotstudio
-git checkout integrate/studio-motion
-git pull origin integrate/studio-motion
 ```
 
 Open preview on **3001**, load project, use **Motion → cluster-hex → Play Motion**.
@@ -96,10 +119,8 @@ Cluster templates now call `playStakeTumble` only. Classic-nine still uses the c
 
 ### Remaining risks
 
-- Morpheus preview DOM may still differ from portable `.board` — `playStakeTumble` uses `.reel-frame` + tumble layer, not portable children.
-- Classic-nine is not on the real reel-stop path yet.
-- Unknown cues in MotionCueHost still throw (P1).
-- Incoming rehearsal symbols are filled from surviving board art (not a math book). Fine for occupancy rehearsal; not a certified round.
+- Incoming rehearsal symbols are filled from surviving board art (not a math book). Occupancy is real; the round is not certified.
+- Human smoke on Morpheus 6×4 is the last P0 box.
 
 ### Overlay era (already rejected)
 
@@ -151,7 +172,7 @@ Studio Preview remains pixel authority — **one** tumble implementation.
 
 ### P2 — Multi-style + art loop (2-day goal)
 
-- [x] CLI: `npm run studio:fixtures` / `cues --all` writes fixtures + `/motion-fixtures/index.json`. Play Motion dropdown loads that index.
+- [x] CLI: `npm run build` / `npm run dev:agent` write fixtures + index. Play Motion dropdown loads that index. `studio:fixtures` is an alias, not a required extra step.
 - [x] Templates each lock a recommended style; Play Motion dropdown lists classic-nine, cluster-hex, sticky-five, anticipation-five.
 - [x] Art brief: `npm run studio -- art-brief <template>` — missing symbols + role guidance; motion not blocked on art.
 - [x] Classic-nine path: reel blur/stop via Preview `createPreviewReelSpinTrack` + `getReelStopSchedule` (no wager, no setWin).
@@ -194,24 +215,27 @@ runtime/stake-studio-source/server/frontend-template/game-app.js       ← playT
 
 ## 7. Commands cheat sheet
 
+### One command that matters
+
+```bash
+cd ~/Developer/superslotstudio
+npm run dev:agent          # build + write fixtures + http://127.0.0.1:3001/
+```
+
 ### Domain (repo root)
 
 ```bash
 cd ~/Developer/superslotstudio
 npm test
 npm run studio -- templates
-npm run studio -- cues cluster-hex
-npm run studio -- cues --all
-npm run studio:fixtures
 npm run studio -- art-brief cluster-hex
-node --test runtime/stake-studio-source/src/engines/presentation/cueSheetToTumbleEvents.test.js
 ```
 
-### Studio
+### Studio (if already in the runtime folder)
 
 ```bash
 cd ~/Developer/superslotstudio/runtime/stake-studio-source
-npm run dev:agent          # 3001, live reload, leave running
+npm run dev:agent          # 3001, live reload; syncs fixtures if dist/ exists
 ```
 
 ### Git

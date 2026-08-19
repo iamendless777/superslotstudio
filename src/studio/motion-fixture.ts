@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { RuntimeCueName } from "../motion/runtime-cues.js";
 import { planFromBlueprint } from "./pipeline.js";
 import {
@@ -111,4 +113,23 @@ export function buildMotionFixtureIndex(
       };
     }),
   };
+}
+
+export function writeMotionFixtures(
+  repoRoot: string,
+  ids: readonly TemplateId[] = listTemplateIds(),
+): { dir: string; written: readonly string[]; indexPath: string } {
+  const dir = join(repoRoot, MOTION_FIXTURE_DIR);
+  mkdirSync(dir, { recursive: true });
+  const written = ids.map((id) => {
+    const path = join(dir, `${id}.json`);
+    writeFileSync(path, `${JSON.stringify(buildMotionFixture(id), null, 2)}\n`);
+    return path;
+  });
+  const indexPath = join(dir, "index.json");
+  writeFileSync(
+    indexPath,
+    `${JSON.stringify(buildMotionFixtureIndex(), null, 2)}\n`,
+  );
+  return { dir, written, indexPath };
 }

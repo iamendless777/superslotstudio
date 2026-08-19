@@ -4,12 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node dist/tools/studio/cli.js cues --all --quiet",
     "check": "tsc -p tsconfig.json --noEmit",
     "demo": "npm run build && node scripts/serve-demo.mjs",
     "evidence:recovery": "tsc -p tsconfig.json && node dist/tools/evidence/recovery-cli.js",
     "studio": "npm run build && node dist/tools/studio/cli.js",
-    "studio:fixtures": "npm run build && node dist/tools/studio/cli.js cues --all",
+    "studio:fixtures": "npm run build",
+    "dev:agent": "npm run build && npm run --prefix runtime/stake-studio-source dev:agent",
+    "dev": "npm run build && npm run --prefix runtime/stake-studio-source dev",
     "test": "rm -rf dist && npm run build && node --test dist/test/*.test.js && node --test runtime/stake-studio-source/src/engines/presentation/*.test.js"
   },
   "devDependencies": {

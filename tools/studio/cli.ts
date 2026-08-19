@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -11,8 +10,7 @@ import { planFromBlueprint } from "../../src/studio/pipeline.js";
 import { buildArtBrief } from "../../src/studio/art-brief.js";
 import {
   buildMotionFixture,
-  buildMotionFixtureIndex,
-  MOTION_FIXTURE_DIR,
+  writeMotionFixtures,
 } from "../../src/studio/motion-fixture.js";
 import {
   listTemplateIds,
@@ -29,7 +27,7 @@ function usage(): never {
   studio styles
   studio assess [templateId]
   studio plan [templateId]
-  studio cues [templateId|--all]
+  studio cues [templateId|--all] [--quiet]
   studio art-gap [templateId]
   studio art-brief [templateId]
   studio dump [templateId]
@@ -47,23 +45,6 @@ function resolveBlueprint(templateId: string | undefined) {
     usage();
   }
   return loadTemplate(templateId as TemplateId);
-}
-
-function writeMotionFixture(id: TemplateId): string {
-  const sheet = buildMotionFixture(id);
-  const dir = join(repoRoot, MOTION_FIXTURE_DIR);
-  mkdirSync(dir, { recursive: true });
-  const path = join(dir, `${id}.json`);
-  writeFileSync(path, `${JSON.stringify(sheet, null, 2)}\n`);
-  return path;
-}
-
-function writeMotionFixtureIndex(): string {
-  const dir = join(repoRoot, MOTION_FIXTURE_DIR);
-  mkdirSync(dir, { recursive: true });
-  const path = join(dir, "index.json");
-  writeFileSync(path, `${JSON.stringify(buildMotionFixtureIndex(), null, 2)}\n`);
-  return path;
 }
 
 function printCueSheet(id: TemplateId, writtenPath?: string): void {
@@ -86,7 +67,9 @@ function printCueSheet(id: TemplateId, writtenPath?: string): void {
 }
 
 function main(): void {
-  const [, , command, arg] = process.argv;
+  const argv = process.argv.slice(2);
+  const quiet = argv.includes("--quiet");
+  const [command, arg] = argv.filter((value) => value !== "--quiet");
   if (!command) usage();
 
   switch (command) {
@@ -151,19 +134,28 @@ function main(): void {
     }
     case "cues": {
       const ids: TemplateId[] =
-        arg === "--all" || arg === "all"
+        arg === "--all" || arg === "all" || arg === undefined
           ? [...listTemplateIds()]
-          : [((arg as TemplateId | undefined) ?? "classic-nine")];
+          : [arg as TemplateId];
       const first = ids[0];
-      if (ids.length === 1 && first && !(listTemplateIds() as readonly string[]).includes(first)) {
+      if (
+        ids.length === 1 &&
+        first &&
+        !(listTemplateIds() as readonly string[]).includes(first)
+      ) {
         console.error(`Unknown template: ${first}`);
         usage();
       }
-      for (const id of ids) {
-        const path = writeMotionFixture(id);
-        printCueSheet(id, path);
+      const result = writeMotionFixtures(repoRoot, ids);
+      if (!quiet) {
+        for (const id of ids) {
+          const path = result.written.find((item) => item.endsWith(`${id}.json`));
+          printCueSheet(id, path);
+        }
       }
-      console.error(`index ${writeMotionFixtureIndex()}`);
+      console.error(
+        `[motion-fixtures] ${result.written.length} sheets + index → ${result.dir}`,
+      );
       return;
     }
     case "art-gap": {
