@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import {
+  MOTION_FIXTURE_DIR,
   buildMotionFixture,
   buildMotionFixtureIndex,
   fixtureKind,
   listMotionFixtureIds,
 } from "../src/studio/motion-fixture.js";
+
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const fixtureDir = join(repoRoot, MOTION_FIXTURE_DIR);
 
 describe("motion fixtures", () => {
   it("every template produces a playable cue sheet", () => {
@@ -52,5 +59,16 @@ describe("motion fixtures", () => {
     assert.equal(byId["sticky-five"]?.kind, "reel");
     assert.equal(byId["anticipation-five"]?.kind, "reel");
     assert.equal(fixtureKind(buildMotionFixture("cluster-hex")), "tumble");
+  });
+
+  it("checked-in fixtures and index match the planner", () => {
+    const index = JSON.parse(
+      readFileSync(join(fixtureDir, "index.json"), "utf8"),
+    );
+    assert.deepEqual(index, buildMotionFixtureIndex());
+    for (const id of listMotionFixtureIds()) {
+      const onDisk = JSON.parse(readFileSync(join(fixtureDir, `${id}.json`), "utf8"));
+      assert.deepEqual(onDisk, buildMotionFixture(id), id);
+    }
   });
 });
