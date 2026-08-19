@@ -344,8 +344,18 @@ export class PreviewPanel extends BasePreviewPanel {
     const winCue = (sheet.cues || []).find((cue) => cue.cue === 'win.pulse');
     const morphCue = (sheet.cues || []).find((cue) => cue.cue === 'wild.stickyMorph');
     if (morphCue) {
+      const wilds = this.positionsForSymbol?.(board, null, 'wild') || [];
       this.setMotionStatus('Sticky morph');
-      await this.motionWin(parseCells(morphCue.cells), morphCue.durationMs);
+      this.setMotionDebug({
+        path: 'reel',
+        grid: this.motionGridLabel(),
+        step: 'sticky',
+        exploding: wilds.length
+          ? wilds.map(([reel, row]) => ({ reel, row }))
+          : parseCells(morphCue.cells).map(([reel, row]) => ({ reel, row })),
+        note: 'wild.stickyMorph',
+      });
+      await this.motionWin(wilds.length ? wilds : parseCells(morphCue.cells), morphCue.durationMs);
     }
     if (winCue) {
       this.setMotionStatus('Win pulse');
@@ -353,7 +363,15 @@ export class PreviewPanel extends BasePreviewPanel {
     }
 
     this.setMotionStatus('Done');
-    window.setTimeout(() => this.setMotionStatus(''), 900);
+    window.setTimeout(() => {
+      this.syncMotionArtStatus();
+      this.setMotionDebug({
+        path: 'idle',
+        grid: this.motionGridLabel(),
+        step: 'restored',
+        tumbling: false,
+      });
+    }, 900);
     return true;
   }
 
