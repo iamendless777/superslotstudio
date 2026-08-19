@@ -1909,6 +1909,41 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.preview-motion-art {
+  position: relative;
+  z-index: 20;
+}
+.preview-motion-art summary {
+  cursor: pointer;
+  color: #ffd27a;
+  font-size: 11px;
+  font-weight: 700;
+  list-style: none;
+}
+.preview-motion-art summary::-webkit-details-marker { display: none; }
+.preview-motion-art-body {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 22rem;
+  max-height: 18rem;
+  overflow: auto;
+  padding: 10px 12px;
+  background: #10131c;
+  border: 1px solid rgba(255, 210, 122, .35);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+  color: #d7dde8;
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.preview-motion-art-body p { margin: 0 0 8px; color: #9aa3b5; }
+.preview-motion-art-body ol { margin: 0 0 8px; padding: 0; list-style: none; }
+.preview-motion-art-body li { margin: 0 0 6px; }
+.preview-motion-art-body li span { display: block; color: #8b93a7; font-size: 10px; }
+.preview-motion-art-body li[data-status="missing"] strong { color: #ffb4a2; }
+.preview-motion-art-body li[data-status="assigned"] strong { color: #7dffce; }
 .preview-tumble-layer {
   position: absolute;
   inset: 0;

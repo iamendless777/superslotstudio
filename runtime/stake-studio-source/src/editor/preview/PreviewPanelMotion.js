@@ -83,10 +83,16 @@ export class PreviewPanel extends BasePreviewPanel {
     debug.className = 'preview-mode';
     debug.textContent = 'motion idle';
 
+    const art = document.createElement('details');
+    art.id = 'previewMotionArt';
+    art.className = 'preview-motion-art';
+    art.innerHTML = '<summary>Art</summary><div class="preview-motion-art-body">No brief</div>';
+
     trigger.insertAdjacentElement('afterend', label);
     label.insertAdjacentElement('afterend', button);
     button.insertAdjacentElement('afterend', status);
     status.insertAdjacentElement('afterend', debug);
+    debug.insertAdjacentElement('afterend', art);
 
     button.addEventListener('click', () => {
       void this.playMotionStylePreview();
@@ -169,6 +175,49 @@ export class PreviewPanel extends BasePreviewPanel {
       this.setMotionStatus(`${entry.missingArt} art missing · motion still plays`);
     } else {
       this.setMotionStatus('Art assigned');
+    }
+    void this.loadMotionArtBrief(id);
+  }
+
+  escapeMotionText(value) {
+    return String(value ?? '')
+      .replaceAll('&', '&')
+      .replaceAll('<', '<')
+      .replaceAll('>', '>')
+      .replaceAll('"', '"');
+  }
+
+  async loadMotionArtBrief(templateId) {
+    const host = this.container?.querySelector('#previewMotionArt');
+    if (!host || !templateId) return;
+    const summary = host.querySelector('summary');
+    const body = host.querySelector('.preview-motion-art-body');
+    try {
+      const response = await fetch(`/motion-fixtures/art-briefs/${templateId}.json`);
+      if (!response.ok) return;
+      const brief = await response.json();
+      this.motionArtBrief = brief;
+      if (summary) {
+        summary.textContent = brief.missingCount
+          ? `Art ${brief.missingCount} missing`
+          : 'Art ready';
+      }
+      if (body) {
+        const slots = (brief.slots || [])
+          .map((slot) => {
+            const esc = this.escapeMotionText.bind(this);
+            return `<li data-status="${esc(slot.status)}"><strong>${esc(slot.label)}</strong> · ${esc(slot.role)} · ${esc(slot.status)}<span>${esc(slot.guidance)}</span></li>`;
+          })
+          .join('');
+        body.innerHTML = `<p>${this.escapeMotionText(brief.notes || brief.title || '')}</p><ol>${slots}</ol><button type="button" class="tool-btn" id="previewMotionArtCopy">Copy brief</button>`;
+        body.querySelector('#previewMotionArtCopy')?.addEventListener('click', (event) => {
+          event.preventDefault();
+          void navigator.clipboard?.writeText(JSON.stringify(brief, null, 2));
+          this.setMotionStatus('Art brief copied');
+        });
+      }
+    } catch {
+      /* keep last brief */
     }
   }
 
