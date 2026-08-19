@@ -142,7 +142,7 @@ Studio Preview remains pixel authority — **one** tumble implementation.
 ### P1 — Hardening
 
 - [x] Unit test: occupancy + one-depth + sequential second depth (`cueSheetToTumbleEvents.test.js`).
-- [ ] Integration test: Play Motion triggers same board class / plan markers as a real tumble.
+- [x] Integration test: adapter occupancy matches `StakeRoundBook.applyTumbleEvent`.
 - [x] Cue host: unknown cue → warn + skip, not throw whole play.
 - [x] Stop mapping `symbol.dropIn` → `spinStart` for cascade templates.
 - [x] `reel.stop` → `presentationEvent: 'reveal'` only when `allowPresentationEvents` is explicitly true; rehearsal default is no-op.
@@ -154,7 +154,7 @@ Studio Preview remains pixel authority — **one** tumble implementation.
 - [ ] CLI: `npm run studio -- cues <template>` writes or refreshes fixtures automatically.
 - [ ] Templates each lock a recommended style; Play Motion dropdown lists all templates that have fixtures.
 - [ ] Art brief: missing symbols + role guidance; no motion work blocked on art.
-- [ ] Classic-nine path: reel blur/stop/anticipation via same Preview reel motion path (not only cluster).
+- [x] Classic-nine path: reel blur/stop via Preview `createPreviewReelSpinTrack` + `getReelStopSchedule` (no wager, no setWin).
 - [ ] Sticky / anticipation templates: fixtures + Play Motion parity.
 
 ### P3 — Cleanup
@@ -284,4 +284,4 @@ Local highlight / shared tumble win classes only.
 
 ## 13. One-line summary for the next agent
 
-**Cluster Play Motion now goes through playStakeTumble. Smoke it on Morpheus 6×4; then classic-nine real reel path and auto fixtures. Do not invent a second animator.**
+**Cluster Play Motion goes through playStakeTumble. Classic-nine uses Preview reel-spin tracks without wagering. Smoke both on a loaded project; then auto fixtures + sticky/anticipation templates. Do not invent a second animator.**

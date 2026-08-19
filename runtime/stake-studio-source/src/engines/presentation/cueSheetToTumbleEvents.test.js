@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   applyTumbleOccupancy,
+  cueSheetHasReel,
   cueSheetHasTumble,
   cueSheetToTumbleEvents,
 } from './cueSheetToTumbleEvents.js';
+import { applyTumbleEvent } from '../math/StakeRoundBook.js';
 
 const board6x4 = [
   ['A0', 'A1', 'A2', 'A3'],
@@ -76,4 +78,28 @@ test('second depth uses post-tumble occupancy', () => {
   const after1 = applyTumbleOccupancy(after0, events[1].explodingSymbols, events[1].newSymbols);
   assert.equal(after1[2].length, 4);
   assert.equal(events[1].newSymbols[2].length, 2);
+});
+
+test('adapter occupancy matches StakeRoundBook.applyTumbleEvent', () => {
+  const events = cueSheetToTumbleEvents(oneDepthSheet, board6x4);
+  const fromBook = applyTumbleEvent(board6x4, events[0]);
+  const fromAdapter = applyTumbleOccupancy(
+    board6x4,
+    events[0].explodingSymbols,
+    events[0].newSymbols,
+  );
+  assert.deepEqual(fromBook, fromAdapter);
+});
+
+test('classic-nine is a reel sheet, not a tumble sheet', () => {
+  const sheet = {
+    cues: [
+      { cue: 'reel.blur', startMs: 0 },
+      { cue: 'reel.stop', startMs: 400 },
+      { cue: 'win.pulse', startMs: 800, cells: ['0:0', '1:0', '2:0'] },
+    ],
+  };
+  assert.equal(cueSheetHasReel(sheet), true);
+  assert.equal(cueSheetHasTumble(sheet), false);
+  assert.equal(cueSheetToTumbleEvents(sheet, board6x4).length, 0);
 });

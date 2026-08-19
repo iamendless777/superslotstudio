@@ -10,6 +10,7 @@
  */
 
 const EXPLODE_CUES = new Set(['cluster.remove', 'symbol.pop', 'symbol.fadeOut']);
+const REEL_CUES = new Set(['reel.blur', 'reel.stop', 'reel.anticipation']);
 
 export function parseMotionCells(cells) {
   if (!Array.isArray(cells)) return [];
@@ -139,4 +140,8 @@ export function cueSheetToTumbleEvents(sheet, board, options = {}) {
 
 export function cueSheetHasTumble(sheet) {
   return (sheet?.cues || []).some((cue) => EXPLODE_CUES.has(cue.cue));
+}
+
+export function cueSheetHasReel(sheet) {
+  return (sheet?.cues || []).some((cue) => REEL_CUES.has(cue.cue));
 }

@@ -1,13 +1,16 @@
 /**
  * Thin wrapper around PreviewPanel that injects Motion template playback.
  *
- * Cluster / cascade templates drive the real playStakeTumble path.
- * Classic reel templates still use the cue clock (P2).
+ * Cluster templates → playStakeTumble (same cascade pixels as a live round).
+ * Classic-nine → Preview reel spin tracks + stop schedule (no wager, no setWin).
  * No HTML overlay grid. No wincap / setWin during rehearsal.
  */
+import gsap from 'gsap';
 import { PreviewPanel as BasePreviewPanel } from './PreviewPanel.js?orchestration=20260815-40';
 import { playMotionTemplate, loadMotionFixture } from '../../engines/presentation/playMotionTemplate.js';
+import { getReelStopSchedule } from '../../engines/presentation/PresentationDirector.js';
 import {
+  cueSheetHasReel,
   cueSheetHasTumble,
   cueSheetToTumbleEvents,
 } from '../../engines/presentation/cueSheetToTumbleEvents.js';
@@ -115,6 +118,89 @@ export class PreviewPanel extends BasePreviewPanel {
     for (let index = 0; index < events.length; index++) {
       this.setMotionStatus(`Cascade ${index + 1} / ${events.length}`);
       this.board = await this.playStakeTumble(this.board, events[index]);
+    }
+
+    this.setMotionStatus('Done');
+    window.setTimeout(() => this.setMotionStatus(''), 900);
+    return true;
+  }
+
+  /**
+   * Classic-nine / lines rehearsal: same Preview reel-spin tracks and stop
+   * schedule as a live spin, without wagering or firing setWin / wincap.
+   */
+  async playMotionAsReelRehearsal(sheet) {
+    if (!cueSheetHasReel(sheet)) return false;
+    if (typeof this.createPreviewReelSpinTrack !== 'function') return false;
+    const masks = [...(this.container?.querySelectorAll('.reel-mask') || [])];
+    if (!masks.length) return false;
+    if (!Array.isArray(this.board) || !this.board.length) return false;
+
+    const rows = this.project?.math?.grid?.rows || [this.board[0]?.length || 3];
+    const allSymNames = (this.project?.theme?.symbols || [])
+      .filter((symbol) => !symbol.special?.length)
+      .map((symbol) => symbol.name)
+      .filter(Boolean);
+    const hasAnticipation = (sheet.cues || []).some((cue) => cue.cue === 'reel.anticipation');
+    const reelSchedule = getReelStopSchedule(this.project, hasAnticipation);
+    const board = this.board;
+
+    this.setMotionStatus('Reels spinning');
+    this.setAnimationState?.('spinning');
+    this.clearPreviewReelSpinTracks?.();
+
+    const spinTracks = masks.map((mask, reelIndex) => this.createPreviewReelSpinTrack(
+      mask,
+      reelIndex,
+      rows[reelIndex] || rows[0],
+      allSymNames.length ? allSymNames : (board[reelIndex] || []),
+    ));
+
+    await new Promise((resolve) => {
+      const tl = gsap.timeline({
+        onComplete: resolve,
+      });
+      this.motionReelTimeline = tl;
+      this.motionPlayback = {
+        stop: () => {
+          tl.kill();
+          resolve();
+        },
+      };
+      masks.forEach((mask, reel) => {
+        const stopAt = Math.max(0, Number(reelSchedule.stops[reel]?.stopAtMs || 400 + reel * 120) / 1000);
+        const landingLead = 0.12;
+        tl.call(() => {
+          mask.classList.add('is-stopping');
+          this.setMotionStatus(`Reel ${reel + 1} stop`);
+          this.setAnimationState?.('spinStop');
+        }, [], Math.max(0, stopAt - landingLead));
+        tl.call(() => {
+          this.paintReelBoard?.(reel, board[reel]);
+          spinTracks[reel]?.remove();
+          mask.classList.remove('is-spinning', 'is-stopping');
+          mask.classList.add('has-stopped');
+          this.pulseReelImpact?.(reel);
+        }, [], stopAt);
+      });
+      if (hasAnticipation) {
+        const cueMs = Number(reelSchedule.anticipationCueMs || 0) / 1000;
+        tl.call(() => {
+          this.setMotionStatus('Anticipation');
+          this.setAnimationState?.('anticipation');
+        }, [], Math.max(0, cueMs));
+      }
+    });
+
+    this.motionReelTimeline = null;
+    this.clearPreviewReelSpinTracks?.();
+    this.paintBoard?.(board);
+    this.setAnimationState?.('idle');
+
+    const winCue = (sheet.cues || []).find((cue) => cue.cue === 'win.pulse');
+    if (winCue) {
+      this.setMotionStatus('Win pulse');
+      await this.motionWin(parseCells(winCue.cells), winCue.durationMs);
     }
 
     this.setMotionStatus('Done');
@@ -248,8 +334,8 @@ export class PreviewPanel extends BasePreviewPanel {
 
     try {
       const sheet = await loadMotionFixture(templateId);
-      const usedTumble = await this.playMotionAsTumble(sheet);
-      if (usedTumble) return;
+      if (await this.playMotionAsTumble(sheet)) return;
+      if (await this.playMotionAsReelRehearsal(sheet)) return;
 
       this.motionPlayback = await playMotionTemplate(templateId, {
         project: this.project,
@@ -275,6 +361,8 @@ export class PreviewPanel extends BasePreviewPanel {
   destroy() {
     this.motionPlayback?.stop?.();
     this.motionPlayback = null;
+    this.motionReelTimeline?.kill?.();
+    this.motionReelTimeline = null;
     this.resetMotionStyles();
     super.destroy();
   }
