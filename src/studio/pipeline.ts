@@ -41,6 +41,10 @@ export function planFromBlueprint(
   options?: {
     readonly winCells?: readonly string[];
     readonly overrideStyleId?: StyleId;
+    readonly cellsByDepth?: readonly (readonly string[])[];
+    readonly cascadeDepth?: number;
+    readonly skipReveal?: boolean;
+    readonly skipWin?: boolean;
   },
 ): StudioPlan {
   const assessment = assessGameShape(shapeFromBlueprint(blueprint));
@@ -48,8 +52,11 @@ export function planFromBlueprint(
   const styleMatchesLocked = assessment.recommended.includes(lockedStyleId);
   const timeline = planMotionTimeline({
     styleId: lockedStyleId,
-    cascadeDepth: blueprint.cascadeDepth,
+    cascadeDepth: options?.cascadeDepth ?? blueprint.cascadeDepth,
+    ...(options?.cellsByDepth ? { cellsByDepth: options.cellsByDepth } : {}),
     winCells: options?.winCells ?? [],
+    ...(options?.skipReveal ? { skipReveal: true } : {}),
+    ...(options?.skipWin ? { skipWin: true } : {}),
   });
   const cueSheet = timelineToRuntimeCues(timeline);
   const missingArtIds = missingArt(blueprint);

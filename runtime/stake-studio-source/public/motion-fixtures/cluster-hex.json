@@ -1,7 +1,8 @@
 {
   "styleId": "cluster-snap",
   "catalogVersion": 2,
-  "totalDurationMs": 2200,
+  "templateId": "cluster-hex",
+  "totalDurationMs": 2576,
   "cues": [
     {
       "cue": "symbol.pop",
@@ -9,69 +10,91 @@
       "durationMs": 260,
       "stepKind": "remove",
       "depth": 0,
-      "cells": ["1:2", "2:2", "3:2"]
+      "cells": [
+        "1:2",
+        "2:2",
+        "3:2"
+      ]
     },
     {
       "cue": "cluster.remove",
-      "startMs": 260,
+      "startMs": 284,
       "durationMs": 220,
       "stepKind": "remove",
       "depth": 0,
-      "cells": ["1:2", "2:2", "3:2"]
+      "cells": [
+        "1:2",
+        "2:2",
+        "3:2"
+      ]
     },
     {
       "cue": "cluster.fall",
-      "startMs": 480,
-      "durationMs": 320,
+      "startMs": 544,
+      "durationMs": 300,
       "stepKind": "fall",
       "depth": 0,
       "cells": []
     },
     {
       "cue": "cluster.refill",
-      "startMs": 800,
-      "durationMs": 360,
+      "startMs": 844,
+      "durationMs": 340,
       "stepKind": "refill",
       "depth": 0,
       "cells": []
     },
     {
       "cue": "board.settle",
-      "startMs": 1160,
-      "durationMs": 140,
+      "startMs": 1184,
+      "durationMs": 120,
       "stepKind": "settle",
       "depth": 0,
       "cells": []
     },
     {
       "cue": "symbol.pop",
-      "startMs": 1400,
-      "durationMs": 240,
+      "startMs": 1304,
+      "durationMs": 260,
       "stepKind": "remove",
       "depth": 1,
-      "cells": ["2:1", "2:2"]
+      "cells": [
+        "2:1",
+        "2:2"
+      ]
     },
     {
       "cue": "cluster.remove",
-      "startMs": 1640,
+      "startMs": 1576,
       "durationMs": 220,
       "stepKind": "remove",
       "depth": 1,
-      "cells": ["2:1", "2:2"]
+      "cells": [
+        "2:1",
+        "2:2"
+      ]
     },
     {
       "cue": "cluster.fall",
-      "startMs": 1860,
-      "durationMs": 200,
+      "startMs": 1816,
+      "durationMs": 300,
       "stepKind": "fall",
       "depth": 1,
       "cells": []
     },
     {
       "cue": "cluster.refill",
-      "startMs": 2060,
-      "durationMs": 140,
+      "startMs": 2116,
+      "durationMs": 340,
       "stepKind": "refill",
+      "depth": 1,
+      "cells": []
+    },
+    {
+      "cue": "board.settle",
+      "startMs": 2456,
+      "durationMs": 120,
+      "stepKind": "settle",
       "depth": 1,
       "cells": []
     }

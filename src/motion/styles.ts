@@ -75,7 +75,7 @@ export const STYLE_PROFILES: Readonly<Record<StyleId, StyleProfile>> = {
     },
     revealEffects: ["drop-in", "settle"],
     tumbleEffects: {
-      remove: ["cascade-remove", "pop-scale"],
+      remove: ["pop-scale", "cascade-remove"],
       fall: ["cascade-fall"],
       refill: ["refill-drop"],
       settle: ["settle"],

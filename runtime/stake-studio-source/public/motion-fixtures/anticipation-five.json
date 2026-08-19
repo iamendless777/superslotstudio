@@ -1,8 +1,8 @@
 {
-  "styleId": "classic-lines",
+  "styleId": "anticipation-heavy",
   "catalogVersion": 2,
-  "templateId": "classic-nine",
-  "totalDurationMs": 1980,
+  "templateId": "anticipation-five",
+  "totalDurationMs": 3280,
   "cues": [
     {
       "cue": "reel.blur",
@@ -13,8 +13,16 @@
       "cells": []
     },
     {
-      "cue": "reel.stop",
+      "cue": "reel.anticipation",
       "startMs": 400,
+      "durationMs": 700,
+      "stepKind": "reveal",
+      "depth": 0,
+      "cells": []
+    },
+    {
+      "cue": "reel.stop",
+      "startMs": 1100,
       "durationMs": 280,
       "stepKind": "reveal",
       "depth": 0,
@@ -22,7 +30,7 @@
     },
     {
       "cue": "board.settle",
-      "startMs": 680,
+      "startMs": 1380,
       "durationMs": 120,
       "stepKind": "reveal",
       "depth": 0,
@@ -30,7 +38,7 @@
     },
     {
       "cue": "board.settle",
-      "startMs": 800,
+      "startMs": 1500,
       "durationMs": 120,
       "stepKind": "settle",
       "depth": 0,
@@ -38,7 +46,7 @@
     },
     {
       "cue": "win.lineTrace",
-      "startMs": 920,
+      "startMs": 1620,
       "durationMs": 500,
       "stepKind": "win",
       "depth": 0,
@@ -50,8 +58,20 @@
     },
     {
       "cue": "win.pulse",
-      "startMs": 1500,
+      "startMs": 2200,
       "durationMs": 450,
+      "stepKind": "win",
+      "depth": 0,
+      "cells": [
+        "0:0",
+        "1:0",
+        "2:0"
+      ]
+    },
+    {
+      "cue": "win.multiplierFloat",
+      "startMs": 2680,
+      "durationMs": 600,
       "stepKind": "win",
       "depth": 0,
       "cells": [

@@ -60,6 +60,8 @@ export class PreviewPanel extends BasePreviewPanel {
       <select id="previewMotionTemplate">
         <option value="classic-nine">classic-nine</option>
         <option value="cluster-hex" selected>cluster-hex</option>
+        <option value="sticky-five">sticky-five</option>
+        <option value="anticipation-five">anticipation-five</option>
       </select>`;
 
     const button = document.createElement('button');
@@ -198,6 +200,11 @@ export class PreviewPanel extends BasePreviewPanel {
     this.setAnimationState?.('idle');
 
     const winCue = (sheet.cues || []).find((cue) => cue.cue === 'win.pulse');
+    const morphCue = (sheet.cues || []).find((cue) => cue.cue === 'wild.stickyMorph');
+    if (morphCue) {
+      this.setMotionStatus('Sticky morph');
+      await this.motionWin(parseCells(morphCue.cells), morphCue.durationMs);
+    }
     if (winCue) {
       this.setMotionStatus('Win pulse');
       await this.motionWin(parseCells(winCue.cells), winCue.durationMs);

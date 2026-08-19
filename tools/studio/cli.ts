@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   classicNineBlueprint,
   missingArt,
@@ -6,7 +9,10 @@ import {
 } from "../../src/studio/blueprint.js";
 import { planFromBlueprint } from "../../src/studio/pipeline.js";
 import { buildArtBrief } from "../../src/studio/art-brief.js";
-import { requiredCues } from "../../src/studio/runtime-adapter.js";
+import {
+  buildMotionFixture,
+  MOTION_FIXTURE_DIR,
+} from "../../src/studio/motion-fixture.js";
 import {
   listTemplateIds,
   loadTemplate,
@@ -14,18 +20,21 @@ import {
 } from "../../src/studio/templates.js";
 import { listStyleIds } from "../../src/motion/styles.js";
 
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+
 function usage(): never {
   console.error(`Usage:
   studio templates
   studio styles
   studio assess [templateId]
   studio plan [templateId]
-  studio cues [templateId]
+  studio cues [templateId|--all]
   studio art-gap [templateId]
   studio art-brief [templateId]
   studio dump [templateId]
 
 Templates: ${listTemplateIds().join(", ")}
+cues writes runtime/.../public/motion-fixtures/<id>.json
 `);
   process.exit(1);
 }
@@ -37,6 +46,34 @@ function resolveBlueprint(templateId: string | undefined) {
     usage();
   }
   return loadTemplate(templateId as TemplateId);
+}
+
+function writeMotionFixture(id: TemplateId): string {
+  const sheet = buildMotionFixture(id);
+  const dir = join(repoRoot, MOTION_FIXTURE_DIR);
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, `${id}.json`);
+  writeFileSync(path, `${JSON.stringify(sheet, null, 2)}\n`);
+  return path;
+}
+
+function printCueSheet(id: TemplateId, writtenPath?: string): void {
+  const bp = loadTemplate(id);
+  const sheet = buildMotionFixture(id);
+  console.log(
+    JSON.stringify(
+      {
+        gameId: bp.gameId,
+        styleId: sheet.styleId,
+        totalDurationMs: sheet.totalDurationMs,
+        requiredCues: [...new Set(sheet.cues.map((cue) => cue.cue))],
+        written: writtenPath ?? null,
+        cues: sheet.cues,
+      },
+      null,
+      2,
+    ),
+  );
 }
 
 function main(): void {
@@ -104,30 +141,19 @@ function main(): void {
       return;
     }
     case "cues": {
-      const bp = resolveBlueprint(arg);
-      const plan = planFromBlueprint(bp, {
-        winCells: ["0:0", "1:0", "2:0"],
-      });
-      console.log(
-        JSON.stringify(
-          {
-            gameId: bp.gameId,
-            styleId: plan.cueSheet.styleId,
-            totalDurationMs: plan.cueSheet.totalDurationMs,
-            requiredCues: requiredCues(plan.cueSheet),
-            cues: plan.cueSheet.cues.map((c) => ({
-              cue: c.cue,
-              startMs: c.startMs,
-              durationMs: c.durationMs,
-              stepKind: c.stepKind,
-              depth: c.depth,
-              cells: c.cells,
-            })),
-          },
-          null,
-          2,
-        ),
-      );
+      const ids: TemplateId[] =
+        arg === "--all" || arg === "all"
+          ? [...listTemplateIds()]
+          : [((arg as TemplateId | undefined) ?? "classic-nine")];
+      const first = ids[0];
+      if (ids.length === 1 && first && !(listTemplateIds() as readonly string[]).includes(first)) {
+        console.error(`Unknown template: ${first}`);
+        usage();
+      }
+      for (const id of ids) {
+        const path = writeMotionFixture(id);
+        printCueSheet(id, path);
+      }
       return;
     }
     case "art-gap": {
