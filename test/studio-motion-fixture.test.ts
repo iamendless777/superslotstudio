@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
@@ -9,6 +10,7 @@ import {
   buildMotionFixtureIndex,
   fixtureKind,
   listMotionFixtureIds,
+  writeMotionFixtures,
 } from "../src/studio/motion-fixture.js";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -69,6 +71,19 @@ describe("motion fixtures", () => {
     for (const id of listMotionFixtureIds()) {
       const onDisk = JSON.parse(readFileSync(join(fixtureDir, `${id}.json`), "utf8"));
       assert.deepEqual(onDisk, buildMotionFixture(id), id);
+    }
+  });
+
+  it("writeMotionFixtures materializes every sheet plus index", () => {
+    const root = mkdtempSync(join(tmpdir(), "motion-fix-"));
+    const result = writeMotionFixtures(root);
+    assert.equal(existsSync(result.indexPath), true);
+    assert.deepEqual(
+      JSON.parse(readFileSync(result.indexPath, "utf8")),
+      buildMotionFixtureIndex(),
+    );
+    for (const id of listMotionFixtureIds()) {
+      assert.equal(existsSync(join(root, MOTION_FIXTURE_DIR, `${id}.json`)), true, id);
     }
   });
 });

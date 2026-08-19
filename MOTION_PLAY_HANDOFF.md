@@ -34,7 +34,7 @@ npm run dev:agent
 
 Port split: **3000** = ChatGPT/human lane (`npm run dev`). **3001** = agent lane (`npm run dev:agent`). Do not mix them.
 
-Fixtures regenerate on `npm run build` and on 3001 boot. You do not need to remember `studio:fixtures`.
+Fixtures regenerate on `npm run build`, on 3001 boot, and live while 3001 is running if `src/motion` or `src/studio` changes. You do not need to remember `studio:fixtures`. CI fails if generated JSON is not committed.
 
 
 ---
