@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   applyTumbleOccupancy,
   cueSheetHasReel,
@@ -103,3 +106,19 @@ test('classic-nine is a reel sheet, not a tumble sheet', () => {
   assert.equal(cueSheetHasTumble(sheet), false);
   assert.equal(cueSheetToTumbleEvents(sheet, board6x4).length, 0);
 });
+
+test('checked-in cluster-hex fixture is a two-depth tumbleBoard sequence', () => {
+  const path = join(dirname(fileURLToPath(import.meta.url)), '../../../public/motion-fixtures/cluster-hex.json');
+  const sheet = JSON.parse(readFileSync(path, 'utf8'));
+  assert.equal(cueSheetHasTumble(sheet), true);
+  const events = cueSheetToTumbleEvents(sheet, board6x4);
+  assert.equal(events.length, 2);
+  assert.deepEqual(events[0].explodingSymbols, [
+    { reel: 1, row: 2 },
+    { reel: 2, row: 2 },
+    { reel: 3, row: 2 },
+  ]);
+  const after = applyTumbleEvent(board6x4, events[0]);
+  assert.equal(after[1].length, 4);
+});
+

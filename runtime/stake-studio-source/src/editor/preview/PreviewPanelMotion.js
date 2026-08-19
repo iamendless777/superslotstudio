@@ -10,6 +10,7 @@ import { PreviewPanel as BasePreviewPanel } from './PreviewPanel.js?orchestratio
 import { playMotionTemplate, loadMotionFixture } from '../../engines/presentation/playMotionTemplate.js';
 import { getReelStopSchedule } from '../../engines/presentation/PresentationDirector.js';
 import {
+  cloneBoard,
   cueSheetHasReel,
   cueSheetHasTumble,
   cueSheetToTumbleEvents,
@@ -126,6 +127,22 @@ export class PreviewPanel extends BasePreviewPanel {
     return names.find((name) => !/wild|scatter|bonus|star/i.test(String(name))) || names[0] || 'L1';
   }
 
+  restoreMotionBoard() {
+    if (!this.motionSourceBoard) return;
+    this.board = this.motionSourceBoard;
+    this.paintBoard?.(this.motionSourceBoard);
+    this.motionSourceBoard = null;
+  }
+
+  scheduleMotionBoardRestore() {
+    if (this.motionRestoreTimer) window.clearTimeout(this.motionRestoreTimer);
+    this.motionRestoreTimer = window.setTimeout(() => {
+      this.motionRestoreTimer = null;
+      this.restoreMotionBoard();
+      this.setMotionStatus('');
+    }, 1200);
+  }
+
   /**
    * Drive Play Motion through playStakeTumble — same pixels as a live cascade.
    * Returns true when the tumble path ran.
@@ -135,24 +152,32 @@ export class PreviewPanel extends BasePreviewPanel {
     if (!Array.isArray(this.board) || !this.board.length) return false;
     if (!cueSheetHasTumble(sheet)) return false;
 
-    const events = cueSheetToTumbleEvents(sheet, this.board, {
+    const sourceBoard = cloneBoard(this.board);
+    const events = cueSheetToTumbleEvents(sheet, sourceBoard, {
       fillerSymbol: this.motionFillerSymbol(),
     });
     if (!events.length) return false;
 
+    this.motionSourceBoard = sourceBoard;
     this.recordPlaybackEvent?.('motionTumbleStart', {
       depths: events.length,
       exploding: events[0].explodingSymbols,
     });
 
-    for (let index = 0; index < events.length; index++) {
-      this.setMotionStatus(`Cascade ${index + 1} / ${events.length}`);
-      this.board = await this.playStakeTumble(this.board, events[index]);
+    try {
+      let current = sourceBoard;
+      for (let index = 0; index < events.length; index++) {
+        this.setMotionStatus(`Cascade ${index + 1} / ${events.length}`);
+        current = await this.playStakeTumble(current, events[index]);
+        this.board = current;
+      }
+      this.setMotionStatus('Done');
+      this.scheduleMotionBoardRestore();
+      return true;
+    } catch (error) {
+      this.restoreMotionBoard();
+      throw error;
     }
-
-    this.setMotionStatus('Done');
-    window.setTimeout(() => this.setMotionStatus(''), 900);
-    return true;
   }
 
   /**
@@ -360,12 +385,18 @@ export class PreviewPanel extends BasePreviewPanel {
   }
 
   async playMotionStylePreview() {
-    if (this.spinning) return;
+    if (this.spinning || this.motionPlaying) return;
     const templateId =
       this.container.querySelector('#previewMotionTemplate')?.value || 'cluster-hex';
     this.motionPlayback?.stop?.();
+    if (this.motionRestoreTimer) {
+      window.clearTimeout(this.motionRestoreTimer);
+      this.motionRestoreTimer = null;
+    }
+    this.restoreMotionBoard();
     this.resetMotionStyles();
     this.setMotionStatus('Playing…');
+    this.motionPlaying = true;
 
     try {
       const sheet = await loadMotionFixture(templateId);
@@ -389,7 +420,10 @@ export class PreviewPanel extends BasePreviewPanel {
     } catch (error) {
       console.error('Motion preview failed', error);
       this.setMotionStatus('Failed');
+      this.restoreMotionBoard();
       window.alert(error.message || String(error));
+    } finally {
+      this.motionPlaying = false;
     }
   }
 
@@ -398,6 +432,11 @@ export class PreviewPanel extends BasePreviewPanel {
     this.motionPlayback = null;
     this.motionReelTimeline?.kill?.();
     this.motionReelTimeline = null;
+    if (this.motionRestoreTimer) {
+      window.clearTimeout(this.motionRestoreTimer);
+      this.motionRestoreTimer = null;
+    }
+    this.restoreMotionBoard();
     this.resetMotionStyles();
     super.destroy();
   }

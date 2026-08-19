@@ -238,7 +238,7 @@ When user clicks **Play Motion** with **cluster-hex**:
    - Tiles above fall into gaps (real `playStakeTumble` layer)
    - New tiles enter from above
    - Board settles
-5. After completion, board is the post-tumble occupancy (not a cosmetic reset to the pre-spin board unless you spin again).
+5. After completion, board restores to the pre-rehearsal occupancy so Play Motion is repeatable.
 6. Failures should surface clearly.
 
 ---
