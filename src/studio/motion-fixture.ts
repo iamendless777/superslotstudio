@@ -73,3 +73,42 @@ export function buildMotionFixture(id: TemplateId): MotionFixtureSheet {
 export function listMotionFixtureIds(): readonly TemplateId[] {
   return listTemplateIds();
 }
+
+export function fixtureKind(sheet: MotionFixtureSheet): "tumble" | "reel" {
+  const tumble = sheet.cues.some(
+    (cue) =>
+      cue.cue === "cluster.remove" ||
+      cue.cue === "symbol.pop" ||
+      cue.cue === "symbol.fadeOut",
+  );
+  return tumble ? "tumble" : "reel";
+}
+
+export interface MotionFixtureIndexEntry {
+  readonly id: TemplateId;
+  readonly styleId: string;
+  readonly kind: "tumble" | "reel";
+  readonly totalDurationMs: number;
+}
+
+export interface MotionFixtureIndex {
+  readonly catalogVersion: 2;
+  readonly templates: readonly MotionFixtureIndexEntry[];
+}
+
+export function buildMotionFixtureIndex(
+  ids: readonly TemplateId[] = listTemplateIds(),
+): MotionFixtureIndex {
+  return {
+    catalogVersion: 2,
+    templates: ids.map((id) => {
+      const sheet = buildMotionFixture(id);
+      return {
+        id,
+        styleId: sheet.styleId,
+        kind: fixtureKind(sheet),
+        totalDurationMs: sheet.totalDurationMs,
+      };
+    }),
+  };
+}

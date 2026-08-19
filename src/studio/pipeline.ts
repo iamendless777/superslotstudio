@@ -13,7 +13,7 @@ export interface StudioPlan {
   readonly lockedStyleId: StyleId;
   readonly styleMatchesLocked: boolean;
   readonly timeline: MotionTimeline;
-  /** Cues for VisualEffectRuntime / TumbleChoreography. */
+  /** Cue sheet for Play Motion rehearsal (tumbleBoard / reel tracks). */
   readonly cueSheet: RuntimeCueSheet;
   readonly missingArtIds: readonly string[];
   readonly readyForArtReview: boolean;

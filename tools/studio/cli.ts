@@ -11,6 +11,7 @@ import { planFromBlueprint } from "../../src/studio/pipeline.js";
 import { buildArtBrief } from "../../src/studio/art-brief.js";
 import {
   buildMotionFixture,
+  buildMotionFixtureIndex,
   MOTION_FIXTURE_DIR,
 } from "../../src/studio/motion-fixture.js";
 import {
@@ -54,6 +55,14 @@ function writeMotionFixture(id: TemplateId): string {
   mkdirSync(dir, { recursive: true });
   const path = join(dir, `${id}.json`);
   writeFileSync(path, `${JSON.stringify(sheet, null, 2)}\n`);
+  return path;
+}
+
+function writeMotionFixtureIndex(): string {
+  const dir = join(repoRoot, MOTION_FIXTURE_DIR);
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, "index.json");
+  writeFileSync(path, `${JSON.stringify(buildMotionFixtureIndex(), null, 2)}\n`);
   return path;
 }
 
@@ -154,6 +163,7 @@ function main(): void {
         const path = writeMotionFixture(id);
         printCueSheet(id, path);
       }
+      console.error(`index ${writeMotionFixtureIndex()}`);
       return;
     }
     case "art-gap": {

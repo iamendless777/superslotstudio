@@ -84,6 +84,34 @@ export class PreviewPanel extends BasePreviewPanel {
     button.addEventListener('click', () => {
       void this.playMotionStylePreview();
     });
+    void this.populateMotionTemplates();
+  }
+
+  async populateMotionTemplates() {
+    const select = this.container?.querySelector('#previewMotionTemplate');
+    if (!select) return;
+    try {
+      const response = await fetch('/motion-fixtures/index.json');
+      if (!response.ok) return;
+      const index = await response.json();
+      const templates = Array.isArray(index?.templates) ? index.templates : [];
+      if (!templates.length) return;
+      const current = select.value || 'cluster-hex';
+      select.replaceChildren();
+      for (const template of templates) {
+        const option = document.createElement('option');
+        option.value = template.id;
+        option.textContent = template.kind ? `${template.id} · ${template.kind}` : template.id;
+        option.selected = template.id === current;
+        select.appendChild(option);
+      }
+      if (![...select.options].some((option) => option.selected) && select.options.length) {
+        const cluster = [...select.options].find((option) => option.value === 'cluster-hex');
+        (cluster || select.options[0]).selected = true;
+      }
+    } catch {
+      /* keep the static fallback options */
+    }
   }
 
   setMotionStatus(text) {

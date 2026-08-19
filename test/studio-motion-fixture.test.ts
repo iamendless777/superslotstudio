@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildMotionFixture,
+  buildMotionFixtureIndex,
+  fixtureKind,
   listMotionFixtureIds,
 } from "../src/studio/motion-fixture.js";
 
@@ -39,5 +41,16 @@ describe("motion fixtures", () => {
     const sheet = buildMotionFixture("sticky-five");
     assert.ok(sheet.cues.some((cue) => cue.cue === "wild.stickyMorph"));
     assert.equal(sheet.cues.some((cue) => cue.cue === "cluster.remove"), false);
+  });
+
+  it("index lists tumble vs reel kinds for every template", () => {
+    const index = buildMotionFixtureIndex();
+    assert.equal(index.templates.length, listMotionFixtureIds().length);
+    const byId = Object.fromEntries(index.templates.map((entry) => [entry.id, entry]));
+    assert.equal(byId["cluster-hex"]?.kind, "tumble");
+    assert.equal(byId["classic-nine"]?.kind, "reel");
+    assert.equal(byId["sticky-five"]?.kind, "reel");
+    assert.equal(byId["anticipation-five"]?.kind, "reel");
+    assert.equal(fixtureKind(buildMotionFixture("cluster-hex")), "tumble");
   });
 });

@@ -1,0 +1,29 @@
+{
+  "catalogVersion": 2,
+  "templates": [
+    {
+      "id": "classic-nine",
+      "styleId": "classic-lines",
+      "kind": "reel",
+      "totalDurationMs": 1980
+    },
+    {
+      "id": "cluster-hex",
+      "styleId": "cluster-snap",
+      "kind": "tumble",
+      "totalDurationMs": 2576
+    },
+    {
+      "id": "sticky-five",
+      "styleId": "sticky-lock",
+      "kind": "reel",
+      "totalDurationMs": 2380
+    },
+    {
+      "id": "anticipation-five",
+      "styleId": "anticipation-heavy",
+      "kind": "reel",
+      "totalDurationMs": 3280
+    }
+  ]
+}

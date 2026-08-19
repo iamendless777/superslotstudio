@@ -151,7 +151,7 @@ Studio Preview remains pixel authority — **one** tumble implementation.
 
 ### P2 — Multi-style + art loop (2-day goal)
 
-- [x] CLI: `npm run studio -- cues <template>` (or `cues --all`) writes `runtime/.../public/motion-fixtures/<template>.json`.
+- [x] CLI: `npm run studio:fixtures` / `cues --all` writes fixtures + `/motion-fixtures/index.json`. Play Motion dropdown loads that index.
 - [x] Templates each lock a recommended style; Play Motion dropdown lists classic-nine, cluster-hex, sticky-five, anticipation-five.
 - [x] Art brief: `npm run studio -- art-brief <template>` — missing symbols + role guidance; motion not blocked on art.
 - [x] Classic-nine path: reel blur/stop via Preview `createPreviewReelSpinTrack` + `getReelStopSchedule` (no wager, no setWin).
@@ -159,10 +159,10 @@ Studio Preview remains pixel authority — **one** tumble implementation.
 
 ### P3 — Cleanup
 
-- [ ] Remove dead overlay CSS/IDs if any remain.
-- [ ] Trim MotionCueHost comments that claim TumbleChoreography is wired when it is not.
+- [x] Remove dead overlay CSS/IDs if any remain (no Play Motion cabinet HTML grid left).
+- [x] Trim MotionCueHost comments that claim TumbleChoreography is wired when it is not.
 - [ ] Optional: merge `integrate/studio-motion` → `main` after P0 smoke pass.
-- [ ] Large binary assets: keep out of motion-only PRs.
+- [x] Large binary assets: keep out of motion-only PRs.
 
 ---
 
@@ -202,6 +202,7 @@ npm test
 npm run studio -- templates
 npm run studio -- cues cluster-hex
 npm run studio -- cues --all
+npm run studio:fixtures
 npm run studio -- art-brief cluster-hex
 node --test runtime/stake-studio-source/src/engines/presentation/cueSheetToTumbleEvents.test.js
 ```

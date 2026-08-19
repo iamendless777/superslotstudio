@@ -27,6 +27,7 @@ export function playMotionCueSheet(cueSheet, {
     onAnimState,
     onTumbleAction,
     executePresentation,
+    allowPresentationEvents: false,
     onComplete,
     onCue: (cue) => {
       onLog?.(`${Math.round(cue.startMs)}ms  ${cue.cue}  (${cue.stepKind || '—'})`);
