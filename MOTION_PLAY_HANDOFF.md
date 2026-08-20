@@ -23,14 +23,14 @@ npm run dev:agent
 cd ~/Developer/superslotstudio
 ```
 
-Open Preview on **3001**, load a project, **Motion → cluster-hex → Play Motion**.
+Open Preview on **3001**, load a project, **Motion → cascade · ways → Play Motion**.
 
 Smoke (60 seconds):
-1. cluster-hex — tiles leave, survivors fall, new tiles enter, board restores, no max-win overlay
+1. cascade / ways — 3-kind L→R, survivors fall, new tiles enter, board restores, no max-win overlay
 2. classic-nine — reels blur and stop, no wager deducted
 3. sticky-five — stop + sticky pulse
 4. anticipation-five — last-reel hold
-Status may say “N art missing · motion still plays”. That is the point.
+Status may say “Board art ready”. That is the point.
 
 Equivalent (if Terminal 1 is already in the studio folder):
 
@@ -63,7 +63,7 @@ Fixtures regenerate on `npm run build`, on 3001 boot, and live while 3001 is run
 |--------|------|
 | `src/motion/*` | Style profiles, assess, timeline planner |
 | `src/studio/*` | Blueprints, art-brief, templates CLI, stake-runtime-bridge |
-| `npm run studio -- …` | `assess`, `plan`, `cues`, `templates`, art-gap style flows |
+| `npm run studio — …` | `assess`, `plan`, `cues`, `templates`, art-gap style flows |
 | Tests | `npm test` at repo root — domain suite should stay green |
 
 ### Studio runtime (`runtime/stake-studio-source/`)
@@ -74,7 +74,7 @@ Fixtures regenerate on `npm run build`, on 3001 boot, and live while 3001 is run
 | `playMotionTemplate.js` | Loads `/motion-fixtures/<id>.json` |
 | `cueSheetToTumbleEvents.js` | Adapter: cue sheet → `tumbleBoard` payloads |
 | `public/motion-fixtures/classic-nine.json`, `cluster-hex.json` | Rehearsal sheets |
-| `PreviewPanelMotion.js` | Motion dropdown + **Play Motion** → `playStakeTumble` for cluster |
+| `PreviewPanelMotion.js` | Motion dropdown + **Play Motion** → `playStakeTumble` |
 | `PreviewPanel.playStakeTumble(board, event)` | **Pixel authority** for cascade |
 | `CUE_BRIDGE` safety | `win.pulse` / `board.shake` must **not** fire wincap / setWin |
 | `npm run dev:agent` | `PORT=3001 STAKE_STUDIO_AGENT=1 STAKE_STUDIO_LIVE_RELOAD=1` |
@@ -107,7 +107,7 @@ npm run dev:agent
 # → http://127.0.0.1:3001/
 ```
 
-Open preview on **3001**, load project, use **Motion → cluster-hex → Play Motion**.
+Open preview on **3001**, load project, use **Motion → cascade · ways → Play Motion**.
 
 Adapter unit test (no studio):
 
@@ -243,7 +243,7 @@ npm run studio -- templates
 npm run studio -- art-brief cluster-hex
 ```
 
-### Studio (if already in the runtime folder)
+### Studio (if already in the studio folder)
 
 ```bash
 cd ~/Developer/superslotstudio/runtime/stake-studio-source
@@ -264,13 +264,13 @@ git status
 
 ## 8. Play Motion expected behavior (definition of done for P0)
 
-When user clicks **Play Motion** with **cluster-hex**:
+When user clicks **Play Motion** with **cascade · ways** (cluster-hex clock on a ways game):
 
-1. Status shows `Cascade 1 / N` then `Done`.
+1. Status shows `Seed 3-kind`, then `Cascade 1 / N`, then `Done`.
 2. **No** HTML grid covering the cabinet.
 3. **No** MAXIMUM WIN / 100,000× overlay from motion cues.
 4. A coherent cascade:
-   - Cluster tiles react and clear
+   - Three matching tiles on reels 1–3 (left to right)
    - Tiles above fall into gaps (real `playStakeTumble` layer)
    - New tiles enter from above
    - Board settles
@@ -294,8 +294,8 @@ Local highlight / shared tumble win classes only.
 
 ## 10. Next session
 
-1. Smoke is done for the four templates (2026-08-19).
-2. Art loop in parallel: copy the **board** brief, not the recipe, then commission missing roles.
+1. Motion smoke is done. Ways rehearsal is a clean 3-kind L→R tumble (Waylanders-style).
+2. Art loop is the ship path: open Art → copy **board** brief (live symbols + roles + pixel size). Do not commission the cluster-hex recipe.
 3. Optional: merge `integrate/studio-motion` → `main` after a `git pull` on 3001.
 4. If pixels are wrong, inspect `playStakeTumble` / reel tracks — do not revive ad-hoc WAAPI.
 
