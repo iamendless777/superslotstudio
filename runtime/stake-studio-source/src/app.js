@@ -102,13 +102,30 @@ class StakeStudio {
     this.renderShell();
     this.bindNav();
     this.bridge.start();
-    const lastProjectId = localStorage.getItem('stakeStudioLastProjectId');
+    const params = new URLSearchParams(location.search);
+    const requested = String(params.get('project') || '').trim();
+    const bootPanel = String(params.get('panel') || '').trim();
+    const lastProjectId = requested || localStorage.getItem('stakeStudioLastProjectId');
     if (!lastProjectId) {
+      try {
+        const projects = await this.bridge.listProjects();
+        const fallback = (projects || []).find((project) => (
+          /morpheus/i.test(`${project.id || ''} ${project.name || ''}`)
+        ));
+        if (fallback?.id) {
+          await this.bridge.loadProject(fallback.id, 'restore-available-project');
+          this.activatePanel(bootPanel || 'preview');
+          return;
+        }
+      } catch {
+        /* fall through to welcome */
+      }
       this.showWelcome();
       return;
     }
     try {
-      await this.bridge.loadProject(lastProjectId, 'restore-last-project');
+      await this.bridge.loadProject(lastProjectId, requested ? 'open-query-project' : 'restore-last-project');
+      if (bootPanel) this.activatePanel(bootPanel);
     } catch {
       localStorage.removeItem('stakeStudioLastProjectId');
       this.showWelcome();

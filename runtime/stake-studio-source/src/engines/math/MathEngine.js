@@ -152,6 +152,34 @@ export class MathEngine {
     )));
   }
 
+  /**
+   * Plant exactly N scatters on the first N reels (one each) and strip extras.
+   * Live SPIN uses this so a 2-scatter tease can be confirmed without hunting
+   * random books. Occupancy stays a real resolveSpin board; only the scatter
+   * layout is forced. Play Motion has its own seedScatterTease and must not
+   * go through this path.
+   */
+  applyForcedScatterLayout(board, count) {
+    const want = Math.max(0, Math.floor(Number(count) || 0));
+    if (!want || !Array.isArray(board) || !board.length) return board;
+    const scatterNames = [...(this.math.specialSymbols?.scatter || [])]
+      .map((symbol) => String(symbol || '').trim())
+      .filter(Boolean);
+    const scatter = scatterNames[0];
+    if (!scatter) return board;
+    const scatters = new Set(scatterNames);
+    const filler = (this.getWeightedSymbolPool() || []).find((name) => (
+      name && !scatters.has(name) && !/wild|scatter|bonus|star|gate/i.test(String(name))
+    )) || (this.getWeightedSymbolPool() || []).find((name) => name && !scatters.has(name)) || 'L1';
+    const next = board.map((column) => (column || []).map((symbol) => (scatters.has(symbol) ? filler : symbol)));
+    const planted = Math.min(want, next.length);
+    for (let reel = 0; reel < planted; reel++) {
+      if (!next[reel]?.length) continue;
+      next[reel][Math.min(1, next[reel].length - 1)] = scatter;
+    }
+    return next;
+  }
+
   getWeightedSymbolPool() {
     const syms = this.project.theme.symbols || [];
     const pool = [];
@@ -542,6 +570,7 @@ export class MathEngine {
     const forbiddenRefillSymbols = featureRuntime.forbiddenRefillSymbols();
     let board = this.generateProfileBoard(rand, reelSet, featureRuntime.state.reelRows, options);
     board = this.replaceExcludedBoardSymbols(board, rand, reelSet, forbiddenRefillSymbols);
+    board = this.applyForcedScatterLayout(board, options.forceScatterCount);
     const sourceBoard = board;
 
     let prepared = featureRuntime.prepareBoard(board, rand);
@@ -758,14 +787,15 @@ export class MathEngine {
    *   { entry: 'base'|'freeSpins', reelSet, freeSpinReelSet,
    *     freeSpins, multiplier, freeSpinMultiplier, retriggers }
    */
-  resolveRound(rand = Math.random, modeName = 'base', options = {}) {
+  resolveRound(rand = Math.random, modeName = 'base', roundOptions = {}) {
     const mode = this.getBetMode(modeName);
     const profile = mode.profile || {};
     const entry = profile.entry || (mode.isBuyBonus ? 'freeSpins' : 'base');
     const wager = Number(mode.cost) || 1;
     const configuredCap = Number(mode.maxWin ?? this.math.wincap ?? Infinity);
     const maxWin = Number(mode.maxWin ?? this.math.wincap) || 0;
-    const wincapChance = options.includeAllocatedMax === false
+    const forceScatterCount = Math.max(0, Math.floor(Number(roundOptions.forceScatterCount) || 0));
+    const wincapChance = roundOptions.includeAllocatedMax === false || forceScatterCount > 0
       ? 0
       : maximumWinHitRateForMode(this.math, mode);
     if (wincapChance > 0 && rand() < wincapChance) {
@@ -781,10 +811,14 @@ export class MathEngine {
     let architectureTier = null;
     let featureRuntime = null;
     let stickyReelState = null;
+    let pendingForceScatter = forceScatterCount;
 
-    const addSpin = (gameMode, options) => {
+    const addSpin = (gameMode, spinOptions) => {
+      const forced = pendingForceScatter;
+      pendingForceScatter = 0;
       const spin = this.resolveSpin(rand, gameMode, {
-        ...options,
+        ...spinOptions,
+        ...(forced > 0 ? { forceScatterCount: forced } : {}),
         roundWincap: configuredCap,
         roundWinBefore: totalWin,
       });

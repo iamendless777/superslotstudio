@@ -81,7 +81,10 @@ test('waiting reels share one hold for every scatter threshold', () => {
   assert.deepEqual(scatterThresholds({ math: { featureArchitecture: { tiers: { 3: {}, 4: {}, 5: {}, 6: {} } } } }), [3, 4, 5, 6]);
   assert.deepEqual(waitingReelsFromBoard(board([0, 1]), { isScatter }), [false, false, true, true, true, true]);
   assert.deepEqual(waitingReelsFromBoard(board([0, 1, 2]), { isScatter }), [false, false, true, true, true, true]);
+  assert.equal(board([0, 1, 2])[2].filter((symbol) => symbol === 'S').length, 1);
   assert.deepEqual(waitingReelsFromBoard(board([0, 1, 2, 3, 4]), { isScatter }), [false, false, true, true, true, true]);
+  assert.equal(waitingReelsFromBoard(board([0, 1, 2, 3, 4]), { isScatter })[5], true);
+  assert.equal(board([0, 1, 2, 3, 4])[5].filter((symbol) => symbol === 'S').length, 0);
   assert.deepEqual(waitingReelsFromBoard(board([0]), { isScatter }), [false, false, false, false, false, false]);
 
   const waiting = waitingReelsFromBoard(board([0, 1]), { isScatter });

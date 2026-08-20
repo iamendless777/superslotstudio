@@ -368,7 +368,8 @@ export function createMathPublisher({ studioHome }) {
   const home = resolve(studioHome);
   const serverDir = dirname(fileURLToPath(import.meta.url));
   const gamesDir = join(home, 'games');
-  const sdkRoot = realpathSync(join(home, 'reference', 'math-sdk'));
+  const sdkRootCandidate = join(home, 'reference', 'math-sdk');
+  const sdkRoot = existsSync(sdkRootCandidate) ? realpathSync(sdkRootCandidate) : sdkRootCandidate;
   const sdkGames = join(sdkRoot, 'games');
   const python = join(sdkRoot, 'env', 'bin', 'python');
   const verifier = join(serverDir, 'verify_math_publish.py');
@@ -376,8 +377,11 @@ export function createMathPublisher({ studioHome }) {
   const officialVerifier = join(serverDir, 'refresh_official_math_verification.py');
   const workspaceRoot = join(home, 'build', 'math-sdk-workspaces');
   const jobs = new Map();
+  const pythonReady = existsSync(python);
 
-  if (!existsSync(python)) throw new Error('The official math-sdk Python environment is not installed.');
+  function requireMathSdk() {
+    if (!pythonReady) throw new Error('The official math-sdk Python environment is not installed.');
+  }
 
   function prepareWorkspace(projectId, files) {
     const id = safeId(projectId);
@@ -561,6 +565,7 @@ export function createMathPublisher({ studioHome }) {
   }
 
   function start({ projectId, files, profile = 'smoke', simulations = {}, resumeExisting = false }) {
+    requireMathSdk();
     const profileConfig = getMathPublisherProfile(profile);
     const selectedProfile = profileConfig.id;
     const safeProjectId = safeId(projectId);

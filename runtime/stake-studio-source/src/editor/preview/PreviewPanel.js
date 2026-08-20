@@ -3395,7 +3395,7 @@ export class PreviewPanel {
     return track;
   }
 
-  spin({ automatic = false, roundOverride = null, publishedReplay = null } = {}) {
+  spin({ automatic = false, roundOverride = null, publishedReplay = null, forceScatterCount = null } = {}) {
     if (this.spinning) return;
     if (!automatic && this.autoSpinsRemaining > 0) {
       this.stopAutoSpins();
@@ -3439,7 +3439,17 @@ export class PreviewPanel {
 
     // Ordinary Preview uses the local design simulator. Reviewer replay may
     // inject a provenance-verified final-LUT book through this same renderer.
-    const round = roundOverride || this.mathEngine.resolveRound(Math.random, this.selectedMode);
+    const forcedScatters = Math.max(0, Math.floor(Number(forceScatterCount) || 0));
+    let round;
+    try {
+      round = roundOverride || this.mathEngine.resolveRound(Math.random, this.selectedMode, {
+        ...(forcedScatters > 0 ? { forceScatterCount: forcedScatters, includeAllocatedMax: false } : {}),
+      });
+    } catch (error) {
+      this.spinning = false;
+      this.updateHUD();
+      throw error;
+    }
     const visibleSpin = round.spins[0] || this.mathEngine.resolveSpin();
     this.spinResult = {
       ...visibleSpin,

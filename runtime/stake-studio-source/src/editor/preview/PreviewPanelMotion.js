@@ -105,6 +105,13 @@ export class PreviewPanel extends BasePreviewPanel {
     button.type = 'button';
     button.textContent = 'Play Motion';
 
+    const liveTease = document.createElement('button');
+    liveTease.className = 'tool-btn';
+    liveTease.id = 'previewLiveTwoScatter';
+    liveTease.type = 'button';
+    liveTease.textContent = 'Live 2-scatter';
+    liveTease.title = 'Paid live SPIN that plants two scatters on reels 1–2, then uses the same waiting-reel schedule as Play Motion.';
+
     const status = document.createElement('span');
     status.id = 'previewMotionStatus';
     status.className = 'preview-mode';
@@ -130,7 +137,8 @@ export class PreviewPanel extends BasePreviewPanel {
 
     trigger.insertAdjacentElement('afterend', label);
     label.insertAdjacentElement('afterend', button);
-    button.insertAdjacentElement('afterend', copyArt);
+    button.insertAdjacentElement('afterend', liveTease);
+    liveTease.insertAdjacentElement('afterend', copyArt);
     copyArt.insertAdjacentElement('afterend', status);
     status.insertAdjacentElement('afterend', debug);
     debug.insertAdjacentElement('afterend', art);
@@ -138,10 +146,28 @@ export class PreviewPanel extends BasePreviewPanel {
     button.addEventListener('click', () => {
       void this.playMotionStylePreview();
     });
+    liveTease.addEventListener('click', () => {
+      this.playLiveTwoScatter();
+    });
     copyArt.addEventListener('click', () => {
       this.copyLiveArtBrief();
     });
     void this.populateMotionTemplates();
+  }
+
+  playLiveTwoScatter() {
+    this.motionPlayback?.stop?.();
+    this.motionPlaying = false;
+    if (this.spinning) return;
+    this.setMotionStatus('Live 2-scatter');
+    this.setMotionDebug({
+      path: 'live',
+      grid: this.motionGridLabel(),
+      step: 'force-2',
+      tumbling: false,
+      note: 'resolveRound',
+    });
+    this.spin({ forceScatterCount: 2 });
   }
 
   copyLiveArtBrief() {
@@ -736,6 +762,7 @@ export class PreviewPanel extends BasePreviewPanel {
     this.motionReelTimeline = null;
     this.spinTimeline = null;
     this.reelAnticipationActive = false;
+    this.spinning = false;
     this.container?.querySelector('#previewStage')?.classList.remove('is-reel-tease');
     this.clearPreviewReelSpinTracks?.();
     this.paintBoard?.(board);

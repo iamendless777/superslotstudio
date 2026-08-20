@@ -15,6 +15,7 @@ const env = loadEnv('development', root, '');
 //   3001 — agent lane (`npm run dev:agent`) with live reload so git pull
 //          and planner edits do not require Ctrl+C + restart.
 const port = Number(process.env.PORT || process.env.STAKE_STUDIO_PORT || 3000);
+const host = process.env.HOST || process.env.STAKE_STUDIO_HOST || '127.0.0.1';
 const liveReload =
   process.env.STAKE_STUDIO_LIVE_RELOAD === '1' ||
   process.env.STAKE_STUDIO_LIVE_RELOAD === 'true' ||
@@ -82,7 +83,7 @@ const server = await createServer({
   publicDir: 'public',
   plugins: [stakeStudioBridge({ openaiApiKey: env.OPENAI_API_KEY })],
   server: {
-    host: '127.0.0.1',
+    host,
     port,
     strictPort: true,
     open: false,
@@ -100,7 +101,7 @@ await server.listen();
 server.printUrls();
 watchMotionPlanner();
 console.log(
-  `[stake-studio] port=${port} liveReload=${liveReload ? 'on' : 'off'}  open http://127.0.0.1:${port}/`,
+  `[stake-studio] port=${port} host=${host} liveReload=${liveReload ? 'on' : 'off'}  open http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}/`,
 );
 
 for (const signal of ['SIGINT', 'SIGTERM']) {

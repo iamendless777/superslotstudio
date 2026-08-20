@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-20  
 **Branch:** `integrate/studio-motion`  
-**HEAD:** `a1ee81c` — *Fill reveal.anticipation from waiting-reel schedule.*  
+**HEAD:** see latest commit on this branch — *3/5-scatter Play Motion + live 2-scatter.*  
 **Repo:** https://github.com/iamendless777/superslotstudio  
 **Local path:** `~/Developer/superslotstudio`  
 **Goal:** Ship many Stake.com games quickly (target ~2 days each). Motion + templates stay reliable so the bottleneck is **art**, not fighting the studio.
@@ -42,11 +42,11 @@ git pull origin integrate/studio-motion
 
 ---
 
-## Current truth (2026-08-20, HEAD a1ee81c)
+## Current truth (2026-08-20)
 
 Work is **live-play pixels** on Morpheus (Waylanders Forge clone, new art). Play Motion is the rehearsal harness. Live SPIN is the product.
 
-**2-scatter tease is video-confirmed.** Reels 3–6 each hold the same ~1.2s beat. Do not reopen that mechanic unless pixels regress.
+**2-scatter, 3-scatter, and 5-scatter teasers are video-confirmed.** Waiting-reel gaps ~**1390ms**. Live SPIN with two early scatters uses the same schedule. Do not reopen that mechanic unless pixels regress.
 
 ### What a spin looks like now
 
@@ -78,6 +78,8 @@ Prefer the book’s `anticipation[]` if it has any truthy flags (`waitingReelsFr
 
 `compileSpinBook` now fills `reveal.anticipation` via `anticipationFromBoard` (same one-away rule). Live and Play Motion share `getScatterTeaseSchedule`.
 
+Live Preview can plant two early scatters with **Live 2-scatter** (`MathEngine.applyForcedScatterLayout` / `resolveRound({ forceScatterCount: 2 })`). That is a real paid book, not Play Motion. Unforced random 2-scatter uses the same flags.
+
 2-scatter seed → waiting flags `[false, false, true, true, true, true]`. Waiting stop gaps ~**1390ms** (1200 hold + stagger). Unit test: “waiting reels share one hold for every scatter threshold.”
 
 ### Play Motion dropdown (3001)
@@ -89,9 +91,10 @@ Prefer the book’s `anticipation[]` if it has any truthy flags (`waitingReelsFr
 | sticky-five | reel path + sticky pulse | works |
 | anticipation-five | older last-reel-hold fixture (planner template) | not the product tease |
 | **2-scatter tease** | seed 2 doors on reels 1–2; reels 3–6 each hold the same beat | **video-confirmed 2026-08-20** |
-| **3-scatter tease** | seed 3; remaining wait for 4+ | next to confirm |
-| **4-scatter tease** | seed 4 | next |
-| **5-scatter tease** | seed 5; last reel waits for 6 | next to confirm |
+| **3-scatter tease** | seed 3; reel 3 holds then lands the third door; leftover wait for 4+ | **video-confirmed 2026-08-20** |
+| **4-scatter tease** | seed 4 | optional |
+| **5-scatter tease** | seed 5; last reel waits for 6 | **video-confirmed 2026-08-20** |
+| **Live 2-scatter** | paid SPIN; `forceScatterCount: 2` through `resolveRound` | **same schedule confirmed 2026-08-20** |
 
 `populateMotionTemplates` **merges** studio-only scatter-tease 2/3/4/5 after planner `cues --all` rewrites `index.json`. Do not add scatter-tease to `src/studio/templates.ts` unless you also update `studio-motion-fixture.test.ts`.
 
@@ -197,6 +200,7 @@ Unit tests:
 
 - `runtime/stake-studio-source/test/presentation-director.test.mjs` — waiting reels share one hold
 - `runtime/stake-studio-source/test/stake-round-book.test.mjs` — `reveal.anticipation` one-away flags
+- `runtime/stake-studio-source/test/forced-scatter-tease.test.mjs` — live `forceScatterCount` 2/3/5 matches Play Motion flags
 
 ---
 
@@ -216,12 +220,13 @@ Unit tests:
 
 ### Still watch
 
-- **3-scatter and 5-scatter teasers not video-confirmed.** Same hold rule; 3 continues waiting for 4; 5 holds last reel for 6.
-- **Live SPIN** natural 2-scatter (not only Play Motion seed) not yet video-confirmed. Studio Preview uses `getScatterTeaseSchedule`. Portable `game-app.js` still last-reel-only when `hasRevealAnticipation` is true — do not “fix” portable by inventing a second animator; match studio schedule if you touch it.
+- **4-scatter tease** not specifically video-confirmed (same rule; optional).
+- Portable `game-app.js` still last-reel-only when `hasRevealAnticipation` is true — do not “fix” portable by inventing a second animator; match studio schedule if you touch it.
 - Incoming rehearsal symbols are still filled from surviving board art (not a certified math book). Occupancy is real; the round is not certified.
 - `anticipation-five` planner fixture is the old last-reel demo. Product tease is scatter-tease 2/3/4/5.
 - Ways games seed a L→R **3-of-a-kind**. Cluster templates still seed a 2×2.
 - `preview-motion-polish.test.mjs` may still have unrelated tumble/connection failures. Do not “fix” those by weakening the spin-track CSS contract.
+- 3-scatter Play Motion can flash the Veil Ascent feature plate (3 doors is feature entry). Ordinary 0–2 scatter spins must stay plaque-free.
 
 ### Overlay era (already rejected)
 
@@ -276,8 +281,8 @@ Studio Preview remains **pixel** authority — one tumble, one spin-track.
 - [x] **Video-confirm 2-scatter tease** (HEAD `a1ee81c` / mechanic from `8ce256b`). Four equal holds on reels 3–6. Human confirmed 2026-08-20.
 - [x] Fill `compileSpinBook` `anticipation[]` from the board (`anticipationFromBoard`).
 - [x] Keep scatter-tease 2/3/4/5 in Play Motion after planner `index.json` rebuilds (`mergeMotionTemplateIndex`).
-- [ ] Video-confirm **3-scatter** and **5-scatter** teasers (3 continues waiting for 4; 5 holds last reel for 6).
-- [ ] Live SPIN: a natural 2-scatter (not only Play Motion) should use the same schedule.
+- [x] Video-confirm **3-scatter** and **5-scatter** teasers (3 continues waiting for 4; 5 holds last reel for 6). Gaps ~1390ms.
+- [x] Live SPIN 2-scatter uses the same schedule (`forceScatterCount: 2` through `resolveRound` / Live 2-scatter). Unforced books share `reveal.anticipation`.
 - [ ] If 1.2s/waiting-reel feels short or long, change **one** number: `anticipationHoldMs`. Do not special-case the last reel.
 - [ ] Art loop: Art panel → copy **board** brief. Do not commission cluster-hex as the ways art recipe.
 
@@ -316,6 +321,7 @@ runtime/stake-studio-source/src/styles.css          ← .preview-reel-spin-track
 # Tests
 runtime/stake-studio-source/test/presentation-director.test.mjs
 runtime/stake-studio-source/test/stake-round-book.test.mjs
+runtime/stake-studio-source/test/forced-scatter-tease.test.mjs
 runtime/stake-studio-source/test/preview-motion-polish.test.mjs
 runtime/stake-studio-source/src/engines/presentation/cueSheetToTumbleEvents.test.js
 
@@ -336,6 +342,7 @@ npm run dev:agent          # build + fixtures + http://127.0.0.1:3001/
 ```bash
 node --test runtime/stake-studio-source/src/engines/presentation/cueSheetToTumbleEvents.test.js
 node --test runtime/stake-studio-source/test/presentation-director.test.mjs
+node --test runtime/stake-studio-source/test/forced-scatter-tease.test.mjs
 node --test runtime/stake-studio-source/test/stake-round-book.test.mjs
 npm test
 npm run studio -- templates
@@ -359,13 +366,17 @@ npm run studio -- art-brief cluster-hex
 3. Landing tiles are the real result. No fake doors in the blur.
 4. Board restores so Play Motion is repeatable.
 
-### 3-scatter / 5-scatter tease (confirm next)
+### 3-scatter tease (confirmed)
 
-Same rule. Do not special-case the last reel.
+Same hold. Reels 1–2 land two doors quickly. Reel 3 holds, then lands the third door. Reels 4–6 keep the same beat, waiting for 4+.
+
+### 5-scatter tease (confirmed)
+
+Same hold. Reels 1–5 land doors (3/4/5 each after a wait). Reel 6 holds for 6 and does **not** get a planted door.
 
 ### Live SPIN with 2+ scatters before the last reel
 
-Same schedule as Play Motion. No wager-free shortcut — this is the real round.
+Same schedule as Play Motion. **Live 2-scatter** is a paid `resolveRound` with `forceScatterCount: 2` — not a wager-free rehearsal. Landing tiles are the real book; a ways win may tumble after the tease.
 
 ---
 
@@ -384,15 +395,14 @@ Do not mix 3000 and 3001. Do not commit 50MB art in a motion PR.
 
 ## 10. Next session (paste this into the new chat)
 
-Continue Stake Studio from HEAD `a1ee81c` on `integrate/studio-motion`. Read `MOTION_PLAY_HANDOFF.md`. GitHub is source of truth — pull, commit, push. Do not ask for patch files.
+Continue Stake Studio from `integrate/studio-motion` (pull first). Read `MOTION_PLAY_HANDOFF.md`. GitHub is source of truth — pull, commit, push. Do not ask for patch files.
 
 1. `git pull origin integrate/studio-motion`. Hard-refresh 3001.
-2. **2-scatter tease is already video-confirmed.** Do not reopen pixels unless it regresses.
-3. Play Motion → **3-scatter tease**, then **5-scatter tease**. Same sequential hold. 3 still waits for 4; 5 holds last reel for 6.
-4. Then a **live SPIN** that lands 2 scatters — same schedule as Play Motion.
-5. If hold length is wrong, change `anticipationHoldMs` only.
-6. Do not revive GSAP travel, fake scatters, last-reel-only, or an HTML overlay grid.
-7. Art loop can run in parallel: Art panel → copy **board** brief (not cluster-hex as the ways recipe).
+2. **2/3/5-scatter Play Motion and live 2-scatter are video-confirmed.** Same ~1390ms sequential hold. Do not reopen unless pixels regress.
+3. If hold length is wrong, change `anticipationHoldMs` only.
+4. Do not revive GSAP travel, fake scatters, last-reel-only, or an HTML overlay grid.
+5. Art loop can run in parallel: Art panel → copy **board** brief (not cluster-hex as the ways recipe).
+6. Optional: 4-scatter Play Motion, portable `game-app.js` schedule parity, merge to `main`.
 
 ---
 
@@ -407,6 +417,8 @@ Continue Stake Studio from HEAD `a1ee81c` on `integrate/studio-motion`. Read `MO
 Recent commits (newest first):
 
 ```
+this commit  Confirm 3/5-scatter Play Motion and live 2-scatter.
+bd89fab Update motion handoff after confirmed 2-scatter tease.
 a1ee81c Fill reveal.anticipation from waiting-reel schedule.
 4d8f8b1 Update motion handoff to waiting-reel tease (8ce256b).
 8ce256b Tease every reel that is one scatter away.
@@ -423,11 +435,11 @@ b47d871 Hold leftover reels after two scatters, last reel longest.   ← superse
 - Rebuilding Morpheus art or math from scratch
 - New HTML overlay “motion preview grid”
 - Three.js / minimax — noise for this ship loop
-- Perfect VFX polish before 3/5-scatter + live 2-scatter are video-confirmed
+- Perfect VFX polish before art ships
 - Blocking art on motion perfection
 
 ---
 
 ## 13. One-line summary for the next agent
 
-**HEAD a1ee81c. 2-scatter tease is confirmed: reels 3–6 share the same sequential hold. Next: confirm 3-scatter and 5-scatter Play Motion, then live SPIN 2-scatter. Same Stake CSS tracks + playStakeTumble. Do not invent a second animator.**
+**3/5-scatter Play Motion and live 2-scatter confirmed: waiting reels share the same ~1390ms sequential hold. Next: hold-length feel (`anticipationHoldMs`) and art. Same Stake CSS tracks + playStakeTumble. Do not invent a second animator.**
