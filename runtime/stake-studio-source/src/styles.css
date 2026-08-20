@@ -1660,6 +1660,12 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .preview-stage:is([data-animation-state="spinning"], [data-animation-state="anticipation"]) .reel-mask {
   background: linear-gradient(180deg, rgba(77,205,225,.035), rgba(5,10,21,.15) 42%, rgba(77,205,225,.025));
 }
+.preview-stage[data-animation-state="spinning"] .reel-mask.is-anticipation {
+  outline: 3px solid #f5c542;
+  outline-offset: 2px;
+  box-shadow: 0 0 22px rgba(245, 197, 66, 0.55);
+  z-index: 4;
+}
 .preview-stage:is([data-animation-state="spinning"], [data-animation-state="anticipation"]) .reel-mask:not(.has-stopped) > .reel-strip .reel-sym img { visibility: hidden; opacity: 0 !important; }
 .preview-reel-spin-track {
   position: absolute;

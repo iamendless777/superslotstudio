@@ -43,6 +43,28 @@ function artworkOf(el) {
   return el.querySelector?.('img') || el;
 }
 
+function rehearsalReelSchedule(project, hasAnticipation, reelCount) {
+  const base = getReelStopSchedule(project, hasAnticipation);
+  const timing = base.timing;
+  const holdMs = hasAnticipation ? Math.max(Number(timing.anticipationHoldMs) || 0, 1400) : 0;
+  const count = Math.max(1, reelCount);
+  const stops = Array.from({ length: count }, (_, reel) => {
+    const delayMs = reel * timing.perReelDelayMs;
+    const extra = hasAnticipation && reel === count - 1 ? holdMs : 0;
+    const durationMs = timing.baseDurationMs + reel * timing.perReelDurationMs + extra;
+    return { reel, delayMs, durationMs, stopAtMs: delayMs + durationMs };
+  });
+  const penultimate = stops[Math.max(0, stops.length - 2)];
+  return {
+    timing,
+    stops,
+    totalMs: Math.max(...stops.map((stop) => stop.stopAtMs)),
+    anticipationCueMs: hasAnticipation
+      ? penultimate.stopAtMs + (timing.anticipationCueLagMs || 50)
+      : null,
+  };
+}
+
 export class PreviewPanel extends BasePreviewPanel {
   render() {
     super.render();
@@ -407,7 +429,7 @@ export class PreviewPanel extends BasePreviewPanel {
       .map((symbol) => symbol.name)
       .filter(Boolean);
     const hasAnticipation = (sheet.cues || []).some((cue) => cue.cue === 'reel.anticipation');
-    const reelSchedule = getReelStopSchedule(this.project, hasAnticipation);
+    const reelSchedule = rehearsalReelSchedule(this.project, hasAnticipation, masks.length);
     const board = this.board;
 
     this.setMotionStatus('Reels spinning');
@@ -456,9 +478,17 @@ export class PreviewPanel extends BasePreviewPanel {
       });
       if (hasAnticipation) {
         const cueMs = Number(reelSchedule.anticipationCueMs || 0) / 1000;
+        const lastMask = masks[masks.length - 1];
         tl.call(() => {
+          lastMask?.classList.add('is-anticipation');
           this.setMotionStatus('Anticipation');
-          this.setAnimationState?.('anticipation');
+          this.setMotionDebug({
+            path: 'reel',
+            grid: this.motionGridLabel(),
+            step: 'hold',
+            tumbling: false,
+            note: 'last-reel hold',
+          });
         }, [], Math.max(0, cueMs));
       }
     });
