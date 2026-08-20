@@ -656,6 +656,7 @@ export class PreviewPanel {
     this.spinning = false;
     this.deactivateMorpheusDreamfallWorld(reason);
     this.updateMorpheusDreamfallState(state);
+    this.updateHUD();
     return state;
   }
 
@@ -3508,6 +3509,7 @@ export class PreviewPanel {
           await this.playSpinResult();
           if (this.activeSpinToken === spinToken) {
             this.spinning = false;
+            this.updateHUD();
             this.scheduleSymbolMotionSync();
             this.queueAutoSpin();
           }
@@ -3516,6 +3518,7 @@ export class PreviewPanel {
           if (this.activeSpinToken === spinToken) {
             this.spinning = false;
             this.clearPreviewReelSpinTracks();
+            this.updateHUD();
           }
         });
       }
@@ -3831,14 +3834,20 @@ export class PreviewPanel {
     };
   }
 
-  waitForActiveVisualChoreography(kind) {
+  waitForActiveVisualChoreography(kind, timeoutMs = 1600) {
     const entries = [...this.pendingVisualChoreography.entries()]
       .filter(([, entry]) => !kind || entry.kind === kind);
     this.recordPlaybackEvent('visualChoreographyBarrierStart', {
       kind: kind || 'all',
       pendingPlanIds: entries.map(([planId]) => planId),
     });
-    return Promise.all(entries.map(([, entry]) => entry.finished)).then(() => {
+    if (!entries.length) return Promise.resolve();
+    const limit = this.turboMode ? Math.min(timeoutMs, 400) : timeoutMs;
+    const barrier = Promise.all(entries.map(([, entry]) => entry.finished));
+    const timeout = this.wait(limit).then(() => {
+      for (const [planId] of entries) this.pendingVisualChoreography.delete(planId);
+    });
+    return Promise.race([barrier, timeout]).then(() => {
       this.recordPlaybackEvent('visualChoreographyBarrierComplete', {
         kind: kind || 'all',
         pendingPlanIds: entries.map(([planId]) => planId),
@@ -4291,11 +4300,14 @@ export class PreviewPanel {
     const settle = status => {
       if (settled) return;
       settled = true;
+      window.clearTimeout(watchdog);
       const run = this.finishVisualChoreography(plan, status);
       this.pendingVisualChoreography.delete(plan.id);
       resolveFinished(run);
     };
     this.pendingVisualChoreography.set(plan.id, { kind: plan.kind, finished });
+    const durationMs = Math.max(0, Number(plan.totalDurationMs) || 0);
+    const watchdog = window.setTimeout(() => settle('completed'), durationMs + 280);
     const timeline = gsap.timeline({
       onComplete: () => settle('completed'),
       onInterrupt: () => settle('cancelled'),
