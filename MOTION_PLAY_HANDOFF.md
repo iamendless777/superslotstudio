@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-20  
 **Branch:** `integrate/studio-motion`  
-**HEAD:** see latest commit on this branch — *Morpheus board symbol pack.*  
+**HEAD:** see latest commit on this branch — *HUD chrome matches the board pack.*  
 **Repo:** https://github.com/iamendless777/superslotstudio  
 **Local path:** `~/Developer/superslotstudio`  
 **Goal:** Ship many Stake.com games quickly (target ~2 days each). Motion + templates stay reliable so the bottleneck is **art**, not fighting the studio.
@@ -286,6 +286,7 @@ Studio Preview remains **pixel** authority — one tumble, one spin-track.
 - [x] Atlas + Preview copy the **board** art brief (not cluster-hex Ruby/Sapphire). Ways games commission those slots.
 - [x] Portable `game-app.js` waiting-reel schedule matches Preview (`waitingReelsFromReveal`, accrued `anticipationHoldMs`).
 - [x] Morpheus **board** symbol pack from the brief (moon / lantern / hourglass / moth / star / crescent / coins / wild seal / Gate of Sleep). Atlas **Apply board pack** fills empty slots only.
+- [x] HUD / spin / mode-card chrome uses the same ivory–gold–cyan language. Old photoreal atlas + generation sources deleted.
 - [ ] If 1.2s/waiting-reel feels short or long, change **one** number: `anticipationHoldMs`. Do not special-case the last reel.
 - [ ] Swap in final commissioned art over the starter pack; keep motion.
 
@@ -432,7 +433,8 @@ Continue Stake Studio from `integrate/studio-motion` (pull first). Read `MOTION_
 Recent commits (newest first):
 
 ```
-this commit  Put Morpheus board art on the tiles.
+this commit  Match HUD chrome to the board pack.
+3f75a34 Put Morpheus board art on the tiles.
 08ac17f Copy board art brief; portable waiting-reel; confirm 4-scatter.
 d7bb42b Confirm 3/5-scatter Play Motion and live 2-scatter.
 bd89fab Update motion handoff after confirmed 2-scatter tease.
@@ -459,4 +461,4 @@ b47d871 Hold leftover reels after two scatters, last reel longest.   ← superse
 
 ## 13. One-line summary for the next agent
 
-**Morpheus board pack is on the tiles. Atlas copies the board brief and can apply the pack to empty slots. Next: hold-length feel (`anticipationHoldMs`) or swap final art. Same Stake CSS tracks + playStakeTumble. Do not invent a second animator.**
+**Board tiles and HUD chrome share the ivory/gold/cyan pack. Old photoreal control atlas and generation sources were deleted. Next: hold-length feel (`anticipationHoldMs`) or swap final art. Same Stake CSS tracks + playStakeTumble. Do not invent a second animator.**
