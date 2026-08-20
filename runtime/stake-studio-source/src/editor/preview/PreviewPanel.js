@@ -3753,7 +3753,6 @@ export class PreviewPanel {
       }
 
       if (event.type === 'tumbleBoard') {
-        this.clearWinHighlights();
         currentBoard = await this.playStakeTumble(currentBoard, event);
         this.board = currentBoard;
         this.syncFeatureStateMarkers();
@@ -5039,8 +5038,8 @@ export class PreviewPanel {
       const visible = pos >= 0 && pos < this.reelGeometry.maxRows;
       cell.classList.toggle('win-dimmed', visible && winningCells.size > 0 && !winningCells.has(cell));
     });
-    // Paying tiles glow themselves. Do not wait for a second connection layer.
-    this.scheduleSymbolMotionSync({ authoritativeLanded: true });
+    // Paying tiles hold a steady light until they explode. Restarting
+    // flipbooks here made the glow blink off and on.
     if (staticOnly) return null;
     return { finished: this.wait(this.turboMode ? 160 : 420) };
   }
@@ -5223,10 +5222,13 @@ export class PreviewPanel {
     const stage = this.container.querySelector('#previewStage');
     const hasWinState = Boolean(this.container.querySelector('.win-highlight, .win-dimmed'));
     if (!stage || !hasWinState) return false;
+    if (immediate) {
+      this.clearWinHighlights();
+      return true;
+    }
     stage.classList.add('is-win-recovering');
-    if (!immediate) await this.wait(this.turboMode ? 90 : 240);
+    await this.wait(this.turboMode ? 90 : 240);
     this.clearWinHighlights();
-    this.scheduleSymbolMotionSync();
     return true;
   }
 
