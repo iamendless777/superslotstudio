@@ -3499,13 +3499,12 @@ export class PreviewPanel {
           if (this.activeSpinToken !== spinToken) return;
           this.recordPlaybackEvent('reelsSettled', { mode: this.selectedMode });
           this.scheduleSymbolMotionSync({ authoritativeLanded: true });
-          this.clearWinHighlights();
-          await this.dispatchPresentation('reveal', {
+          this.highlightSettledBookWins();
+          void this.dispatchPresentation('reveal', {
             board: newBoard,
             anticipation: this.hasScatterAnticipation(newBoard),
             mode: this.selectedMode,
           });
-          if (this.activeSpinToken !== spinToken) return;
           this.recordPlaybackEvent('revealPresentationComplete', { mode: this.selectedMode });
           await this.playSpinResult();
           if (this.activeSpinToken === spinToken) {
@@ -3740,14 +3739,14 @@ export class PreviewPanel {
         if (feature) this.updateFeatureProgress(mode, featureIndex, featureTotal, (featureRunning + running) * this.baseBet);
         this.animateWinDisplay(stepWin * this.baseBet, { overlay: false });
         const winMotion = this.highlightWins(wins);
-        await this.waitForPresentationMotion(winMotion);
-        await Promise.resolve(this.dispatchPresentation('winInfo', {
+        void this.dispatchPresentation('winInfo', {
           wins,
           winsAlreadyHighlighted: true,
           amount: stepWin * this.baseBet,
           runningAmount: (featureRunning + running) * this.baseBet,
           mode,
-        }));
+        });
+        await this.waitForPresentationMotion(winMotion);
         continue;
       }
 
@@ -4999,6 +4998,21 @@ export class PreviewPanel {
         { y: 0, duration: 0.38, ease: 'bounce.out', stagger: 0.04, onComplete: resolve }
       );
     });
+  }
+
+  highlightSettledBookWins() {
+    const events = this.spinResult?.state;
+    if (!Array.isArray(events)) return false;
+    const winInfo = events.find(event => event.type === 'winInfo');
+    if (!winInfo) return false;
+    const wins = deserializeWins(winInfo.wins);
+    const amount = Number(winInfo.cumulativeWin || winInfo.totalWin || 0) / BOOK_AMOUNT_MULTIPLIER * this.baseBet;
+    if (amount > 0) {
+      this.lastWin = amount;
+      this.updateHUD();
+    }
+    this.highlightWins(wins, { staticOnly: true });
+    return true;
   }
 
   highlightWins(wins, { staticOnly = false } = {}) {
