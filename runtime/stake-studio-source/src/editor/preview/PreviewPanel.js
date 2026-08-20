@@ -3338,9 +3338,12 @@ export class PreviewPanel {
     }
   }
 
-  clearPreviewReelSpinTracks() {
+  clearPreviewReelSpinTracks({ keepStopped = false } = {}) {
     this.container.querySelectorAll('.preview-reel-spin-track').forEach(track => track.remove());
-    this.container.querySelectorAll('.reel-mask').forEach(mask => mask.classList.remove('is-spinning', 'is-stopping', 'has-stopped'));
+    this.container.querySelectorAll('.reel-mask').forEach(mask => {
+      mask.classList.remove('is-spinning', 'is-stopping');
+      if (!keepStopped) mask.classList.remove('has-stopped');
+    });
   }
 
   previewReelSpinSequence(reelIndex, visibleRows, symbolNames) {
@@ -3484,7 +3487,8 @@ export class PreviewPanel {
           if (this.activeSpinToken !== spinToken) return;
           for (const interval of this.intervalIds) clearInterval(interval);
           this.intervalIds.clear();
-          this.clearPreviewReelSpinTracks();
+          this.clearPreviewReelSpinTracks({ keepStopped: true });
+          this.setAnimationState('spinStop');
           this.board = newBoard;
           this.recordPlaybackEvent('reelsLanded', { mode: this.selectedMode });
           // Every reel commits its authoritative reveal symbols at its own

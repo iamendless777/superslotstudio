@@ -1644,7 +1644,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   box-shadow: 0 0 22px rgba(245, 197, 66, 0.55);
   z-index: 4;
 }
-.preview-stage:is([data-animation-state="spinning"], [data-animation-state="anticipation"]) .reel-mask:not(.has-stopped) > .reel-strip .reel-sym img { visibility: hidden; opacity: 0 !important; }
+.preview-stage:is([data-animation-state="spinning"], [data-animation-state="anticipation"]) .reel-mask:not(.has-stopped):has(.preview-reel-spin-track) > .reel-strip .reel-sym img { visibility: hidden; opacity: 0 !important; }
 .preview-reel-spin-track {
   position: absolute;
   z-index: 3;
@@ -2039,8 +2039,16 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 /* Preview — Win Highlights */
 .win-highlight {
   z-index: 10;
+  box-shadow: 0 0 0 2px rgba(255, 222, 130, .92), 0 0 18px rgba(85, 224, 242, .42);
 }
-.win-highlight::after { opacity: 0; animation: none; }
+.win-highlight::after {
+  opacity: .8 !important;
+  inset: 5%;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 226, 130, .78);
+  background: radial-gradient(circle, rgba(85, 224, 242, .2), transparent 68%);
+  animation: preview-oneiric-target-lock .7s ease-in-out infinite alternate;
+}
 .win-highlight img { animation: dream-win-awaken .82s ease-in-out infinite alternate; }
 .preview-stage[data-animation-state="anticipation"] .reel-frame { box-shadow: inset 0 0 58px var(--world-glow-soft), 0 0 35px var(--world-glow-soft); animation: preview-reel-anticipation .46s ease-in-out infinite alternate; }
 .preview-stage[data-animation-state="anticipation"] .reel-sym:not([data-symbol="scatter"]) { filter: brightness(.68) saturate(.72); }
