@@ -26,6 +26,7 @@ function fillPack(project, { overwrite = false } = {}) {
   const world = applyMorpheusWorldPack(project, { overwrite });
   const modes = applyMorpheusSelectableModes(project, { overwrite });
   if (specials.added) console.log(`[seed] added ${specials.added} specials`);
+  if (specials.stripFilled) console.log(`[seed] planted ${specials.stripFilled} specials on strips`);
   if (symbols.filled) console.log(`[seed] applied board pack to ${symbols.filled} empty slots`);
   if (world.filled) console.log(`[seed] applied world pack (${world.filled})`);
   if (modes.filled) console.log(`[seed] applied selectable modes (${modes.modes.join(', ')})`);

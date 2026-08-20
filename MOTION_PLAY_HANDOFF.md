@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-20  
 **Branch:** `integrate/studio-motion`  
-**HEAD:** see latest commit on this branch — *HUD glyphs + portable feature chrome.*  
+**HEAD:** see latest commit on this branch — *Forge specials on the strips.*  
 **Repo:** https://github.com/iamendless777/superslotstudio  
 **Local path:** `~/Developer/superslotstudio`  
 **Goal:** Ship many Stake.com games quickly (target ~2 days each). Motion + templates stay reliable so the bottleneck is **art**, not fighting the studio.
@@ -168,7 +168,7 @@ Forge is the *feel* reference. Morpheus `MorpheusGameContract.js` is the *rules*
 
 **Build the rest in this order (art in the ivory/gold/cyan pack, no new animator):**
 
-1. Special tiles (Veil/Lucid/Rift/Split/Purge/Star/Mystery/Max) — paying board is done. Pack is on the reels.
+1. Special tiles (Veil/Lucid/Rift/Split/Purge/Star/Mystery/Max) — paying board is done. Pack is on the reels. **Strips now land the Forge specials (Max stays off the strip).**
 2. Selectable mode menu: Base, Enhancer, Trickster, Veil Ascent, Lucid Blessing. Dreamfall/Nexus/Nightmare stay gated. **Done.**
 3. Feature chrome: Veil symbol bar, Lucid family multis, Dreamfall reel growth, Nexus/Trickster position grid. **Done in Preview and portable.**
 4. Restyle the old photoreal Dreamfall shaft overlay. **Done.**
@@ -325,7 +325,7 @@ Studio Preview remains **pixel** authority — one tumble, one spin-track.
 - [x] Morpheus **board** symbol pack from the brief (moon / lantern / hourglass / moth / star / crescent / coins / wild seal / Gate of Sleep). Atlas **Apply board pack** fills empty slots only.
 - [x] HUD / spin / mode-card chrome uses the same ivory–gold–cyan language. Old photoreal atlas + generation sources deleted.
 - [x] Slop pass: spin plate is concentric rings (no double arrow). Wild is a sleeping-eye seal (no letter). Hourglass and coins have finished frames (no skulls).
-- [x] HUD medallions: bonus skull and info letter replaced with crescent / eye / bar glyphs. Portable game-app.js now shows the same Veil bar, Lucid family strip, and Trickster grid legend.
+- [x] Forge specials planted on BR strips (rare). Veil expands. Lucid carries the value ladder. Golden Rift is 3×3. Max Morpheus is not a strip symbol.
 - [ ] If 1.2s/waiting-reel feels short or long, change **one** number: `anticipationHoldMs`. Do not special-case the last reel.
 - [ ] Swap in final commissioned art over the starter pack; keep motion.
 
@@ -472,7 +472,8 @@ Continue Stake Studio from `integrate/studio-motion` (pull first). Read `MOTION_
 Recent commits (newest first):
 
 ```
-this commit  HUD glyphs without skulls/letters; portable feature chrome.
+this commit  Plant Forge specials on the reels.
+6f66e01 Drop skull and letter HUD glyphs; match portable chrome.
 edd4d7d Show Veil, Lucid, and Trickster chrome in the board language.
 169f6ce Open the five approved Morpheus modes.
 7becccd Map Forge specials onto Morpheus tiles.

@@ -21,7 +21,12 @@ export function resolveFeatureTier(project, reference) {
 }
 
 function definitionMap(project) {
-  return new Map((project?.theme?.symbols || []).map(symbol => [symbol.name, symbol]));
+  const map = new Map();
+  for (const symbol of project?.theme?.symbols || []) {
+    if (symbol?.name) map.set(symbol.name, symbol);
+    if (symbol?.id) map.set(symbol.id, symbol);
+  }
+  return map;
 }
 
 function paidDefinitions(project) {

@@ -345,7 +345,11 @@ export class MathEngine {
     const wilds = this.math.specialSymbols?.wild || [];
     const board = (inputBoard || []).map(column => [...column]);
     if (wilds.length === 0) return { board, events: [] };
-    const definitions = new Map((this.project.theme.symbols || []).map(symbol => [symbol.name, symbol]));
+    const definitions = new Map();
+    for (const symbol of this.project.theme.symbols || []) {
+      if (symbol?.name) definitions.set(symbol.name, symbol);
+      if (symbol?.id) definitions.set(symbol.id, symbol);
+    }
     const explicit = new Set(wilds.filter(name => (definitions.get(name)?.special || []).includes('expandingWild')));
     const wildSet = explicit.size ? explicit : new Set(wilds);
     const events = [];

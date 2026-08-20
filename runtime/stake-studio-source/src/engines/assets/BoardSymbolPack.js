@@ -42,7 +42,7 @@ export const MORPHEUS_SPECIAL_DEFS = Object.freeze([
   { id: 'VEIL_WILD', name: 'Veil Wild', special: ['wild', 'expandingWild'] },
   { id: 'LUCID_WILD', name: 'Lucid Wild', special: ['wild', 'multiplier'] },
   { id: 'DREAM_RIFT', name: 'Dream Rift', special: ['wildBomb'] },
-  { id: 'GOLDEN_RIFT', name: 'Golden Rift', special: ['wildBomb'] },
+  { id: 'GOLDEN_RIFT', name: 'Golden Rift', special: ['wildBomb', 'goldWildBomb'] },
   { id: 'ECHO_SPLIT', name: 'Echo Split', special: ['split'] },
   { id: 'DAWN_PURGE', name: 'Dawn Purge', special: ['royalRemover'] },
   { id: 'ONEIRIC_STAR', name: 'Oneiric Star', special: ['wildStar'] },
@@ -169,30 +169,91 @@ export function applyMorpheusWorldPack(project, { overwrite = false } = {}) {
   return { filled, pack: MORPHEUS_BOARD_PACK_ID };
 }
 
+const STRIP_SPECIALS = Object.freeze([
+  'VEIL_WILD',
+  'LUCID_WILD',
+  'DREAM_RIFT',
+  'ECHO_SPLIT',
+  'DAWN_PURGE',
+  'ONEIRIC_STAR',
+  'MYSTERY_VEIL',
+  'GOLDEN_RIFT',
+]);
+
+const STRIP_SPECIALS_BY_REEL = Object.freeze([
+  ['VEIL_WILD'],
+  ['LUCID_WILD', 'DREAM_RIFT'],
+  ['ECHO_SPLIT'],
+  ['DAWN_PURGE', 'GOLDEN_RIFT'],
+  ['ONEIRIC_STAR'],
+  ['MYSTERY_VEIL', 'DREAM_RIFT'],
+]);
+
+function injectStripSpecials(strip, extras) {
+  const next = Array.isArray(strip) ? [...strip] : [];
+  if (!next.length) return extras.slice();
+  let filled = 0;
+  extras.forEach((id, index) => {
+    if (next.includes(id)) return;
+    const at = Math.min(next.length, Math.floor((index + 1) * (next.length / (extras.length + 1))));
+    next.splice(at, 0, id);
+    filled += 1;
+  });
+  return { strip: next, filled };
+}
+
 export function ensureMorpheusSpecials(project, { overwrite = false } = {}) {
   if (!boardSymbolPackFor(project)) return { added: 0, filled: 0 };
   project.theme ||= {};
   project.theme.symbols ||= [];
   let added = 0;
   for (const def of MORPHEUS_SPECIAL_DEFS) {
-    const exists = project.theme.symbols.some((symbol) => (
+    const current = project.theme.symbols.find((symbol) => (
       symbol?.id === def.id || symbol?.name === def.id || symbol?.name === def.name
     ));
-    if (exists) continue;
-    project.theme.symbols.push({
-      id: def.id,
-      name: def.name,
-      tier: 'special',
-      src: '',
-      payouts: {},
-      special: [...def.special],
-    });
-    added += 1;
+    if (!current) {
+      project.theme.symbols.push({
+        id: def.id,
+        name: def.name,
+        tier: 'special',
+        src: '',
+        payouts: {},
+        special: [...def.special],
+      });
+      added += 1;
+      continue;
+    }
+    current.special ||= [];
+    for (const flag of def.special) {
+      if (!current.special.includes(flag)) current.special.push(flag);
+    }
   }
   const filled = applyBoardSymbolPack(project, { overwrite }).filled;
   const math = project.math ||= {};
   const specials = math.specialSymbols ||= { wild: [], scatter: [] };
-  specials.wild = [...new Set([...(specials.wild || []), 'W', 'VEIL_WILD', 'LUCID_WILD', 'MAX_MORPHEUS', 'RIFT_WILD'])];
+  specials.wild = [...new Set([...(specials.wild || []), 'W', 'VEIL_WILD', 'LUCID_WILD', 'Veil Wild', 'Lucid Wild', 'MAX_MORPHEUS', 'Max Morpheus', 'RIFT_WILD'])];
   specials.scatter = [...new Set([...(specials.scatter || []), 'Gate of Sleep', 'GATE_OF_SLEEP', 'S'])];
-  return { added, filled };
+  specials.multiplier = [...new Set([...(specials.multiplier || []), 'LUCID_WILD', 'Lucid Wild'])];
+  math.bonusMechanics = [...new Set([...(math.bonusMechanics || []), 'cascades', 'expandingWilds', 'multiplierSymbols'])];
+  math.mechanicConfig ||= {};
+  math.mechanicConfig.multiplierSymbols ||= {};
+  if (!math.mechanicConfig.multiplierSymbols.values) {
+    const weights = { 2: 8, 3: 6, 5: 4, 7: 3, 10: 2, 25: 1, 50: 1, 100: 1, 200: 1, 500: 1, 1000: 1 };
+    math.mechanicConfig.multiplierSymbols.values = { basegame: { ...weights }, freegame: { ...weights } };
+  }
+  let stripFilled = 0;
+  const strips = math.reelStrips || {};
+  for (const setName of Object.keys(strips)) {
+    const reels = strips[setName];
+    if (!Array.isArray(reels)) continue;
+    reels.forEach((reel, index) => {
+      const extras = STRIP_SPECIALS_BY_REEL[index % STRIP_SPECIALS_BY_REEL.length];
+      const result = injectStripSpecials(reel, extras);
+      if (result.filled) {
+        reels[index] = result.strip;
+        stripFilled += result.filled;
+      }
+    });
+  }
+  return { added, filled, stripFilled, specials: STRIP_SPECIALS };
 }

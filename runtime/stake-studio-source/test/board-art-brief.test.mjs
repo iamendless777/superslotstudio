@@ -107,3 +107,27 @@ test('Morpheus specials fill Forge-mapped tiles without clobbering pays', () => 
   assert.equal(second.added, 0);
 });
 
+test('Forge specials land on Morpheus strips and Golden Rift is 3×3', () => {
+  const project = createGameProject({ id: 'morpheus', name: 'Morpheus' });
+  project.theme.symbols = [{ id: 'H1', name: 'H1', src: '', special: [] }];
+  project.math.reelStrips = {
+    BR: [
+      ['H1', 'H1', 'H1', 'H1'],
+      ['H1', 'H1', 'H1', 'H1'],
+      ['H1', 'H1', 'H1', 'H1'],
+      ['H1', 'H1', 'H1', 'H1'],
+      ['H1', 'H1', 'H1', 'H1'],
+      ['H1', 'H1', 'H1', 'H1'],
+    ],
+  };
+  const first = ensureMorpheusSpecials(project);
+  assert.equal(first.stripFilled > 0, true);
+  assert.equal(project.math.reelStrips.BR[0].includes('VEIL_WILD'), true);
+  assert.equal(project.math.reelStrips.BR[3].includes('GOLDEN_RIFT'), true);
+  assert.equal(project.math.reelStrips.BR.some((reel) => reel.includes('MAX_MORPHEUS')), false);
+  assert.equal(project.theme.symbols.find((symbol) => symbol.id === 'GOLDEN_RIFT').special.includes('goldWildBomb'), true);
+  assert.equal(project.math.bonusMechanics.includes('expandingWilds'), true);
+  const second = ensureMorpheusSpecials(project);
+  assert.equal(second.stripFilled, 0);
+});
+
