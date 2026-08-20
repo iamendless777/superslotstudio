@@ -1894,7 +1894,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 }
 .preview-tumble-symbol.is-exploding {
   z-index: 2;
-  filter: brightness(1.35) saturate(1.18) drop-shadow(0 0 14px rgba(255, 222, 130, .8));
+  overflow: visible;
+  filter: brightness(1.28) saturate(1.1);
 }
 #previewMotionDebug {
   color: #7dffce;
@@ -2065,9 +2066,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   animation: none !important;
   filter: brightness(1.16) saturate(1.1);
 }
-.preview-stage[data-animation-state="anticipation"] .reel-frame { box-shadow: inset 0 0 58px var(--world-glow-soft), 0 0 35px var(--world-glow-soft); }
-.preview-stage[data-animation-state="anticipation"] .reel-sym:not(.is-scatter) { filter: brightness(.68) saturate(.72); }
-.preview-stage[data-animation-state="anticipation"] .reel-sym.is-scatter { z-index: 12; filter: brightness(1.22) saturate(1.12); }
+.preview-stage[data-animation-state="anticipation"] .reel-mask.has-stopped .reel-sym:not(.is-scatter) { filter: brightness(.8) saturate(.86); }
+.preview-stage[data-animation-state="anticipation"] .reel-mask.has-stopped .reel-sym.is-scatter { z-index: 12; filter: brightness(1.18) saturate(1.1); }
+.preview-stage[data-animation-state="anticipation"] .reel-sym.win-highlight { filter: brightness(1.2) saturate(1.12) drop-shadow(0 0 12px rgba(255, 222, 130, .62)); }
 @keyframes winPulse {
   0% { opacity: .88; }
   100% { opacity: 1; }

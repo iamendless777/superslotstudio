@@ -104,7 +104,7 @@ export function createProfessionalPresentationDirector() {
       },
       {
         id: 'anticipation-default', event: 'anticipation', name: 'Scatter anticipation', enabled: true,
-        interrupt: 'replace', duration: 900, settleState: 'spinning',
+        interrupt: 'replace', duration: 900, settleState: null,
         cues: [cue(0, 'animation', 'state', 'anticipation'), cue(0, 'audio', 'stinger', 'anticipation'), cue(80, 'world', 'pulse', 'anticipation')],
       },
       {

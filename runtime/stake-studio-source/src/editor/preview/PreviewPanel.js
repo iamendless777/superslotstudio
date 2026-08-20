@@ -3500,6 +3500,8 @@ export class PreviewPanel {
           await Promise.all(reelLandingBarriers.filter(Boolean));
           if (this.activeSpinToken !== spinToken) return;
           this.recordPlaybackEvent('reelsSettled', { mode: this.selectedMode });
+          this.directorRuntime?.cancel('reels-settled');
+          this.setAnimationState('spinStop');
           this.updateHUD();
           this.scheduleSymbolMotionSync({ authoritativeLanded: true });
           this.highlightSettledBookWins();
@@ -3550,9 +3552,10 @@ export class PreviewPanel {
         this.landedReels.add(r);
         this.animateLandedCells(cells);
         this.scheduleSymbolMotionSync();
-        this.audioEngine.playStinger('reelStop', r);
         if ((newBoard[r] || []).some(symbol => this.isScatterSymbol(symbol))) {
           this.audioEngine.playStinger('scatterLand', r);
+        } else {
+          this.audioEngine.playStinger('reelStop', r);
         }
         this.pulseReelImpact(r);
         this.updateHUD();
@@ -4555,17 +4558,10 @@ export class PreviewPanel {
       if (plan.motionEnabled) {
         if (explodingCells.length) {
           timeline.to(explodingCells, {
-            scale: 1.08,
-            filter: 'brightness(1.35) saturate(1.12)',
-            duration: Math.max(0.001, phase('reaction') / 1000),
-            ease: 'power2.out',
-          }, (reactionPhase?.startMs || 0) / 1000);
-          timeline.to(explodingCells, {
-            scale: 1.16,
             opacity: 0,
-            duration: Math.max(0.001, phase('clear') / 1000),
+            duration: Math.max(0.001, ((phase('reaction') || 0) + (phase('clear') || 0)) / 1000),
             ease: 'power2.in',
-          }, (clearPhase?.startMs || 0) / 1000);
+          }, (reactionPhase?.startMs || 0) / 1000);
         }
         timeline.to(survivorMotions.concat(incomingCells), {
           top: (_, target) => Number(target.dataset.targetTop),
