@@ -14,7 +14,6 @@ import {
   cueSheetHasReel,
   cueSheetHasTumble,
   cueSheetToTumbleEvents,
-  largestAdjacentWaysWin,
   largestEqualCluster,
   seedAdjacentWaysWin,
   seedMatchingCluster,
@@ -388,24 +387,36 @@ export class PreviewPanel extends BasePreviewPanel {
     this.motionSourceBoard = original;
     let working = original;
     const winType = this.motionWinType();
-    const live = winType === 'cluster'
-      ? largestEqualCluster(working, 3)
-      : largestAdjacentWaysWin(working, 3);
-    if (!live.length) {
-      const seeded = winType === 'cluster'
-        ? seedMatchingCluster(working)
-        : seedAdjacentWaysWin(working, 3);
+    if (winType === 'cluster') {
+      if (!largestEqualCluster(working, 3).length) {
+        const seeded = seedMatchingCluster(working);
+        working = seeded.board;
+        this.board = working;
+        this.paintBoard?.(working);
+        this.setMotionStatus('Seed cluster');
+        this.setMotionDebug({
+          path: 'tumble',
+          grid: this.motionGridLabel(),
+          step: 'seed',
+          exploding: seeded.cells.map(([reel, row]) => ({ reel, row })),
+          tumbling: false,
+          note: `cluster ${seeded.name || ''}`.trim(),
+        });
+        await this.waitMs(280);
+      }
+    } else {
+      const seeded = seedAdjacentWaysWin(working, 3);
       working = seeded.board;
       this.board = working;
       this.paintBoard?.(working);
-      this.setMotionStatus(winType === 'cluster' ? 'Seed cluster' : 'Seed 3-kind');
+      this.setMotionStatus('Seed 3-kind');
       this.setMotionDebug({
         path: 'tumble',
         grid: this.motionGridLabel(),
         step: 'seed',
         exploding: seeded.cells.map(([reel, row]) => ({ reel, row })),
         tumbling: false,
-        note: `${winType} ${seeded.name || ''}`.trim(),
+        note: `ways ${seeded.name || ''}`.trim(),
       });
       await this.waitMs(280);
     }

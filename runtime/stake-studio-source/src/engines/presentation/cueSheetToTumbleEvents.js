@@ -193,7 +193,7 @@ export function largestAdjacentWaysWin(board, minCount = 3) {
   return best;
 }
 
-/** Paint a left-to-right 3-of-a-kind so ways rehearsal looks like a real win. */
+/** Paint a left-to-right 3-of-a-kind and strip that symbol off later reels. */
 export function seedAdjacentWaysWin(board, count = 3) {
   const next = cloneBoard(board);
   const reels = next.length;
@@ -203,10 +203,21 @@ export function seedAdjacentWaysWin(board, count = 3) {
   const n = Math.min(Math.max(count, 3), reels);
   const row = Math.min(1, rows - 1);
   const cells = [];
-  for (let reel = 0; reel < n; reel++) {
+  const otherOn = (reel) => (
+    (reel || []).find((cell) => cell && cell !== name)
+    || next.flat().find((cell) => cell && cell !== name)
+    || 'L1'
+  );
+  for (let reel = 0; reel < reels; reel++) {
     if (!next[reel]) continue;
-    next[reel][row] = name;
-    cells.push([reel, row]);
+    for (let y = 0; y < next[reel].length; y++) {
+      if (reel < n && y === row) {
+        next[reel][y] = name;
+        cells.push([reel, y]);
+      } else if (next[reel][y] === name) {
+        next[reel][y] = otherOn(next[reel]);
+      }
+    }
   }
   return { board: next, cells, name };
 }

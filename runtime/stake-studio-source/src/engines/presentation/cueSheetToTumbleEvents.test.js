@@ -215,6 +215,27 @@ test('seedAdjacentWaysWin paints a left-to-right 3-kind and retargets', () => {
   assert.deepEqual(popped, ways);
 });
 
+test('seedAdjacentWaysWin isolates a 3-kind so later reels do not extend it', () => {
+  const crowded = [
+    ['A', 'X', 'Y', 'Z'],
+    ['A', 'C', 'D', 'E'],
+    ['A', 'F', 'G', 'H'],
+    ['A', 'I', 'J', 'K'],
+    ['A', 'M', 'N', 'O'],
+    ['A', 'Q', 'R', 'S'],
+  ];
+  const seeded = seedAdjacentWaysWin(crowded, 3);
+  const ways = largestAdjacentWaysWin(seeded.board, 3);
+  assert.equal(ways.length, 3);
+  assert.deepEqual(ways.map(([reel, row]) => `${reel}:${row}`).sort(), ['0:1', '1:1', '2:1']);
+  const events = cueSheetToTumbleEvents(oneDepthSheet, seeded.board, {
+    retargetFromBoard: true,
+    retargetMode: 'ways',
+  });
+  assert.equal(events[0].explodingSymbols.length, 3);
+});
+
+
 
 
 
