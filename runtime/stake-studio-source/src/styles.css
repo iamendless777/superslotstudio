@@ -1549,7 +1549,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 }
 .player-mode-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; }
 .player-mode-card {
-  position: relative; min-height: 177px; padding: 24px 34px 22px 37%; border: 0;
+  position: relative; min-height: 158px; padding: 22px 26px 18px; border: 0;
   background: url('/assets/morpheus-mode-card-v1.png') center / 100% 100% no-repeat;
   color: #e9f8fb; cursor: pointer; text-align: left; opacity: .86;
   filter: brightness(.88) drop-shadow(0 8px 12px rgba(0,0,0,.58)); transition: transform .15s, filter .15s, opacity .15s;

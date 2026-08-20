@@ -13,6 +13,7 @@ import { resolveStudioHome } from '../server/studio-paths.mjs';
 import { createGameProject } from '../src/engines/schema.js';
 import { ensurePresentationDirector } from '../src/engines/presentation/PresentationDirector.js';
 import { applyBoardSymbolPack, applyMorpheusWorldPack, ensureMorpheusSpecials } from '../src/engines/assets/BoardSymbolPack.js';
+import { applyMorpheusSelectableModes } from '../src/engines/morpheus/MorpheusProjectContract.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const studioHome = resolveStudioHome(null, { cwd: resolve(root, '..') });
@@ -23,10 +24,12 @@ function fillPack(project, { overwrite = false } = {}) {
   const specials = ensureMorpheusSpecials(project, { overwrite });
   const symbols = applyBoardSymbolPack(project, { overwrite });
   const world = applyMorpheusWorldPack(project, { overwrite });
+  const modes = applyMorpheusSelectableModes(project, { overwrite });
   if (specials.added) console.log(`[seed] added ${specials.added} specials`);
   if (symbols.filled) console.log(`[seed] applied board pack to ${symbols.filled} empty slots`);
   if (world.filled) console.log(`[seed] applied world pack (${world.filled})`);
-  return { filled: specials.added + specials.filled + symbols.filled + world.filled };
+  if (modes.filled) console.log(`[seed] applied selectable modes (${modes.modes.join(', ')})`);
+  return { filled: specials.added + specials.filled + symbols.filled + world.filled + modes.filled };
 }
 
 if (existsSync(projectPath)) {

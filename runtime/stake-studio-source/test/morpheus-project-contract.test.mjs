@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   applyMorpheusGovernedModes,
+  applyMorpheusSelectableModes,
   auditMorpheusProjectContract,
   createMorpheusGovernedModesManifest,
 } from '../src/engines/morpheus/MorpheusProjectContract.js';
@@ -75,6 +76,19 @@ test('governed manifest exposes all eight modes without inventing gated or natur
   assert.equal(manifest.modes.find(mode => mode.id === 'nightmare_descent').costMultiplier, null);
   assert.equal(manifest.modes.find(mode => mode.id === 'dreamfall').releaseGated, true);
   assert.equal(manifest.modes.find(mode => mode.id === 'oneiric_nexus').entryPolicy, 'natural');
+});
+
+test('selectable mode menu is the five approved wagers, not gated Dreamfall/Nexus/Nightmare', () => {
+  const project = createGameProject({ id: 'morpheus', name: 'Morpheus' });
+  project.math.betModes = [{ name: 'base', cost: 1, rtp: 0.96, maxWin: 100000, profile: { entry: 'base' } }];
+  const first = applyMorpheusSelectableModes(project);
+  assert.deepEqual(first.modes, ['base', 'dream_enhancer', 'trickster_dream', 'veil_ascent', 'lucid_blessing']);
+  assert.equal(project.math.betModes.find((mode) => mode.name === 'trickster_dream').profile.triggerFreeSpins, false);
+  assert.equal(project.math.betModes.find((mode) => mode.name === 'veil_ascent').cost, 100);
+  assert.equal(project.math.betModes.find((mode) => mode.name === 'lucid_blessing').isBuyBonus, true);
+  assert.equal(project.math.betModes.some((mode) => mode.name === 'dreamfall'), false);
+  const second = applyMorpheusSelectableModes(project);
+  assert.equal(second.filled, 0);
 });
 
 test('project parity separates selectable wager modes from governed feature modes', () => {

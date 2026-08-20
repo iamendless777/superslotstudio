@@ -1812,6 +1812,7 @@ export class PreviewPanel {
   }
 
   modeRule(mode) {
+    if (mode.presentation?.rule) return mode.presentation.rule;
     const profile = mode.profile || {};
     const entry = profile.entry || (mode.isBuyBonus ? 'freeSpins' : 'base');
     if (entry === 'freeSpins') {
@@ -1840,6 +1841,7 @@ export class PreviewPanel {
   }
 
   modeKind(mode) {
+    if (mode.presentation?.kicker) return mode.presentation.kicker;
     if (mode.name === 'base') return 'STANDARD PLAY';
     const entry = mode.profile?.entry || (mode.isBuyBonus ? 'freeSpins' : 'base');
     if (entry === 'freeSpins') return mode.isBuyBonus ? 'BONUS FEATURE' : 'FEATURE MODE';
