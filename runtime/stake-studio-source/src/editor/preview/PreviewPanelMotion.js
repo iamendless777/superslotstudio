@@ -290,6 +290,22 @@ export class PreviewPanel extends BasePreviewPanel {
     return names.find((name) => !/wild|scatter|bonus|star/i.test(String(name))) || names[0] || 'L1';
   }
 
+  stickyMorphCells(board, morphCue) {
+    const flagged = this.positionsForSymbol?.(board, null, 'wild') || [];
+    if (flagged.length) return flagged;
+    const named = [];
+    for (let reel = 0; reel < (board || []).length; reel++) {
+      for (let row = 0; row < (board[reel] || []).length; row++) {
+        const name = String(board[reel][row]?.name || board[reel][row] || '');
+        if (/wild|sticky|oneiric|star/i.test(name)) named.push([reel, row]);
+      }
+    }
+    if (named.length) return named;
+    return parseCells(morphCue?.cells).filter(([reel, row]) => (
+      reel >= 0 && reel < (board || []).length && row >= 0 && row < (board[reel] || []).length
+    ));
+  }
+
   restoreMotionBoard() {
     if (!this.motionSourceBoard) return;
     this.board = this.motionSourceBoard;
@@ -325,6 +341,7 @@ export class PreviewPanel extends BasePreviewPanel {
     const events = cueSheetToTumbleEvents(sheet, sourceBoard, {
       fillerSymbol: this.motionFillerSymbol(),
       retargetFromBoard: true,
+      minCluster: 3,
     });
     if (!events.length) return false;
 
@@ -428,7 +445,6 @@ export class PreviewPanel extends BasePreviewPanel {
         tl.call(() => {
           mask.classList.add('is-stopping');
           this.setMotionStatus(`Reel ${reel + 1} stop`);
-          this.setAnimationState?.('spinStop');
         }, [], Math.max(0, stopAt - landingLead));
         tl.call(() => {
           this.paintReelBoard?.(reel, board[reel]);
@@ -455,18 +471,16 @@ export class PreviewPanel extends BasePreviewPanel {
     const winCue = (sheet.cues || []).find((cue) => cue.cue === 'win.pulse');
     const morphCue = (sheet.cues || []).find((cue) => cue.cue === 'wild.stickyMorph');
     if (morphCue) {
-      const wilds = this.positionsForSymbol?.(board, null, 'wild') || [];
-      this.setMotionStatus('Sticky morph');
+      const wilds = this.stickyMorphCells(board, morphCue);
+      this.setMotionStatus(wilds.length ? 'Sticky morph' : 'No wilds on board');
       this.setMotionDebug({
         path: 'reel',
         grid: this.motionGridLabel(),
         step: 'sticky',
-        exploding: wilds.length
-          ? wilds.map(([reel, row]) => ({ reel, row }))
-          : parseCells(morphCue.cells).map(([reel, row]) => ({ reel, row })),
-        note: 'wild.stickyMorph',
+        exploding: wilds.map(([reel, row]) => ({ reel, row })),
+        note: wilds.length ? 'wild.stickyMorph' : 'no-wild-skip',
       });
-      await this.motionWin(wilds.length ? wilds : parseCells(morphCue.cells), morphCue.durationMs);
+      if (wilds.length) await this.motionWin(wilds, morphCue.durationMs);
     }
     if (winCue) {
       this.setMotionStatus('Win pulse');
