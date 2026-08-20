@@ -86,6 +86,8 @@ test('selectable mode menu is the five approved wagers, not gated Dreamfall/Nexu
   assert.equal(project.math.betModes.find((mode) => mode.name === 'trickster_dream').profile.triggerFreeSpins, false);
   assert.equal(project.math.betModes.find((mode) => mode.name === 'veil_ascent').cost, 100);
   assert.equal(project.math.betModes.find((mode) => mode.name === 'lucid_blessing').isBuyBonus, true);
+  assert.equal(project.math.betModes.find((mode) => mode.name === 'dream_enhancer').profile.scatterWeightMultiplier, 3);
+  assert.equal(project.math.featureArchitecture.tiers[3].meterThreshold, 4);
   assert.equal(project.math.betModes.some((mode) => mode.name === 'dreamfall'), false);
   const second = applyMorpheusSelectableModes(project);
   assert.equal(second.filled, 0);

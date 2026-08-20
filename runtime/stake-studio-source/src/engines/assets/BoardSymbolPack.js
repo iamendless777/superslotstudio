@@ -255,5 +255,10 @@ export function ensureMorpheusSpecials(project, { overwrite = false } = {}) {
       }
     });
   }
+  if (Array.isArray(strips.BR) && !Array.isArray(strips.FR)) {
+    strips.FR = strips.BR.map((reel) => [...reel]);
+    stripFilled += strips.FR.length;
+  }
+  math.reelStrips = strips;
   return { added, filled, stripFilled, specials: STRIP_SPECIALS };
 }

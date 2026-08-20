@@ -54,7 +54,10 @@ function modeDescription(mode, project) {
   return `${title(mode.name)} uses ${setup}; natural free spins are ${profile.triggerFreeSpins === false ? 'disabled' : 'enabled'}.`;
 }
 
-const isMorpheus = project => (project.build?.stakeEngine?.gameId || project.id) === 'morpheus_dreamfall';
+const isMorpheus = project => {
+  const id = String(project.build?.stakeEngine?.gameId || project.id || '').toLowerCase();
+  return id === 'morpheus_dreamfall' || id === 'morpheus' || /morpheus/i.test(String(project.name || ''));
+};
 
 function morpheusModeDescription(mode, project) {
   const governed = (project.math?.governedModes?.modes || []).find(item => item.id === mode.name);

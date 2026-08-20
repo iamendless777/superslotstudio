@@ -127,6 +127,7 @@ test('Forge specials land on Morpheus strips and Golden Rift is 3×3', () => {
   assert.equal(project.math.reelStrips.BR.some((reel) => reel.includes('MAX_MORPHEUS')), false);
   assert.equal(project.theme.symbols.find((symbol) => symbol.id === 'GOLDEN_RIFT').special.includes('goldWildBomb'), true);
   assert.equal(project.math.bonusMechanics.includes('expandingWilds'), true);
+  assert.equal(project.math.reelStrips.FR.length, 6);
   const second = ensureMorpheusSpecials(project);
   assert.equal(second.stripFilled, 0);
 });

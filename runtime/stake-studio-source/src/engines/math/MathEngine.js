@@ -63,7 +63,7 @@ export class MathEngine {
         && !(symbol.special || []).includes('scatter')
         && !(symbol.special || []).includes('spawnOnly')
         && !(symbol.special || []).includes('maxWild'))
-      .map(symbol => symbol.name));
+      .flatMap(symbol => [symbol.name, symbol.id].filter(Boolean)));
     const candidates = Array.from({ length: candidateCount }, () => this.generateBoard(rand, reelSet, rowOverride));
     const weights = candidates.map(board => {
       const symbols = board.flat();
@@ -91,7 +91,7 @@ export class MathEngine {
         && !(symbol.special || []).includes('scatter')
         && !(symbol.special || []).includes('spawnOnly')
         && !(symbol.special || []).includes('maxWild'))
-      .map(symbol => symbol.name));
+      .flatMap(symbol => [symbol.name, symbol.id].filter(Boolean)));
     const kind = scatterBoost > 1 && specialBoost > 1
       ? 'scatterAndSpecial'
       : scatterBoost > 1 ? 'scatter' : 'special';

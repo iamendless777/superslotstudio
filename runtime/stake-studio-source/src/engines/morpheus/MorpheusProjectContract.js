@@ -48,6 +48,7 @@ const SELECTABLE_MODE_PROFILES = Object.freeze({
   dream_enhancer: {
     entry: 'base', reelSet: 'BR', triggerFreeSpins: true,
     targetFeatureEntryHitRate: MORPHEUS_DREAM_ENHANCER_FEATURE_ENTRY_HIT_RATE,
+    scatterWeightMultiplier: 3,
   },
   trickster_dream: {
     entry: 'base', reelSet: 'BR', triggerFreeSpins: false, positionMultiplierGrid: true,
@@ -86,7 +87,7 @@ const SELECTABLE_MODE_PRESENTATION = Object.freeze({
 });
 
 const FEATURE_TIERS = Object.freeze({
-  3: { id: 'veil_ascent', name: 'Veil Ascent', mechanic: 'progressiveSymbolUpgrade', spins: 10 },
+  3: { id: 'veil_ascent', name: 'Veil Ascent', mechanic: 'progressiveSymbolUpgrade', spins: 10, meterThreshold: 4, maximumUpgrades: 4 },
   4: { id: 'lucid_blessing', name: 'Lucid Blessing', mechanic: 'persistentSymbolMultipliers', spins: 10 },
   5: { id: 'dreamfall', name: 'Dreamfall', mechanic: 'winningCascadeReelExpansion', spins: 10 },
   6: { id: 'oneiric_nexus', name: 'Oneiric Nexus', mechanic: 'persistentPositionMultiplierGrid', spins: 10 },
