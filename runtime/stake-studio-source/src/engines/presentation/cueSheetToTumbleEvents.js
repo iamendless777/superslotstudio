@@ -119,6 +119,65 @@ export function largestEqualCluster(board, minSize = 2) {
   return best.length >= minSize ? best : [];
 }
 
+export function pickSeedSymbol(board, fallback = 'L1') {
+  const counts = new Map();
+  for (const reel of board || []) {
+    for (const cell of reel || []) {
+      const name = symbolName(cell);
+      if (!name || /wild|scatter|bonus|star/i.test(name)) continue;
+      counts.set(name, (counts.get(name) || 0) + 1);
+    }
+  }
+  let best = fallback;
+  let bestCount = -1;
+  for (const [name, count] of counts) {
+    if (count > bestCount) {
+      best = name;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+/** Paint a 2×2 matching cluster so rehearsal can pop a real win. */
+export function seedMatchingCluster(board, size = 4) {
+  const next = cloneBoard(board);
+  const reels = next.length;
+  const rows = next[0]?.length || 0;
+  if (!reels || !rows) return { board: next, cells: [], name: null };
+  const name = pickSeedSymbol(next, symbolName(next[0][0]) || 'L1');
+  const startReel = Math.max(0, Math.min(reels - 2, Math.floor((reels - 2) / 2)));
+  const startRow = Math.max(0, Math.min(rows - 2, Math.floor((rows - 2) / 2)));
+  const cells = [];
+  for (let reelOffset = 0; reelOffset < 2 && cells.length < size; reelOffset++) {
+    for (let rowOffset = 0; rowOffset < 2 && cells.length < size; rowOffset++) {
+      const reel = startReel + reelOffset;
+      const row = startRow + rowOffset;
+      if (next[reel]?.[row] === undefined) continue;
+      next[reel][row] = name;
+      cells.push([reel, row]);
+    }
+  }
+  return { board: next, cells, name };
+}
+
+export function seedStickyWilds(board, wildName, count = 3) {
+  const next = cloneBoard(board);
+  if (!wildName || !next.length) return { board: next, cells: [] };
+  const rows = next[0]?.length || 0;
+  const n = Math.min(count, next.length);
+  const startReel = Math.max(0, Math.floor((next.length - n) / 2));
+  const row = Math.min(1, Math.max(0, rows - 1));
+  const cells = [];
+  for (let index = 0; index < n; index++) {
+    const reel = startReel + index;
+    if (!next[reel]) continue;
+    next[reel][row] = wildName;
+    cells.push([reel, row]);
+  }
+  return { board: next, cells };
+}
+
 /**
  * @param {object} sheet MotionCueSheet
  * @param {string[][]|object[][]} board current preview board (reel → row, row 0 = top)
@@ -142,7 +201,8 @@ export function cueSheetToTumbleEvents(sheet, board, options = {}) {
     const live = options.retargetFromBoard
       ? largestEqualCluster(current, Number(options.minCluster) > 0 ? Number(options.minCluster) : 3)
       : [];
-    const exploding = (live.length ? live : explodingForDepth(depthCues))
+    const fallback = options.retargetFromBoard && depth > 0 ? [] : explodingForDepth(depthCues);
+    const exploding = (live.length ? live : fallback)
       .filter(([reel, row]) => Number.isFinite(reel) && Number.isFinite(row)
         && reel >= 0 && reel < current.length
         && row >= 0 && row < (current[reel] || []).length);

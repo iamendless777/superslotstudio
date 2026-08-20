@@ -14,6 +14,9 @@ import {
   cueSheetHasReel,
   cueSheetHasTumble,
   cueSheetToTumbleEvents,
+  largestEqualCluster,
+  seedMatchingCluster,
+  seedStickyWilds,
 } from '../../engines/presentation/cueSheetToTumbleEvents.js';
 
 const PHASE_LABELS = {
@@ -305,6 +308,18 @@ export class PreviewPanel extends BasePreviewPanel {
     }
   }
 
+  motionWildSymbol() {
+    const symbols = this.project?.theme?.symbols || [];
+    const flagged = symbols.find((symbol) => (symbol.special || []).includes('wild'));
+    if (flagged?.name) return flagged.name;
+    const named = symbols.find((symbol) => /wild/i.test(String(symbol.name || symbol.id || '')));
+    return named?.name || null;
+  }
+
+  waitMs(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
   motionFillerSymbol() {
     const names = (this.project?.math?.symbols || [])
       .map((symbol) => symbol?.name)
@@ -323,9 +338,7 @@ export class PreviewPanel extends BasePreviewPanel {
       }
     }
     if (named.length) return named;
-    return parseCells(morphCue?.cells).filter(([reel, row]) => (
-      reel >= 0 && reel < (board || []).length && row >= 0 && row < (board[reel] || []).length
-    ));
+    return [];
   }
 
   restoreMotionBoard() {
@@ -359,15 +372,35 @@ export class PreviewPanel extends BasePreviewPanel {
     if (!Array.isArray(this.board) || !this.board.length) return false;
     if (!cueSheetHasTumble(sheet)) return false;
 
-    const sourceBoard = cloneBoard(this.board);
-    const events = cueSheetToTumbleEvents(sheet, sourceBoard, {
+    const original = cloneBoard(this.board);
+    this.motionSourceBoard = original;
+    let working = original;
+    if (!largestEqualCluster(working, 3).length) {
+      const seeded = seedMatchingCluster(working);
+      working = seeded.board;
+      this.board = working;
+      this.paintBoard?.(working);
+      this.setMotionStatus('Seed cluster');
+      this.setMotionDebug({
+        path: 'tumble',
+        grid: this.motionGridLabel(),
+        step: 'seed',
+        exploding: seeded.cells.map(([reel, row]) => ({ reel, row })),
+        tumbling: false,
+        note: seeded.name,
+      });
+      await this.waitMs(280);
+    }
+
+    const events = cueSheetToTumbleEvents(sheet, working, {
       fillerSymbol: this.motionFillerSymbol(),
       retargetFromBoard: true,
       minCluster: 3,
     });
-    if (!events.length) return false;
-
-    this.motionSourceBoard = sourceBoard;
+    if (!events.length) {
+      this.restoreMotionBoard();
+      return false;
+    }
     this.setMotionDebug({
       path: 'tumble',
       grid: this.motionGridLabel(),
@@ -382,7 +415,7 @@ export class PreviewPanel extends BasePreviewPanel {
     });
 
     try {
-      let current = sourceBoard;
+      let current = working;
       for (let index = 0; index < events.length; index++) {
         this.setMotionStatus(`Cascade ${index + 1} / ${events.length}`);
         this.setMotionDebug({
@@ -431,6 +464,7 @@ export class PreviewPanel extends BasePreviewPanel {
     const hasAnticipation = (sheet.cues || []).some((cue) => cue.cue === 'reel.anticipation');
     const reelSchedule = rehearsalReelSchedule(this.project, hasAnticipation, masks.length);
     const board = this.board;
+    this.motionSourceBoard = cloneBoard(board);
 
     this.setMotionStatus('Reels spinning');
     this.setMotionDebug({
@@ -501,8 +535,24 @@ export class PreviewPanel extends BasePreviewPanel {
     const winCue = (sheet.cues || []).find((cue) => cue.cue === 'win.pulse');
     const morphCue = (sheet.cues || []).find((cue) => cue.cue === 'wild.stickyMorph');
     if (morphCue) {
-      const wilds = this.stickyMorphCells(board, morphCue);
-      this.setMotionStatus(wilds.length ? 'Sticky morph' : 'No wilds on board');
+      let wilds = this.stickyMorphCells(board, morphCue);
+      const wildName = this.motionWildSymbol();
+      if (!wilds.length && wildName) {
+        const seeded = seedStickyWilds(cloneBoard(board), wildName, 3);
+        this.board = seeded.board;
+        this.paintBoard?.(seeded.board);
+        wilds = seeded.cells;
+        this.setMotionStatus('Seed wilds');
+        this.setMotionDebug({
+          path: 'reel',
+          grid: this.motionGridLabel(),
+          step: 'sticky-seed',
+          exploding: wilds.map(([reel, row]) => ({ reel, row })),
+          note: wildName,
+        });
+        await this.waitMs(280);
+      }
+      this.setMotionStatus(wilds.length ? 'Sticky morph' : 'No wilds in theme');
       this.setMotionDebug({
         path: 'reel',
         grid: this.motionGridLabel(),
@@ -518,15 +568,7 @@ export class PreviewPanel extends BasePreviewPanel {
     }
 
     this.setMotionStatus('Done');
-    window.setTimeout(() => {
-      this.syncMotionArtStatus();
-      this.setMotionDebug({
-        path: 'idle',
-        grid: this.motionGridLabel(),
-        step: 'restored',
-        tumbling: false,
-      });
-    }, 900);
+    this.scheduleMotionBoardRestore();
     return true;
   }
 

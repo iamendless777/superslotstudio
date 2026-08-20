@@ -9,6 +9,8 @@ import {
   cueSheetHasTumble,
   cueSheetToTumbleEvents,
   largestEqualCluster,
+  seedMatchingCluster,
+  seedStickyWilds,
 } from './cueSheetToTumbleEvents.js';
 import { applyTumbleEvent } from '../math/StakeRoundBook.js';
 
@@ -148,6 +150,28 @@ test('retargetFromBoard falls back to fixture cells when every symbol is unique'
     { reel: 2, row: 2 },
     { reel: 3, row: 2 },
   ]);
+});
+
+test('seedMatchingCluster paints a 2x2 of the same symbol', () => {
+  const seeded = seedMatchingCluster(board6x4);
+  assert.equal(seeded.cells.length, 4);
+  const names = new Set(seeded.cells.map(([reel, row]) => seeded.board[reel][row]));
+  assert.equal(names.size, 1);
+  assert.equal(largestEqualCluster(seeded.board, 3).length, 4);
+});
+
+test('seeded board retargets to the painted cluster, not fixture cells', () => {
+  const seeded = seedMatchingCluster(board6x4);
+  const events = cueSheetToTumbleEvents(oneDepthSheet, seeded.board, { retargetFromBoard: true });
+  const popped = events[0].explodingSymbols.map((cell) => `${cell.reel}:${cell.row}`).sort();
+  const cluster = seeded.cells.map(([reel, row]) => `${reel}:${row}`).sort();
+  assert.deepEqual(popped, cluster);
+});
+
+test('seedStickyWilds writes a horizontal wild run', () => {
+  const seeded = seedStickyWilds(board6x4, 'WILD', 3);
+  assert.equal(seeded.cells.length, 3);
+  for (const [reel, row] of seeded.cells) assert.equal(seeded.board[reel][row], 'WILD');
 });
 
 
