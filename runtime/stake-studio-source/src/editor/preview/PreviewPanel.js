@@ -2302,6 +2302,7 @@ export class PreviewPanel {
 
     document.getElementById('previewSpin')?.addEventListener('click', () => {
       if (this.autoSpinsRemaining > 0) this.stopAutoSpins();
+      else if (this.spinning) this.slamRemainingReels();
       else this.spin();
     });
 
@@ -3414,6 +3415,7 @@ export class PreviewPanel {
       category: publishedReplay?.category ?? null,
     });
     this.landedReels.clear();
+    this.reelsSlammed = false;
     this.visualEffectRuntime?.cancel?.();
     this.visualEffectRuntime?.cancelEnergyTaps?.();
     this.visualEffectRuntime?.disablePresentationEnergy?.();
@@ -3498,6 +3500,7 @@ export class PreviewPanel {
           await Promise.all(reelLandingBarriers.filter(Boolean));
           if (this.activeSpinToken !== spinToken) return;
           this.recordPlaybackEvent('reelsSettled', { mode: this.selectedMode });
+          this.updateHUD();
           this.scheduleSymbolMotionSync({ authoritativeLanded: true });
           this.highlightSettledBookWins();
           void this.dispatchPresentation('reveal', {
@@ -3524,6 +3527,7 @@ export class PreviewPanel {
       }
     });
     this.spinTimeline = tl;
+    this.updateHUD();
 
     strips.forEach((strip, r) => {
       const rRows = rows[r] || rows[0];
@@ -3548,6 +3552,7 @@ export class PreviewPanel {
         this.scheduleSymbolMotionSync();
         this.audioEngine.playStinger('reelStop', r);
         this.pulseReelImpact(r);
+        this.updateHUD();
         const impactMs = reelSchedule.timing.impactMs * (this.turboMode ? 0.5 : 1);
         const landedCellMs = this.turboMode ? 170 : 340;
         reelLandingBarriers[r] = this.wait(Math.max(impactMs, landedCellMs));
@@ -3578,6 +3583,15 @@ export class PreviewPanel {
         void this.dispatchPresentation('anticipation', { board: newBoard, mode: this.selectedMode });
       }, [], reelSchedule.anticipationCueMs * motionScale / 1000);
     }
+  }
+
+  slamRemainingReels() {
+    if (!this.spinning || !this.spinTimeline || this.reelsSlammed) return false;
+    const reels = Number(this.project.math?.grid?.reels) || 6;
+    if (this.landedReels.size >= reels) return false;
+    this.reelsSlammed = true;
+    this.spinTimeline.timeScale(this.turboMode ? 18 : 12);
+    return true;
   }
 
   finishSpinImmediately() {
@@ -5290,11 +5304,15 @@ export class PreviewPanel {
     auto?.classList.toggle('is-active', this.autoSpinsRemaining > 0);
     const betIndex = this.baseBetOptions.findIndex(value => Math.abs(value - this.baseBet) < 1e-9);
     const locked = this.spinning || this.autoSpinsRemaining > 0;
-    const spinLocked = this.spinning && this.autoSpinsRemaining <= 0;
+    const reels = Number(this.project.math?.grid?.reels) || 6;
+    const canSlam = this.spinning && Boolean(this.spinTimeline) && this.landedReels.size < reels;
+    const spinLocked = this.spinning && !canSlam && this.autoSpinsRemaining <= 0;
     if (spin) {
       spin.disabled = spinLocked;
       spin.classList.toggle('is-busy', spinLocked);
+      spin.classList.toggle('is-slam', canSlam);
       spin.setAttribute('aria-busy', spinLocked ? 'true' : 'false');
+      spin.setAttribute('aria-label', canSlam ? 'Stop reels' : this.autoSpinsRemaining > 0 ? 'Stop auto' : 'Spin');
     }
     const down = document.getElementById('previewBetDown');
     const up = document.getElementById('previewBetUp');
