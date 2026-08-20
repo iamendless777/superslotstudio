@@ -138,8 +138,19 @@ export class PreviewPanel extends BasePreviewPanel {
 
   copyLiveArtBrief() {
     const brief = this.liveProjectArtBrief();
-    void navigator.clipboard?.writeText(JSON.stringify(brief, null, 2));
-    this.setMotionStatus('Board art brief copied');
+    const slim = {
+      ...brief,
+      slots: (brief.slots || []).map((slot) => ({
+        symbolId: slot.symbolId,
+        label: slot.label,
+        role: slot.role,
+        status: slot.status,
+        guidance: slot.guidance,
+        hasArt: Boolean(slot.artKey),
+      })),
+    };
+    void navigator.clipboard?.writeText(JSON.stringify(slim, null, 2));
+    this.setMotionStatus(`Art brief copied · ${slim.slots.length} symbols`);
   }
 
   async populateMotionTemplates() {
@@ -246,6 +257,7 @@ export class PreviewPanel extends BasePreviewPanel {
   liveSlotGuidance(role, winType) {
     if (role === 'wild') return 'Wild badge must read under tumble and sticky morph.';
     if (role === 'scatter') return 'Scatter must read at a glance for 3/4/5/6-tier entry.';
+    if (role === 'special') return 'Feature/collect — distinct from pays; keep silhouette clear in tumble.';
     if (role === 'high') return 'Hero symbol; strongest silhouette on the 6×4 ways board.';
     if (winType === 'cluster') return 'Readable cluster gem; clear at 5-connected pays.';
     return 'Readable at symbol size; pays as adjacent-ways 3-kind, not a cluster blob.';
@@ -263,7 +275,8 @@ export class PreviewPanel extends BasePreviewPanel {
         const special = symbol.special || [];
         let role = 'low';
         if (special.includes('wild') || /wild/i.test(name)) role = 'wild';
-        else if (special.includes('scatter') || /scatter/i.test(name)) role = 'scatter';
+        else if (special.includes('scatter') || /scatter|gate/i.test(name)) role = 'scatter';
+        else if (special.includes('bonus') || /rift|star|mystery|purge|split/i.test(name)) role = 'special';
         else if (regular++ === 0) role = 'high';
         return {
           symbolId: symbol.id || name,
