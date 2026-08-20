@@ -206,7 +206,7 @@ Unit test: `runtime/stake-studio-source/test/presentation-director.test.mjs`
 
 - **2-scatter tease on 3001 after `8ce256b` has not been video-confirmed yet.** First job of the next chat: pull, hard refresh, record 2-scatter tease. Expect four equal holds on reels 3–6, real landing tiles, no empty flash.
 - Incoming rehearsal symbols are still filled from surviving board art (not a certified math book). Occupancy is real; the round is not certified.
-- Studio `compileSpinBook` still emits `anticipation: []`. Live preview **derives** waiting flags from the board. When math books grow a real array, `waitingReelsFromAnticipation` already prefers it.
+- Studio `compileSpinBook` now fills `reveal.anticipation` from `anticipationFromBoard` (same one-away rule). `waitingReelsFromAnticipation` prefers the book when flags are truthy.
 - `anticipation-five` planner fixture is the old last-reel demo. Product tease is scatter-tease 2/3/4/5.
 - Ways games seed a L→R **3-of-a-kind**. Cluster templates still seed a 2×2.
 - `preview-motion-polish.test.mjs` may still have unrelated tumble/connection failures. Do not “fix” those by weakening the spin-track CSS contract.
@@ -265,7 +265,8 @@ Studio Preview remains **pixel** authority — one tumble, one spin-track.
 - [ ] Video-confirm 3-scatter and 5-scatter teasers (3 continues waiting for 4; 5 holds last reel for 6).
 - [ ] Live SPIN: a natural 2-scatter (not only Play Motion) should use the same schedule.
 - [ ] If 1.2s/waiting-reel feels short or long, change **one** number: `anticipationHoldMs`. Do not special-case the last reel.
-- [ ] Optional: fill `compileSpinBook` `anticipation[]` from the board so books match presentation.
+- [x] Optional: fill `compileSpinBook` `anticipation[]` from the board so books match presentation.
+- [x] Keep scatter-tease 2/3/4/5 in Play Motion after planner `index.json` rebuilds (`mergeMotionTemplateIndex`).
 - [ ] Art loop: Art panel → copy **board** brief. Do not commission cluster-hex as the ways art recipe.
 
 ### P3 — Cleanup

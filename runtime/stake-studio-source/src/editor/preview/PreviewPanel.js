@@ -3727,6 +3727,8 @@ export class PreviewPanel {
     const events = spin.state || compileSpinBook(spin, {
       gameType: spin.gameMode || (feature ? 'freegame' : 'basegame'),
       wincap: this.project.math.wincap,
+      scatterSymbols: [...(this.project.math.specialSymbols?.scatter || [])],
+      thresholds: scatterThresholds(this.project),
     });
     let currentBoard = this.board || spin.sourceBoard || spin.board || [];
     let running = 0;

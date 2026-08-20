@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  anticipationFromBoard,
   applyTumbleEvent,
   compileSpinBook,
   deserializeBoard,
@@ -180,4 +181,35 @@ test('ordinary capped books never impersonate the governed MAX terminal route', 
   assert.equal(state.some(event => event.type === 'maxWinReached' || event.type === 'roundTerminated'), false);
   assert.deepEqual(state.slice(-2).map(event => event.type), ['setWin', 'finalWin']);
   assert.equal(state.at(-1).amount, 990);
+});
+
+test('reveal.anticipation marks every reel one scatter away from the next threshold', () => {
+  const board = (scatterReels) => Array.from({ length: 6 }, (_, reel) => {
+    const column = ['A', 'B', 'C', 'D'];
+    if (scatterReels.includes(reel)) column[1] = 'S';
+    return column;
+  });
+
+  assert.deepEqual(
+    anticipationFromBoard(board([0, 1]), { scatterSymbols: ['S'] }),
+    [false, false, true, true, true, true],
+  );
+  assert.deepEqual(
+    anticipationFromBoard(board([0, 1, 2, 3, 4]), { scatterSymbols: ['S'] }),
+    [false, false, true, true, true, true],
+  );
+  assert.deepEqual(
+    anticipationFromBoard(board([0]), { scatterSymbols: ['S'] }),
+    [false, false, false, false, false, false],
+  );
+
+  const state = compileSpinBook({
+    board: board([0, 1]),
+    sourceBoard: board([0, 1]),
+    finalBoard: board([0, 1]),
+    totalWin: 0,
+    steps: [{ board: board([0, 1]), wins: [], stepWin: 0 }],
+  }, { scatterSymbols: ['S'], thresholds: [3, 4, 5, 6] });
+  const reveal = state.find((event) => event.type === 'reveal');
+  assert.deepEqual(reveal.anticipation, [false, false, true, true, true, true]);
 });

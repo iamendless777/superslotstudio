@@ -709,8 +709,22 @@ export class MathEngine {
       temporaryReels: { ...stickyOutcome.temporaryReels },
       stickyReelEvents: stickyOutcome.events,
     };
-    spin.state = compileSpinBook(spin, { gameType: gameMode, wincap });
+    spin.state = compileSpinBook(spin, this.spinBookOptions(gameMode, wincap));
     return spin;
+  }
+
+  spinBookOptions(gameType = 'basegame', wincap = Infinity) {
+    const scatterSymbols = [...(this.math.specialSymbols?.scatter || [])];
+    const tierKeys = Object.keys(this.math.featureArchitecture?.tiers || {})
+      .map(Number)
+      .filter((count) => Number.isFinite(count) && count > 0)
+      .sort((left, right) => left - right);
+    return {
+      gameType,
+      wincap,
+      scatterSymbols,
+      thresholds: tierKeys.length ? tierKeys : [3, 4, 5, 6],
+    };
   }
 
   // --- BET MODE / BONUS ROUND RESOLUTION ---
@@ -922,7 +936,7 @@ export class MathEngine {
       gameMode: 'wincap', board, finalBoard: board, steps: [step], wins: [win],
       cascades: 0, totalWin: maxWin, uncappedWin: maxWin, wincapHit: true, maxMorpheusHit: true,
     };
-    spin.state = compileSpinBook(spin, { gameType: 'basegame', wincap: maxWin });
+    spin.state = compileSpinBook(spin, this.spinBookOptions('basegame', maxWin));
     return {
       mode: mode.name, wager, spins: [spin], board, wins: [win],
       totalWin: maxWin, uncappedWin: maxWin, normalizedWin: maxWin / wager,

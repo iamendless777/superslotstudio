@@ -104,11 +104,57 @@ function pushMechanicSequence(events, sourceBoard, mechanicEvents = [], finalBoa
 }
 
 /**
+ * Waiting-reel flags for reveal.anticipation (one entry per reel).
+ * Mirrors PresentationDirector.waitingReelsFromBoard so studio Preview and
+ * live SPIN share the same one-away-from-threshold schedule. Prefer an
+ * authored spin.anticipation array when present.
+ */
+export function anticipationFromBoard(board, {
+  scatterSymbols = [],
+  thresholds = [3, 4, 5, 6],
+} = {}) {
+  const reels = Array.isArray(board) ? board.length : 0;
+  const waiting = Array.from({ length: reels }, () => false);
+  if (!reels) return waiting;
+  const scatters = new Set(
+    (Array.isArray(scatterSymbols) ? scatterSymbols : [])
+      .map((symbol) => String(symbol || '').trim())
+      .filter(Boolean),
+  );
+  if (!scatters.size) return waiting;
+  const isScatter = (symbol) => scatters.has(symbolName(symbol));
+  const counts = board.map((column) => (column || []).filter((symbol) => isScatter(symbol)).length);
+  const rowsOf = (reel) => Math.max(1, (board[reel] || []).length);
+  const maxTier = Math.max(0, ...thresholds.map(Number).filter((value) => Number.isFinite(value)));
+  const tiers = thresholds.map(Number).filter((value) => Number.isFinite(value) && value > 0)
+    .sort((left, right) => left - right);
+  let landed = 0;
+  for (let reel = 0; reel < reels; reel++) {
+    const next = tiers.find((tier) => tier > landed);
+    const capacity = Array.from({ length: reels - reel }, (_, index) => rowsOf(reel + index))
+      .reduce((sum, rows) => sum + rows, 0);
+    waiting[reel] = Boolean(
+      next != null
+      && landed < maxTier
+      && landed >= next - 1
+      && landed + capacity >= next,
+    );
+    landed += counts[reel];
+  }
+  return waiting;
+}
+
+/**
  * Compile one resolved Studio spin into Stake Engine's authoritative event-book
  * shape. Custom boardTransform events describe mechanics that intentionally
  * alter surviving symbols after a standard tumble.
  */
-export function compileSpinBook(spin, { gameType = 'basegame', wincap = Infinity } = {}) {
+export function compileSpinBook(spin, {
+  gameType = 'basegame',
+  wincap = Infinity,
+  scatterSymbols = [],
+  thresholds = [3, 4, 5, 6],
+} = {}) {
   const events = [];
   const steps = spin?.steps || [];
   const initialBoard = spin?.board || steps[0]?.board || [];
@@ -118,12 +164,21 @@ export function compileSpinBook(spin, { gameType = 'basegame', wincap = Infinity
   const preRevealEvents = initialModifierEvents.filter(event => event.type === 'modeGridStart');
   for (const event of preRevealEvents) pushEvent(events, serializeMechanicEvent(event));
 
+  const authoredAnticipation = Array.isArray(spin?.anticipation) ? spin.anticipation : null;
+  const anticipation = authoredAnticipation
+    && authoredAnticipation.some((value) => value === true || Number(value) > 0)
+    ? Array.from({ length: sourceBoard.length || authoredAnticipation.length }, (_, reel) => {
+      const value = authoredAnticipation[reel];
+      return value === true || Number(value) > 0;
+    })
+    : anticipationFromBoard(sourceBoard, { scatterSymbols, thresholds });
+
   pushEvent(events, {
     type: 'reveal',
     board: serializeBoard(sourceBoard),
     paddingPositions: [],
     gameType,
-    anticipation: [],
+    anticipation,
   });
 
   if (steps.length) {

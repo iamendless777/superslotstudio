@@ -54,6 +54,25 @@ function rehearsalReelSchedule(project, waiting, reelCount) {
   });
 }
 
+/** Studio-only rehearsal fixtures (not in domain planner templates). */
+const SCATTER_TEASE_INDEX = [
+  { id: 'scatter-tease', styleId: 'scatter-tease', kind: 'reel', totalDurationMs: 7200, title: '2-scatter tease', seedScatterCount: 2, missingArt: 0, readyToCommission: false },
+  { id: 'scatter-tease-3', styleId: 'scatter-tease', kind: 'reel', totalDurationMs: 7200, title: '3-scatter tease', seedScatterCount: 3, missingArt: 0, readyToCommission: false },
+  { id: 'scatter-tease-4', styleId: 'scatter-tease', kind: 'reel', totalDurationMs: 6000, title: '4-scatter tease', seedScatterCount: 4, missingArt: 0, readyToCommission: false },
+  { id: 'scatter-tease-5', styleId: 'scatter-tease', kind: 'reel', totalDurationMs: 4800, title: '5-scatter tease', seedScatterCount: 5, missingArt: 0, readyToCommission: false },
+];
+
+function mergeMotionTemplateIndex(templates) {
+  const list = Array.isArray(templates) ? [...templates] : [];
+  const seen = new Set(list.map((template) => template?.id));
+  for (const entry of SCATTER_TEASE_INDEX) {
+    if (seen.has(entry.id)) continue;
+    list.push(entry);
+    seen.add(entry.id);
+  }
+  return list;
+}
+
 export class PreviewPanel extends BasePreviewPanel {
   render() {
     super.render();
@@ -149,7 +168,7 @@ export class PreviewPanel extends BasePreviewPanel {
       const response = await fetch('/motion-fixtures/index.json');
       if (!response.ok) return;
       const index = await response.json();
-      const templates = Array.isArray(index?.templates) ? index.templates : [];
+      const templates = mergeMotionTemplateIndex(index?.templates);
       if (!templates.length) return;
       this.motionTemplateIndex = templates;
       const preferred = this.preferredMotionTemplate();
@@ -175,7 +194,7 @@ export class PreviewPanel extends BasePreviewPanel {
       }
       this.syncMotionArtStatus();
     } catch {
-      /* keep the static fallback options */
+      /* keep the static fallback options (includes scatter-tease family) */
     }
   }
 

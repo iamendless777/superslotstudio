@@ -45,6 +45,33 @@
       "title": "2-scatter tease",
       "missingArt": 0,
       "readyToCommission": true
+    },
+    {
+      "id": "scatter-tease-3",
+      "styleId": "scatter-tease",
+      "kind": "reel",
+      "totalDurationMs": 7200,
+      "title": "3-scatter tease",
+      "missingArt": 0,
+      "readyToCommission": false
+    },
+    {
+      "id": "scatter-tease-4",
+      "styleId": "scatter-tease",
+      "kind": "reel",
+      "totalDurationMs": 6000,
+      "title": "4-scatter tease",
+      "missingArt": 0,
+      "readyToCommission": false
+    },
+    {
+      "id": "scatter-tease-5",
+      "styleId": "scatter-tease",
+      "kind": "reel",
+      "totalDurationMs": 4800,
+      "title": "5-scatter tease",
+      "missingArt": 0,
+      "readyToCommission": false
     }
   ]
 }
