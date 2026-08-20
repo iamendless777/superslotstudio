@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-20  
 **Branch:** `integrate/studio-motion`  
-**HEAD:** see latest commit on this branch — *feature chrome + Dreamfall shaft.*  
+**HEAD:** see latest commit on this branch — *HUD glyphs + portable feature chrome.*  
 **Repo:** https://github.com/iamendless777/superslotstudio  
 **Local path:** `~/Developer/superslotstudio`  
 **Goal:** Ship many Stake.com games quickly (target ~2 days each). Motion + templates stay reliable so the bottleneck is **art**, not fighting the studio.
@@ -170,7 +170,7 @@ Forge is the *feel* reference. Morpheus `MorpheusGameContract.js` is the *rules*
 
 1. Special tiles (Veil/Lucid/Rift/Split/Purge/Star/Mystery/Max) — paying board is done. Pack is on the reels.
 2. Selectable mode menu: Base, Enhancer, Trickster, Veil Ascent, Lucid Blessing. Dreamfall/Nexus/Nightmare stay gated. **Done.**
-3. Feature chrome: Veil symbol bar, Lucid family multis, Dreamfall reel growth, Nexus/Trickster position grid. **Done in Preview.**
+3. Feature chrome: Veil symbol bar, Lucid family multis, Dreamfall reel growth, Nexus/Trickster position grid. **Done in Preview and portable.**
 4. Restyle the old photoreal Dreamfall shaft overlay. **Done.**
 5. Hold-length feel (`anticipationHoldMs`) — human call.
 
@@ -325,7 +325,7 @@ Studio Preview remains **pixel** authority — one tumble, one spin-track.
 - [x] Morpheus **board** symbol pack from the brief (moon / lantern / hourglass / moth / star / crescent / coins / wild seal / Gate of Sleep). Atlas **Apply board pack** fills empty slots only.
 - [x] HUD / spin / mode-card chrome uses the same ivory–gold–cyan language. Old photoreal atlas + generation sources deleted.
 - [x] Slop pass: spin plate is concentric rings (no double arrow). Wild is a sleeping-eye seal (no letter). Hourglass and coins have finished frames (no skulls).
-- [x] Feature chrome in Preview: Veil symbol bar, Lucid family multipliers, Trickster/Nexus grid legend. Dreamfall keeps its reel-ascent HUD. Photoreal shaft overlay replaced.
+- [x] HUD medallions: bonus skull and info letter replaced with crescent / eye / bar glyphs. Portable game-app.js now shows the same Veil bar, Lucid family strip, and Trickster grid legend.
 - [ ] If 1.2s/waiting-reel feels short or long, change **one** number: `anticipationHoldMs`. Do not special-case the last reel.
 - [ ] Swap in final commissioned art over the starter pack; keep motion.
 
@@ -456,7 +456,7 @@ Continue Stake Studio from `integrate/studio-motion` (pull first). Read `MOTION_
 2. **2/3/4/5-scatter Play Motion and live 2-scatter are video-confirmed.** Portable frontend uses the same waiting-reel hold. Do not reopen unless pixels regress.
 3. If hold length is wrong, change `anticipationHoldMs` only.
 4. Do not revive GSAP travel, fake scatters, last-reel-only, or an HTML overlay grid.
-5. Art: Atlas → **Copy board brief**. **Apply board pack** fills empty Morpheus slots (not cluster-hex). World pack lays temple background, reel frame, and character. Dreamfall shaft overlay is still old photoreal. Swap remaining slop; keep motion.
+5. Art: Atlas → **Copy board brief**. **Apply board pack** fills empty Morpheus slots (not cluster-hex). World pack lays temple background, reel frame, and character. Dreamfall shaft and HUD glyphs match the board language. Swap remaining slop; keep motion.
 6. Optional: merge `integrate/studio-motion` → `main`.
 
 ---
@@ -472,7 +472,8 @@ Continue Stake Studio from `integrate/studio-motion` (pull first). Read `MOTION_
 Recent commits (newest first):
 
 ```
-this commit  Feature chrome and Dreamfall shaft in the board language.
+this commit  HUD glyphs without skulls/letters; portable feature chrome.
+edd4d7d Show Veil, Lucid, and Trickster chrome in the board language.
 169f6ce Open the five approved Morpheus modes.
 7becccd Map Forge specials onto Morpheus tiles.
 f4ab72c Match HUD chrome to the board pack.
@@ -503,4 +504,4 @@ b47d871 Hold leftover reels after two scatters, last reel longest.   ← superse
 
 ## 13. One-line summary for the next agent
 
-**Board, HUD, cabinet, and character share the ivory/gold/cyan pack. Dreamfall shaft overlay is still the old photoreal piece (feature only). Next: hold-length feel (`anticipationHoldMs`) or swap remaining slop (HUD medallion glyphs, shaft). Same Stake CSS tracks + playStakeTumble. Do not invent a second animator.**
+**Board, HUD, cabinet, and character share the ivory/gold/cyan pack. Next: hold-length feel (`anticipationHoldMs`) — human call. Same Stake CSS tracks + playStakeTumble. Do not invent a second animator.**

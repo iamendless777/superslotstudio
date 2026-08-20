@@ -81,6 +81,7 @@ let featureState = {
   freeSpinsRemaining: 0,
   reelRows: [4, 4, 4, 4, 4, 4],
   lastExpandedReel: null,
+  veilBar: { family: '', current: 0, threshold: 4 },
 };
 let dreamfallWorldActive = false;
 let modalSequence = 0;
@@ -263,6 +264,41 @@ function syncFeatureProgress() {
     if (value) value.textContent = String(rows);
   });
   if (ui.featureReelMeter) ui.featureReelMeter.setAttribute('aria-label', `Reel heights ${reelRows.join(', ')}`);
+  syncFeatureChrome();
+}
+
+function payingFamilies() {
+  return (config.symbols || []).filter((symbol) => {
+    const special = symbol.special || [];
+    return symbol.tier !== 'special' && !special.some((flag) => /wild|scatter|bomb|split|purge|star|mystery/i.test(flag));
+  });
+}
+
+function syncFeatureChrome() {
+  if (!ui.featureChrome) return;
+  const mode = ui.mode?.value;
+  const showVeil = mode === 'veil_ascent';
+  const showLucid = mode === 'lucid_blessing';
+  const showGrid = mode === 'trickster_dream' || positionGridMode === 'trickster_dream' || positionGridMode === 'oneiric_nexus';
+  const show = (showVeil || showLucid || showGrid) && !dreamfallWorldActive;
+  ui.featureChrome.hidden = !show;
+  if (!show) return;
+  const title = showVeil ? 'VEIL ASCENT' : showLucid ? 'LUCID BLESSING' : positionGridMode === 'oneiric_nexus' ? 'ONEIRIC NEXUS' : 'TRICKSTER DREAM';
+  ui.featureChrome.dataset.mode = showVeil ? 'veil_ascent' : showLucid ? 'lucid_blessing' : (positionGridMode || 'trickster_dream');
+  ui.featureChromeTitle.textContent = title;
+  const bar = featureState.veilBar || { family: '', current: 0, threshold: 4 };
+  const fill = Math.max(0, Math.min(1, Number(bar.current) / (Number(bar.threshold) || 4)));
+  const charged = [...positionMultipliers.values()].filter((value) => Number(value) > 1).length;
+  if (showVeil) {
+    ui.featureChromeBody.innerHTML = `<div class="feature-chrome-veil"><small>SYMBOL BAR${bar.family ? ` · ${bar.family}` : ''}</small><div class="feature-chrome-bar"><i style="width:${(fill * 100).toFixed(1)}%"></i></div><b>${Number(bar.current) || 0} / ${Number(bar.threshold) || 4}</b></div>`;
+  } else if (showLucid) {
+    ui.featureChromeBody.innerHTML = `<div class="feature-chrome-lucid"><small>FAMILY MULTIPLIERS</small><div>${payingFamilies().map((symbol) => {
+      const multiplier = symbolMultipliers.get(symbol.id) || symbolMultipliers.get(symbol.name) || 1;
+      return `<i class="${multiplier > 1 ? 'is-charged' : ''}"><img src="${symbol.src || ''}" alt=""><b>${multiplier}×</b></i>`;
+    }).join('')}</div></div>`;
+  } else {
+    ui.featureChromeBody.innerHTML = `<div class="feature-chrome-grid"><small>POSITION GRID</small><b>${charged} CHARGED · CELLS DOUBLE AFTER A WIN</b></div>`;
+  }
 }
 
 function beginFeature(event) {
@@ -289,6 +325,7 @@ function beginFeature(event) {
     freeSpinsRemaining: Number(event?.totalFs || tier?.spins || directMode?.profile?.freeSpins || 10),
     reelRows: [4, 4, 4, 4, 4, 4],
     lastExpandedReel: null,
+    veilBar: { family: '', current: 0, threshold: Number(tier?.meterThreshold) || 4 },
   };
   syncFeatureProgress();
   setMusic('bonusMusic');
@@ -1189,6 +1226,7 @@ async function applyEvent(event, { instant = false } = {}) {
             && Number.isInteger(Number(authoritativeFeature.lastExpandedReel))
             ? Number(authoritativeFeature.lastExpandedReel)
             : null,
+          veilBar: { family: '', current: 0, threshold: 4 },
         };
         syncFeatureProgress();
       }
@@ -1308,6 +1346,7 @@ async function applyEvent(event, { instant = false } = {}) {
       syncMechanicMarkers();
       setFeatureAchievement(`${event.symbolFamily || event.symbol || 'Symbol'} ${event.current || event.multiplier || 1}×`);
       showStatus(`Lucid Blessing · ${event.symbolFamily || event.symbol || 'Symbol'} ${event.current || event.multiplier || 1}×`);
+      syncFeatureChrome();
       break;
     case 'modeGridStart':
       positionGridMode = event.mode || 'oneiric_nexus';
@@ -1339,8 +1378,14 @@ async function applyEvent(event, { instant = false } = {}) {
       break;
     case 'symbolBarProgress':
       highlightWins([{ positions: event.hits || event.positions || [] }]);
+      featureState.veilBar = {
+        family: event.symbolFamily || '',
+        current: Number(event.current) || 0,
+        threshold: Math.max(1, Number(event.threshold) || 4),
+      };
       setFeatureAchievement(`${event.symbolFamily || 'SYMBOL'} ${event.previous || 0} → ${event.current || 0} / ${event.threshold || 1}`);
       showStatus(`Veil Ascent · ${featureState.achievement}`);
+      syncFeatureChrome();
       break;
     case 'rainingWilds':
       highlightWins([{ positions: (event.wilds || []).map(wild => wild.position) }]);
@@ -1668,6 +1713,7 @@ function updateDashboard() {
   ui.turboControl.setAttribute('aria-label', turbo ? 'Fast play on' : 'Fast play off');
   ui.decreaseBet.disabled = busy || betLevels.indexOf(baseAmount) <= 0;
   ui.increaseBet.disabled = busy || betLevels.indexOf(baseAmount) >= betLevels.length - 1;
+  syncFeatureChrome();
 }
 
 function stepBet(direction) {
@@ -1904,13 +1950,20 @@ function buildShell() {
     ui.featureReelMeter.append(meter);
   }
   progressCopy.append(ui.featureMode, ui.featureCount, ui.featureTotal, ui.featureAchievement, ui.featureAward, ui.featureReelMeter); ui.featureProgress.append(progressCopy);
+  ui.featureChrome = node('aside', 'feature-chrome');
+  ui.featureChrome.hidden = true;
+  ui.featureChrome.setAttribute('aria-live', 'polite');
+  const chromeHeader = node('header');
+  chromeHeader.append(node('small', '', 'FEATURE'), ui.featureChromeTitle = node('strong', '', 'FEATURE'));
+  ui.featureChromeBody = node('div', 'feature-chrome-body');
+  ui.featureChrome.append(chromeHeader, ui.featureChromeBody);
   ui.featureIntro = node('section', 'feature-intro');
   if (config.presentationAssets?.modePortal) { const art = node('img', 'presentation-art'); art.src = config.presentationAssets.modePortal; art.alt = ''; ui.featureIntro.append(art); }
   const introCopy = node('div', 'feature-intro-copy'); ui.featureIntroTitle = node('strong'); ui.featureIntroMeta = node('span'); introCopy.append(ui.featureIntroTitle, ui.featureIntroMeta); ui.featureIntro.append(introCopy);
   ui.featureFinale = node('section', 'feature-finale'); ui.featureFinale.setAttribute('aria-live', 'assertive');
   if (config.presentationAssets?.verdictPlate) { const art = node('img', 'presentation-art'); art.src = config.presentationAssets.verdictPlate; art.alt = ''; ui.featureFinale.append(art); }
   const finaleCopy = node('div', 'feature-finale-copy'); ui.featureFinaleKicker = node('span'); ui.featureFinaleTitle = node('strong'); ui.featureFinaleMeta = node('small'); finaleCopy.append(ui.featureFinaleKicker, ui.featureFinaleTitle, ui.featureFinaleMeta); ui.featureFinale.append(finaleCopy);
-  overlay.append(ui.message, ui.featureProgress, ui.featureIntro, ui.featureFinale); stage.append(ui.board, overlay); stageWrap.append(stage);
+  overlay.append(ui.message, ui.featureProgress, ui.featureChrome, ui.featureIntro, ui.featureFinale); stage.append(ui.board, overlay); stageWrap.append(stage);
   stage.replaceChildren(...fallbackEffects, ...authoredWorldLayers, ui.board, ui.spineHost, ui.effectsHost, overlay);
   ui.status = node('div', 'status-strip');
 
