@@ -112,18 +112,34 @@ export class PreviewPanel extends BasePreviewPanel {
     const art = document.createElement('details');
     art.id = 'previewMotionArt';
     art.className = 'preview-motion-art';
-    art.innerHTML = '<summary>Art</summary><div class="preview-motion-art-body">No brief</div>';
+    art.innerHTML = '<summary>Art · click</summary><div class="preview-motion-art-body">No brief</div>';
+
+    const copyArt = document.createElement('button');
+    copyArt.className = 'tool-btn';
+    copyArt.id = 'previewMotionArtCopyToolbar';
+    copyArt.type = 'button';
+    copyArt.textContent = 'Copy art brief';
 
     trigger.insertAdjacentElement('afterend', label);
     label.insertAdjacentElement('afterend', button);
-    button.insertAdjacentElement('afterend', status);
+    button.insertAdjacentElement('afterend', copyArt);
+    copyArt.insertAdjacentElement('afterend', status);
     status.insertAdjacentElement('afterend', debug);
     debug.insertAdjacentElement('afterend', art);
 
     button.addEventListener('click', () => {
       void this.playMotionStylePreview();
     });
+    copyArt.addEventListener('click', () => {
+      this.copyLiveArtBrief();
+    });
     void this.populateMotionTemplates();
+  }
+
+  copyLiveArtBrief() {
+    const brief = this.liveProjectArtBrief();
+    void navigator.clipboard?.writeText(JSON.stringify(brief, null, 2));
+    this.setMotionStatus('Board art brief copied');
   }
 
   async populateMotionTemplates() {
@@ -324,8 +340,7 @@ export class PreviewPanel extends BasePreviewPanel {
       ${brief ? `<details class="preview-motion-art-recipe"><summary>${esc(brief.title)} motion clock</summary><ol>${recipeSlots}</ol><button type="button" class="tool-btn" id="previewMotionArtCopy">Copy recipe brief</button></details>` : ''}`;
     body.querySelector('#previewMotionArtCopyBoard')?.addEventListener('click', (event) => {
       event.preventDefault();
-      void navigator.clipboard?.writeText(JSON.stringify(boardBrief, null, 2));
-      this.setMotionStatus('Board art brief copied');
+      this.copyLiveArtBrief();
     });
     body.querySelector('#previewMotionArtCopy')?.addEventListener('click', (event) => {
       event.preventDefault();

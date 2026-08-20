@@ -1925,6 +1925,13 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   font-size: 11px;
   font-weight: 700;
   list-style: none;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 210, 122, .45);
+  border-radius: 6px;
+  background: rgba(255, 210, 122, .08);
+}
+.preview-motion-art[open] summary {
+  background: rgba(255, 210, 122, .18);
 }
 .preview-motion-art summary::-webkit-details-marker { display: none; }
 .preview-motion-art-body {
