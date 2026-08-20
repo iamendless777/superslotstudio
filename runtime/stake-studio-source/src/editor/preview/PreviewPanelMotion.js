@@ -588,7 +588,7 @@ export class PreviewPanel extends BasePreviewPanel {
       .map((symbol) => symbol.name)
       .filter(Boolean);
     const hasAnticipation = (sheet.cues || []).some((cue) => cue.cue === 'reel.anticipation');
-    const reelSchedule = rehearsalReelSchedule(this.project, false, masks.length);
+    const reelSchedule = rehearsalReelSchedule(this.project, hasAnticipation, masks.length);
     this.motionSourceBoard = cloneBoard(this.board);
     let board = this.board;
     if (hasAnticipation) {
@@ -626,18 +626,12 @@ export class PreviewPanel extends BasePreviewPanel {
     this.setAnimationState?.('spinning');
     this.clearPreviewReelSpinTracks?.();
 
-    const spinTracks = masks.map((mask, reelIndex) => {
-      const stopAt = Math.max(0.35, Number(reelSchedule.stops[reelIndex]?.stopAtMs || 400 + reelIndex * 120) / 1000);
-      const pages = Math.max(2, Math.round(stopAt / 0.32));
-      return this.createPreviewReelSpinTrack(
-        mask,
-        reelIndex,
-        rows[reelIndex] || rows[0],
-        allSymNames.length ? allSymNames : (board[reelIndex] || []),
-        board[reelIndex],
-        pages,
-      );
-    });
+    const spinTracks = masks.map((mask, reelIndex) => this.createPreviewReelSpinTrack(
+      mask,
+      reelIndex,
+      rows[reelIndex] || rows[0],
+      allSymNames.length ? allSymNames : (board[reelIndex] || []),
+    ));
 
     await new Promise((resolve) => {
       const tl = gsap.timeline({
@@ -674,7 +668,7 @@ export class PreviewPanel extends BasePreviewPanel {
           ), 0);
           if (hasAnticipation && scatterCount >= 2) {
             this.enterReelAnticipation?.();
-            this.setMotionStatus('Tease · remaining reels crawl');
+            this.setMotionStatus('Tease · last reel holds');
             this.setMotionDebug({
               path: 'reel',
               grid: this.motionGridLabel(),
@@ -685,19 +679,19 @@ export class PreviewPanel extends BasePreviewPanel {
           }
         };
         if (track) {
-          const travel = Number(track.dataset.travel) || 0;
-          tl.fromTo(track, { y: -travel }, {
-            y: 0,
-            duration: stopAt,
+          tl.to(track, {
+            opacity: 1,
+            filter: 'blur(.2px) saturate(.96) brightness(.94)',
+            duration: landingLead,
             ease: 'power2.out',
-            immediateRender: true,
+            immediateRender: false,
+            onStart: prepare,
             onComplete: () => {
               settle();
               mask.classList.remove('is-spinning', 'is-stopping');
               track.remove();
             },
-          }, 0);
-          tl.call(prepare, [], Math.max(0, stopAt - landingLead));
+          }, Math.max(0, stopAt - landingLead));
         } else {
           tl.call(() => {
             prepare();

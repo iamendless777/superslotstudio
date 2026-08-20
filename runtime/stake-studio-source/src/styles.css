@@ -1652,8 +1652,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .preview-stage:is([data-animation-state="spinning"], [data-animation-state="anticipation"]) .reel-mask {
   background: linear-gradient(180deg, rgba(77,205,225,.035), rgba(5,10,21,.15) 42%, rgba(77,205,225,.025));
 }
-.reel-mask.is-spinning > .reel-strip .reel-sym,
-.reel-mask.is-spinning > .reel-strip .reel-sym img {
+.reel-mask.is-spinning:not(.has-stopped) > .reel-strip .reel-sym img {
   visibility: hidden !important;
   opacity: 0 !important;
 }
@@ -1667,29 +1666,30 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   position: absolute;
   z-index: 3;
   left: 0;
+  top: -100%;
   width: 100%;
-  display: block;
+  height: 300%;
+  display: grid;
+  grid-template-rows: repeat(var(--spin-rows), minmax(0, 1fr));
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
-  will-change: transform, filter;
-  filter: blur(1.05px) saturate(.88) brightness(.88);
-}
-.reel-mask.is-stopping .preview-reel-spin-track {
-  filter: blur(.18px) saturate(.96) brightness(.96);
+  will-change: transform, filter, opacity;
+  filter: blur(.65px) saturate(.9) brightness(.84);
+  animation: preview-reel-spin-flow var(--spin-duration, .4s) linear var(--spin-phase, 0s) infinite;
 }
 .preview-reel-spin-symbol {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
   display: grid;
   place-items: center;
+  overflow: hidden;
 }
 .preview-reel-spin-symbol img {
-  width: 82%;
-  height: 82%;
+  width: 88%;
+  height: 88%;
   object-fit: contain;
+  opacity: .92;
 }
 .reel-sym {
   isolation: isolate;
