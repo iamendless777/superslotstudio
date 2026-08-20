@@ -1656,6 +1656,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   visibility: hidden !important;
   opacity: 0 !important;
 }
+.preview-stage[data-animation-state="spinning"] .reel-mask:not(.has-stopped) > .reel-strip .reel-sym img { visibility: hidden; opacity: 0 !important; }
 .preview-stage:is([data-animation-state="spinning"], [data-animation-state="anticipation"], .is-reel-tease) .preview-reel-spin-track {
   visibility: visible !important;
   opacity: 1 !important;
@@ -1684,7 +1685,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   display: grid;
   place-items: center;
   overflow: hidden;
+  background: transparent;
+  box-shadow: none;
 }
+.preview-reel-spin-symbol::before,
+.preview-reel-spin-symbol::after { content: none; }
 .preview-reel-spin-symbol img {
   width: 88%;
   height: 88%;
