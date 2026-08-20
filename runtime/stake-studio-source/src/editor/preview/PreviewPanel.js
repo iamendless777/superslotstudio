@@ -3695,7 +3695,8 @@ export class PreviewPanel {
     let presentedWin = false;
     let revealIndex = 0;
 
-    for (const event of events) {
+    for (let eventIndex = 0; eventIndex < events.length; eventIndex++) {
+      const event = events[eventIndex];
       this.recordPlaybackEvent(event.type, {
         bookIndex: event.index,
         featureSpin: feature ? featureIndex : 0,
@@ -3756,6 +3757,12 @@ export class PreviewPanel {
         currentBoard = await this.playStakeTumble(currentBoard, event);
         this.board = currentBoard;
         this.syncFeatureStateMarkers();
+        const next = events[eventIndex + 1];
+        if (next?.type === 'winInfo') {
+          this.highlightWins(deserializeWins(next.wins), { staticOnly: true });
+          this.lastWin = Number(next.cumulativeWin || next.totalWin || 0) / BOOK_AMOUNT_MULTIPLIER * this.baseBet;
+          this.updateHUD();
+        }
         continue;
       }
 
@@ -4600,6 +4607,8 @@ export class PreviewPanel {
       const settled = applyTumbleEvent(board, event);
       this.board = settled;
       this.paintBoard(settled);
+      frame.classList.remove('is-tumbling');
+      layer.remove();
       return settled;
     } finally {
       layer.remove();

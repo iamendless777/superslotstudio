@@ -1888,9 +1888,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   visibility: hidden !important;
 }
 .preview-tumble-symbol.is-exploding {
-  outline: 3px solid #00e5ff;
-  outline-offset: -3px;
   z-index: 2;
+  filter: brightness(1.35) saturate(1.18) drop-shadow(0 0 14px rgba(255, 222, 130, .8));
 }
 #previewMotionDebug {
   color: #7dffce;
