@@ -312,9 +312,10 @@ function setFeatureAchievement(message) {
 function showWinDisplay(amount, { durationMs = 1500, kicker = 'Total Win' } = {}) {
   if (!ui.message || !ui.messageValue || !Number.isFinite(Number(amount)) || Number(amount) <= 0) return;
   const tier = resolveWinTier(amount);
+  if (tier !== 'winBig' && tier !== 'winMega') return;
   ui.message.dataset.tier = tier;
   ui.messageKicker.textContent = kicker;
-  ui.messageValue.textContent = `${Number(amount).toFixed(2)}×`;
+  ui.messageValue.textContent = `${Number(amount).toFixed(Number(amount) >= 10 ? 0 : 2)}×`;
   ui.message.classList.remove('is-visible');
   // Restart the entrance when a tumble updates the running total while keeping
   // the same owned result layer. The forced read is bounded to one element.
@@ -359,6 +360,7 @@ async function executePresentationCue(cue, event) {
   if (cue.channel === 'ui' && cue.action === 'featureResult') showFeatureFinale();
   if (cue.channel === 'ui' && cue.action === 'wincap') showFeatureFinale({ wincap: true });
   if (cue.channel === 'ui' && cue.action === 'winDisplay') {
+    if (event?.type === 'winInfo') return;
     const amount = eventAmount(event);
     const tier = resolveWinTier(amount);
     const scale = prefersReducedMotion() ? 0.12 : turbo ? 0.42 : 1;
@@ -1837,7 +1839,7 @@ function buildShell() {
     const atmosphere = node('div', 'dream-atmosphere');
     if (config.animation?.motion?.environment?.enabled !== false && config.animation?.motion?.environment) {
       atmosphere.append(
-        node('i', 'dream-moon'), node('i', 'dream-portal dream-portal-left'), node('i', 'dream-portal dream-portal-right'),
+        node('i', 'dream-moon'),
         node('i', 'dream-fog dream-fog-back'), node('i', 'dream-fog dream-fog-front'),
       );
     }
@@ -1921,7 +1923,7 @@ function buildShell() {
   ui.increaseBet = controlButton('increase', 'Increase play amount', 'bet-step');
   wager.append(ui.decreaseBet, wagerReadout, ui.increaseBet);
   ui.play = node('button', 'primary-button'); ui.play.type = 'button'; ui.playLabel = node('span', 'control-label', 'SPIN'); ui.play.append(ui.playLabel, node('i', 'control-hit-area'));
-  center.append(ui.modeChip, wager, ui.play);
+  center.append(wager, ui.play);
   if (config.controls?.spinButtonAsset) {
     shell.style.setProperty('--spin-button-art', `url(${JSON.stringify(config.controls.spinButtonAsset).slice(1, -1)})`);
     ui.play.dataset.authoredArt = 'true';

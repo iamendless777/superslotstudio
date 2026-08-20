@@ -786,12 +786,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .preview-dream-atmosphere { position: absolute; inset: 0; display: block; overflow: hidden; }
 .preview-dream-atmosphere i { position: absolute; display: block; pointer-events: none; }
 .preview-dream-moon { left: 17%; top: 12%; width: 17%; aspect-ratio: 1; border-radius: 50%; opacity: .22; background: radial-gradient(circle, var(--world-hot-alt-soft) 0 5%, var(--world-glow-soft) 20%, transparent 68%); filter: blur(5px); animation: preview-dream-moon 7.8s ease-in-out infinite; }
-.preview-dream-portal { top: 27%; width: 12%; height: 39%; border-radius: 50%; opacity: .34; background: transparent; animation: preview-dream-portal 4.8s ease-in-out infinite alternate; will-change: transform, opacity; }
-.preview-dream-portal::before, .preview-dream-portal::after { content: ''; position: absolute; pointer-events: none; }
-.preview-dream-portal::before { inset: 8% 31%; border: 1px solid rgba(204,247,255,.34); border-radius: 50%; box-shadow: 0 0 6px var(--world-glow), inset 0 0 9px rgba(92,115,255,.42); filter: blur(.8px); animation: preview-dream-portal-ring 8.5s linear infinite; }
-.preview-dream-portal::after { display: none; }
-.preview-dream-portal-left { left: 7.5%; }
-.preview-dream-portal-right { right: 7.5%; animation-delay: -2.4s; }
+.preview-dream-portal,
+.preview-dream-portal-left,
+.preview-dream-portal-right { display: none; }
 .preview-dream-fog { left: -18%; width: 136%; height: 27%; border-radius: 50%; background: radial-gradient(ellipse at 18% 55%, rgba(83,220,230,.18), transparent 31%), radial-gradient(ellipse at 51% 64%, rgba(102,133,225,.2), transparent 38%), radial-gradient(ellipse at 82% 45%, var(--world-glow-faint), transparent 35%); filter: blur(15px); will-change: transform, opacity; }
 .preview-dream-fog-back { bottom: 3%; opacity: .48; animation: preview-dream-fog 14s ease-in-out infinite alternate; }
 .preview-dream-fog-front { bottom: -8%; opacity: .62; transform: scaleX(-1); animation: preview-dream-fog-front 19s ease-in-out -8s infinite alternate; }
@@ -1490,26 +1487,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .hud-art-button.is-active { filter: brightness(1.16) drop-shadow(0 0 12px rgba(44,220,242,.82)); }
 .hud-art-button:disabled { opacity: .34; filter: grayscale(.7); cursor: default; transform: none; }
 .hud-step-button { width: 50px; height: 50px; }
-.preview-mode-chip {
-  position: absolute;
-  left: 50%;
-  bottom: 126px;
-  z-index: 62;
-  min-width: 270px;
-  min-height: 52px;
-  padding: 7px 52px 8px;
-  border: 0;
-  background: url('/assets/morpheus-spin-control-v1.png') center / 100% 100% no-repeat;
-  color: #eefcff;
-  cursor: pointer;
-  transform: translateX(-50%);
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,.76));
-}
-.preview-mode-chip span, .preview-mode-chip strong, .preview-mode-chip small { display: block; line-height: 1.04; text-shadow: 0 1px 3px #000, 0 0 6px rgba(44,220,242,.52); }
-.preview-mode-chip span { color: rgba(226,242,245,.64); font-size: 8px; letter-spacing: .17em; }
-.preview-mode-chip strong { font-size: 12px; letter-spacing: .09em; }
-.preview-mode-chip small { color: #d9b36e; font-size: 9px; font-weight: 900; }
-.preview-mode-chip.is-feature { filter: brightness(1.12) drop-shadow(0 0 11px rgba(44,220,242,.58)); }
+.preview-mode-chip { display: none; }
 .preview-hud .hud-group {
   display: flex;
   flex-direction: column;

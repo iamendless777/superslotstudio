@@ -476,7 +476,7 @@ export class PreviewPanel {
       const wins = deserializeWins(payload.wins);
       this.lastWin = Number(payload.cumulativeWin) / BOOK_AMOUNT_MULTIPLIER * this.baseBet;
       this.updateHUD();
-      if (!noMotion) this.animateWinDisplay(Number(payload.totalWin) / BOOK_AMOUNT_MULTIPLIER * this.baseBet);
+      if (!noMotion) this.animateWinDisplay(Number(payload.totalWin) / BOOK_AMOUNT_MULTIPLIER * this.baseBet, { overlay: false });
       const highlight = this.highlightWins(wins, { staticOnly: noMotion });
       if (!immediate) await Promise.all([
         this.waitForPresentationMotion(highlight),
@@ -748,7 +748,7 @@ export class PreviewPanel {
       const wins = deserializeWins(payload.wins);
       this.lastWin = Number(payload.cumulativeWin || 0) / BOOK_AMOUNT_MULTIPLIER * this.baseBet;
       this.updateHUD();
-      if (!reducedMotion) this.animateWinDisplay(Number(payload.totalWin || 0) / BOOK_AMOUNT_MULTIPLIER * this.baseBet);
+      if (!reducedMotion) this.animateWinDisplay(Number(payload.totalWin || 0) / BOOK_AMOUNT_MULTIPLIER * this.baseBet, { overlay: false });
       if (reducedMotion) {
         this.highlightWins(wins, { staticOnly: true });
         const plans = this.createTileConnectionPlans(wins, {
@@ -1284,8 +1284,6 @@ export class PreviewPanel {
     const atmosphere = environment?.enabled === false || !environment ? '' : `
       <span class="preview-dream-atmosphere">
         <i class="preview-dream-moon"></i>
-        <i class="preview-dream-portal preview-dream-portal-left"></i>
-        <i class="preview-dream-portal preview-dream-portal-right"></i>
         <i class="preview-dream-fog preview-dream-fog-back"></i>
         <i class="preview-dream-fog preview-dream-fog-front"></i>
       </span>`;
@@ -1585,9 +1583,6 @@ export class PreviewPanel {
       return `<i data-dreamfall-meter-reel="${reel}" data-rows="${rowCount}" style="--dreamfall-growth:${rowCount / MORPHEUS_RESERVED_WORLD_ROWS * 100}%"><span></span><b>${rowCount}</b></i>`;
     }).join('');
     return `
-      ${this.isMorpheusDreamfallWorldActive() ? '' : `<button class="preview-mode-chip ${this.selectedMode !== 'base' ? 'is-feature' : ''}" id="previewModeChip" aria-label="Choose game mode">
-        <span>${this.esc(this.modeKind(mode))}</span><strong id="hudModeName">${this.esc(this.label(mode.name))}</strong><small id="hudModeCost">${Number(mode.cost)}×</small>
-      </button>`}
       <div class="preview-hud" style="position:absolute;left:${hud.x}px;top:${hud.y}px;width:${hud.width}px;height:${hud.height}px;z-index:${hud.zIndex};display:${hud.visible ? 'flex' : 'none'}">
         <button class="hud-art-button" id="previewPlayerMenu" aria-label="Open game menu"><img src="${this.esc(hud.art.menu || '')}" alt=""><span>MENU</span><i class="control-hit-area" aria-hidden="true"></i></button>
         <button class="hud-art-button" id="previewBonusMenu" aria-label="Choose game mode, current ${this.esc(this.label(mode.name))}"><img src="${this.esc(hud.art.bonus || '')}" alt=""><span>${this.esc(compactModeLabel)}</span><i class="control-hit-area" aria-hidden="true"></i></button>
@@ -2320,7 +2315,6 @@ export class PreviewPanel {
       this.render();
     };
     this.container.querySelector('#previewBonusMenu')?.addEventListener('click', openModes);
-    this.container.querySelector('#previewModeChip')?.addEventListener('click', openModes);
     this.container.querySelector('#previewBetDown')?.addEventListener('click', () => this.stepBaseBet(-1));
     this.container.querySelector('#previewBetUp')?.addEventListener('click', () => this.stepBaseBet(1));
     this.container.querySelector('#previewTurbo')?.addEventListener('click', () => this.toggleTurboMode());
@@ -2539,7 +2533,7 @@ export class PreviewPanel {
     if (cue.channel === 'ui' && cue.action === 'winDisplay') {
       this.lastWin = Number(target) || this.lastWin;
       this.updateHUD();
-      this.animateWinDisplay(Number(target) || 0);
+      this.animateWinDisplay(Number(target) || 0, { overlay: false });
     }
     if (cue.channel === 'ui' && cue.action === 'featureResult') {
       await this.playFeatureFinale({ mode: payload.mode || this.selectedMode, totalWin: Number(target) || 0 }, payload.spins || 10);
@@ -3617,6 +3611,7 @@ export class PreviewPanel {
     this.lastWin = res.totalWin * this.baseBet;
     if (!res.publishedReplay) this.balance += this.lastWin;
     this.updateHUD();
+    if (!res.wincapHit) this.animateWinDisplay(this.lastWin);
 
     this.scheduleSymbolMotionSync();
     this.setAnimationState('idle');
@@ -3734,7 +3729,7 @@ export class PreviewPanel {
         this.lastWin = (featureRunning + running) * this.baseBet;
         this.updateHUD();
         if (feature) this.updateFeatureProgress(mode, featureIndex, featureTotal, (featureRunning + running) * this.baseBet);
-        this.animateWinDisplay(stepWin * this.baseBet);
+        this.animateWinDisplay(stepWin * this.baseBet, { overlay: false });
         const winMotion = this.highlightWins(wins);
         await Promise.all([
           this.waitForPresentationMotion(winMotion),
@@ -5195,36 +5190,44 @@ export class PreviewPanel {
     return true;
   }
 
-  animateWinDisplay(totalWin) {
-    const winEl = document.getElementById('hudWin');
-    if (!winEl) return;
+  winDisplayMultiple(totalWin) {
+    const amount = Number(totalWin);
+    if (!Number.isFinite(amount) || amount <= 0) return 0;
+    return this.baseBet > 0 ? amount / this.baseBet : amount;
+  }
 
-    gsap.fromTo(winEl, { scale: 1.5, color: '#ffd700' }, {
-      scale: 1, color: '#00e5ff', duration: 0.6, ease: 'elastic.out(1, 0.4)'
-    });
+  isEmphaticWin(totalWin) {
+    const tier = resolvePresentationWinTier(this.project, this.winDisplayMultiple(totalWin));
+    return tier === 'winBig' || tier === 'winMega';
+  }
 
-    if (totalWin >= 10) {
-      const stage = document.getElementById('previewStage');
-      if (stage) {
-        gsap.fromTo(stage, { boxShadow: '0 0 60px rgba(255,215,0,0.8) inset' }, {
-          boxShadow: '0 0 0px rgba(255,215,0,0) inset', duration: 1.5, ease: 'power2.out'
-        });
-      }
+  animateWinDisplay(totalWin, { overlay } = {}) {
+    const amount = Number(totalWin);
+    const winEl = document.getElementById('hudWin') || this.container.querySelector('#hudWin');
+    if (winEl && Number.isFinite(amount) && amount > 0) {
+      gsap.fromTo(winEl, { scale: 1.5, color: '#ffd700' }, {
+        scale: 1, color: '#00e5ff', duration: 0.6, ease: 'elastic.out(1, 0.4)'
+      });
     }
 
-    const stage = document.getElementById('previewStage');
-    if (!stage || !Number.isFinite(Number(totalWin)) || Number(totalWin) <= 0) return;
+    if (overlay === false || !this.isEmphaticWin(amount)) return;
+    const stage = this.container.querySelector('#previewStage');
+    if (!stage) return;
     stage.querySelector('.preview-win-result')?.remove();
     const result = document.createElement('div');
     const modeCardArt = this.playerComposition().hud.art.modeCard || '';
-    result.className = `preview-win-result${Number(totalWin) >= 10 ? ' is-emphatic' : ''}${modeCardArt ? ' has-authored-art' : ''}`;
+    const multiple = this.winDisplayMultiple(amount);
+    result.className = `preview-win-result is-emphatic${modeCardArt ? ' has-authored-art' : ''}`;
     if (modeCardArt) result.style.setProperty('--win-result-art', `url('${modeCardArt}')`);
-    result.innerHTML = `<span>TOTAL WIN</span><strong>${Number(totalWin).toFixed(2)}×</strong>`;
+    result.innerHTML = `<span>TOTAL WIN</span><strong>${multiple >= 10 ? multiple.toFixed(0) : multiple.toFixed(2)}×</strong>`;
     stage.appendChild(result);
+    gsap.fromTo(stage, { boxShadow: '0 0 60px rgba(255,215,0,0.8) inset' }, {
+      boxShadow: '0 0 0px rgba(255,215,0,0) inset', duration: 1.5, ease: 'power2.out'
+    });
     gsap.timeline({ onComplete: () => result.remove() })
       .fromTo(result, { opacity: 0, y: 10, scale: .82 }, { opacity: 1, y: 0, scale: 1, duration: .34, ease: 'back.out(1.55)' })
       .fromTo(result.querySelector('strong'), { scale: .72 }, { scale: 1, duration: .4, ease: 'back.out(1.8)' }, .08)
-      .to(result, { opacity: 0, y: -6, duration: .28, delay: Number(totalWin) >= 10 ? 1.7 : 1.05 });
+      .to(result, { opacity: 0, y: -6, duration: .28, delay: 1.7 });
   }
 
   updateHUD() {
