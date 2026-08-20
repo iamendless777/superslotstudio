@@ -3431,7 +3431,6 @@ export class PreviewPanel {
     this.prePresentedMechanicEvents.clear();
     const mode = this.mathEngine.getBetMode(this.selectedMode);
     const bonusMode = mode.profile?.entry === 'freeSpins';
-    if (this.selectedMode !== 'base') this.showModePortal(this.selectedMode);
     this.audioEngine.startSoundscape(bonusMode ? 'bonusMusic' : 'baseMusic');
     void this.dispatchPresentation('spinStart', { mode: this.selectedMode });
 
@@ -4505,8 +4504,6 @@ export class PreviewPanel {
         const cell = this.createTumbleSymbol(layer, symbol, reel, index - incoming.length, 'is-incoming');
         const target = this.tumbleCellPosition(reel, index);
         cell.dataset.targetTop = String(target.top);
-        cell.style.opacity = '0';
-        survivorMotions.push(cell);
         incomingCells.push(cell);
       });
       if (survivorMotions.some(cell => Number(cell.dataset.reel) === reel)) {
@@ -4574,14 +4571,7 @@ export class PreviewPanel {
           stagger: Math.max(0, (clearPhase?.cues?.[1]?.relativeAtMs || 0) / 1000),
           ease: 'power2.inOut',
         }, (clearPhase?.startMs || 0) / 1000);
-        if (incomingCells.length) timeline.to(incomingCells, {
-          opacity: .35,
-          filter: 'blur(2px) brightness(.82)',
-          duration: Math.max(0.001, phase('enter') / 1000),
-          stagger: Math.max(0, (enterPhase?.cues?.[1]?.relativeAtMs || 0) / 1000),
-          ease: 'power1.out',
-        }, (enterPhase?.startMs || 0) / 1000);
-        timeline.to(survivorMotions, {
+        timeline.to(survivorMotions.concat(incomingCells), {
           top: (_, target) => Number(target.dataset.targetTop),
           opacity: 1,
           filter: 'none',
@@ -4589,18 +4579,9 @@ export class PreviewPanel {
           stagger: Math.max(0, (fallPhase?.cues?.[1]?.relativeAtMs || 0) / 1000),
           ease: 'power2.in',
         }, (fallPhase?.startMs || 0) / 1000);
-        timeline.fromTo(survivorMotions, { scaleY: .94, scaleX: 1.035 }, {
-          scaleY: 1,
-          scaleX: 1,
-          duration: Math.max(0.001, phase('settle') / 1000),
-          stagger: Math.max(0, (settlePhase?.cues?.[1]?.relativeAtMs || 0) / 1000),
-          ease: 'back.out(1.55)',
-        }, (settlePhase?.startMs || 0) / 1000);
-        timeline.call(() => landingCells.forEach(cell => cell.classList.add('is-tumble-landing')), [], (settlePhase?.startMs || 0) / 1000);
-        timeline.call(() => landingCells.forEach(cell => cell.classList.remove('is-tumble-landing')), [], (settlePhase?.endMs || plan.totalDurationMs) / 1000);
       } else {
         timeline.set(explodingCells, { scale: 1, opacity: 0, rotation: 0 }, (clearPhase?.startMs || 0) / 1000);
-        timeline.set(survivorMotions, {
+        timeline.set(survivorMotions.concat(incomingCells), {
           top: (_, target) => Number(target.dataset.targetTop),
           opacity: 1,
           scaleX: 1,
