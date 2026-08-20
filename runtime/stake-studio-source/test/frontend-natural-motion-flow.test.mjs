@@ -86,6 +86,17 @@ test('compiled frontend follows Stake numeric-array anticipation semantics', asy
   assert.match(source, /showStatus\(anticipated \? 'Anticipation' : 'Revealed'\)/);
 });
 
+test('compiled frontend teases every waiting reel, not only the last', async () => {
+  const source = await readFile(gameAppUrl, 'utf8');
+  const settle = source.slice(source.indexOf('async function settleReelMotion'), source.indexOf('\nfunction clearWinHighlights'));
+  assert.match(source, /function waitingReelsFromReveal/);
+  assert.match(settle, /waitingReelsFromReveal\(anticipation, tracks\.length\)/);
+  assert.match(settle, /if \(waiting\[reelIndex\]\) accrued \+= timing\.anticipationHoldMs \* motionScale/);
+  assert.match(settle, /firstStopDelay \+ reelIndex \* stopGap \+ anticipationHold/);
+  assert.doesNotMatch(settle, /reelIndex === tracks\.length - 1/);
+  assert.match(source, /await settleReelMotion\(event\.board, instant, event\.anticipation\)/);
+});
+
 test('Preview establishes spin clipping before transient reel art can mount', async () => {
   const [source, css] = await Promise.all([readFile(previewPanelUrl, 'utf8'), readFile(previewCssUrl, 'utf8')]);
   const spin = source.slice(source.indexOf('spin({ automatic = false'), source.indexOf('\n  finishSpinImmediately()'));

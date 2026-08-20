@@ -44,12 +44,14 @@ function scatterReels(board, scatter = 'S') {
   )).filter((reel) => reel != null);
 }
 
-test('Play Motion scatter-tease fixtures seed 2/3/5 doors on the first reels', () => {
+test('Play Motion scatter-tease fixtures seed 2/3/4/5 doors on the first reels', () => {
   const two = JSON.parse(readFileSync(join(fixtures, 'scatter-tease.json'), 'utf8'));
   const three = JSON.parse(readFileSync(join(fixtures, 'scatter-tease-3.json'), 'utf8'));
+  const four = JSON.parse(readFileSync(join(fixtures, 'scatter-tease-4.json'), 'utf8'));
   const five = JSON.parse(readFileSync(join(fixtures, 'scatter-tease-5.json'), 'utf8'));
   assert.equal(two.seedScatterCount, 2);
   assert.equal(three.seedScatterCount, 3);
+  assert.equal(four.seedScatterCount, 4);
   assert.equal(five.seedScatterCount, 5);
 });
 
@@ -82,6 +84,17 @@ test('live forceScatterCount=3 keeps leftover reels waiting for 4+', () => {
   );
   const reveal = compileSpinBook(spin, engine.spinBookOptions()).find((event) => event.type === 'reveal');
   assert.deepEqual(reveal.anticipation, [false, false, true, true, true, true]);
+});
+
+test('live forceScatterCount=4 keeps leftover reels waiting for 5+', () => {
+  const project = teaseProject();
+  const engine = new MathEngine(project);
+  const spin = engine.resolveSpin(() => 0.5, 'basegame', { forceScatterCount: 4 });
+  assert.deepEqual(scatterReels(spin.sourceBoard), [0, 1, 2, 3]);
+  assert.deepEqual(
+    waitingReelsFromBoard(spin.sourceBoard, { isScatter: (symbol) => symbol === 'S' }),
+    [false, false, true, true, true, true],
+  );
 });
 
 test('live forceScatterCount=5 holds the last reel for scatter 6', () => {

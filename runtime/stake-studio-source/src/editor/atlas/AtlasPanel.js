@@ -54,6 +54,10 @@ import {
   getVisualSourceFingerprint,
   recordVisualCohesionQA,
 } from '../../engines/quality/VisualCohesionQA.js';
+import {
+  buildLiveBoardArtBrief,
+  slimBoardArtBrief,
+} from '../../engines/assets/BoardArtBrief.js';
 
 export class AtlasPanel {
   constructor(container, project, onChange, projectId = project.id) {
@@ -115,6 +119,7 @@ export class AtlasPanel {
     const delivery = getVisualDeliverySummary(this.project);
     const codexBatch = getCodexVisualBatchSummary(this.project);
     const productionRequestLimit = Math.max(1, Math.min(10, Number(factory.batchRequestLimit) || 3));
+    const boardBrief = buildLiveBoardArtBrief(this.project);
     this.container.innerHTML = `
       <div class="atlas-panel">
         <section class="visual-factory">
@@ -129,6 +134,20 @@ export class AtlasPanel {
               <span>${missing.length} of ${targets.length} core slots missing</span>
             </div>
           </div>
+          <section class="board-art-brief" id="atlasBoardArtBrief">
+            <div class="board-art-brief-copy">
+              <b>BOARD ART BRIEF</b>
+              <span>${this.esc(boardBrief.grid)} · ${this.esc(boardBrief.winType)} · ${boardBrief.missingCount} gaps</span>
+              <p>${this.esc(boardBrief.motion)}</p>
+              <small>${this.esc(boardBrief.note)}</small>
+            </div>
+            <button type="button" class="btn-primary" id="atlasCopyBoardBrief">Copy board brief</button>
+            <ol class="board-art-brief-slots">
+              ${(boardBrief.slots || []).map((slot) => (
+                `<li data-status="${this.esc(slot.status)}"><strong>${this.esc(slot.label)}</strong> · ${this.esc(slot.role)} · ${this.esc(slot.status)}</li>`
+              )).join('') || '<li>No symbols on this board</li>'}
+            </ol>
+          </section>
           <details class="art-bible ${cohesion.ready ? 'is-locked' : 'needs-lock'}" ${cohesion.ready ? '' : 'open'}>
             <summary>
               <span><b>ART DIRECTION BIBLE</b><small>${cohesion.ready ? `Locked · ${cohesion.currentFingerprint}` : cohesion.bibleDrift ? 'Changed since lock · re-lock required' : `${cohesion.validation.completed}/${cohesion.validation.total} fields complete · lock required`}</small></span>
@@ -391,6 +410,18 @@ export class AtlasPanel {
   }
 
   bindEvents() {
+    this.container.querySelector('#atlasCopyBoardBrief')?.addEventListener('click', () => {
+      const slim = slimBoardArtBrief(buildLiveBoardArtBrief(this.project));
+      void navigator.clipboard?.writeText(JSON.stringify(slim, null, 2)).then(() => {
+        this.visualMessage = {
+          text: `Board art brief copied · ${slim.slots.length} symbols. Ways boards: do not commission cluster-hex gems.`,
+        };
+        this.render();
+      }).catch((error) => {
+        this.visualMessage = { error: true, text: error?.message || 'Clipboard copy failed.' };
+        this.render();
+      });
+    });
     this.container.querySelector('#visualReferenceUpload')?.addEventListener('change', event => this.handleReferenceUpload(event));
     this.container.querySelectorAll('.reference-approve').forEach(button => {
       button.addEventListener('click', () => {

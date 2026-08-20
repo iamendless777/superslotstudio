@@ -2733,6 +2733,33 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .visual-factory-status strong { color: var(--warn); font: 700 10px var(--font); }
 .visual-factory-status.is-ready strong { color: var(--success); }
 .visual-factory-status span { color: var(--text-dim); font-size: 9px; }
+.board-art-brief {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) auto;
+  gap: 10px 14px;
+  align-items: start;
+  margin: 0 0 14px;
+  padding: 12px 13px;
+  background: rgba(13,17,23,.72);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+.board-art-brief-copy b { display: block; color: var(--accent); font: 700 9px var(--font); letter-spacing: 1px; }
+.board-art-brief-copy span { display: block; margin: 4px 0; color: var(--text); font-size: 12px; }
+.board-art-brief-copy p { margin: 0 0 6px; color: var(--text-dim); font-size: 11px; line-height: 1.45; }
+.board-art-brief-copy small { color: var(--warn); font-size: 10px; line-height: 1.4; }
+.board-art-brief-slots {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.board-art-brief-slots li { color: var(--text-dim); font-size: 11px; }
+.board-art-brief-slots li[data-status="missing"] strong { color: #ffb4a2; }
+.board-art-brief-slots li[data-status="assigned"] strong { color: #7dffce; }
 .art-bible { margin-bottom: 13px; overflow: hidden; background: rgba(13,17,23,.72); border: 1px solid var(--border); border-radius: 9px; }
 .art-bible.is-locked { border-color: rgba(63,185,80,.35); }
 .art-bible.needs-lock { border-color: rgba(210,153,34,.36); }
@@ -2900,6 +2927,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   .visual-factory { padding: 12px; }
   .visual-factory-header { flex-direction: column; }
   .visual-factory-status { width: 100%; }
+  .board-art-brief { grid-template-columns: 1fr; }
   .visual-factory-controls { grid-template-columns: 1fr; }
   .art-bible-grid { grid-template-columns: 1fr; }
   .art-bible-wide { grid-column: 1; }

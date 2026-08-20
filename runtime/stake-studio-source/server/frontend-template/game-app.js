@@ -548,7 +548,7 @@ function reelMotionTiming() {
   return {
     baseDurationMs: Math.max(200, finite(timing.baseDurationMs, 520)),
     stopGapMs: Math.max(90, finite(timing.perReelDelayMs, 120) + finite(timing.perReelDurationMs, 70)),
-    anticipationHoldMs: Math.max(0, finite(timing.anticipationHoldMs, 720)),
+    anticipationHoldMs: Math.max(0, finite(timing.anticipationHoldMs, 1200)),
     impactMs: Math.max(80, finite(timing.impactMs, 260)),
     spinCycleMs: Math.max(180, finite(timing.blurIntervalMs, 48) * Math.max(1, finite(timing.blurTicks, 6))),
   };
@@ -560,6 +560,19 @@ function hasRevealAnticipation(value) {
   // would incorrectly hold the final reel on every ordinary spin.
   if (Array.isArray(value)) return value.some(Boolean);
   return value === true || (Number.isFinite(Number(value)) && Number(value) > 0);
+}
+
+function waitingReelsFromReveal(anticipation, reelCount) {
+  const reels = Math.max(0, Number(reelCount) || 0);
+  if (!reels) return [];
+  if (Array.isArray(anticipation) && anticipation.some((value) => value === true || Number(value) > 0)) {
+    return Array.from({ length: reels }, (_, reel) => {
+      const value = anticipation[reel];
+      return value === true || Number(value) > 0;
+    });
+  }
+  const on = anticipation === true || (Number.isFinite(Number(anticipation)) && Number(anticipation) > 0);
+  return Array.from({ length: reels }, (_, reel) => on && reel === reels - 1);
 }
 
 function createReelSpinTrack(reelData, reelIndex) {
@@ -624,10 +637,15 @@ async function settleReelMotion(board, instant = false, anticipation = false) {
   const firstStopDelay = Math.max(0, timing.baseDurationMs * motionScale - elapsedMs);
   const stopGap = Math.max(34, timing.stopGapMs * motionScale);
   const stopDuration = turbo ? 82 : Math.max(120, Math.min(220, timing.impactMs * .58));
+  const waiting = waitingReelsFromReveal(anticipation, tracks.length);
+  const holds = [];
+  let accrued = 0;
+  for (let reelIndex = 0; reelIndex < tracks.length; reelIndex++) {
+    if (waiting[reelIndex]) accrued += timing.anticipationHoldMs * motionScale;
+    holds[reelIndex] = accrued;
+  }
   await Promise.all(tracks.map(async (track, reelIndex) => {
-    const anticipationHold = anticipation && reelIndex === tracks.length - 1
-      ? timing.anticipationHoldMs * motionScale
-      : 0;
+    const anticipationHold = holds[reelIndex];
     const landingAt = firstStopDelay + reelIndex * stopGap + anticipationHold;
     await wait(Math.max(0, landingAt - stopDuration));
     const reel = track.parentElement;
@@ -1175,7 +1193,7 @@ async function applyEvent(event, { instant = false } = {}) {
         syncFeatureProgress();
       }
       const anticipated = hasRevealAnticipation(event.anticipation);
-      await settleReelMotion(event.board, instant, anticipated);
+      await settleReelMotion(event.board, instant, event.anticipation);
       if (directorAfterReelsSettle) directorMotion = playPresentationEvent(event, instant);
       showStatus(anticipated ? 'Anticipation' : 'Revealed');
       break;
@@ -1354,7 +1372,7 @@ async function applyEvent(event, { instant = false } = {}) {
           renderBoard(currentBoard);
         }
         if (event.morpheusAuthoritative && event.board) {
-          await settleReelMotion(event.board, instant, hasRevealAnticipation(event.anticipation));
+          await settleReelMotion(event.board, instant, event.anticipation);
         }
         featureState.reelRows = currentBoard.map(reel => Math.max(4, Number(reel?.length) || 4));
         featureState.lastExpandedReel = Number(event.reel);

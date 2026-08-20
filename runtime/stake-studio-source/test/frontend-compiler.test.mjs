@@ -474,7 +474,7 @@ test('compiled shell contains CSP, every jurisdiction flag, and desktop/mobile/m
   assert.match(appSource, /function renderBoard\(board\)[\s\S]*?clearWinHighlights\(\);[\s\S]*?ui\.board\.replaceChildren\(\)/);
   assert.match(appSource, /async function preloadBoardAssets\(board\)/);
   assert.match(appSource, /function hasRevealAnticipation\(value\)[\s\S]{0,350}value\.some\(Boolean\)/);
-  assert.match(appSource, /case 'reveal':[\s\S]{0,1600}const anticipated = hasRevealAnticipation\(event\.anticipation\);[\s\S]{0,160}await settleReelMotion\(event\.board, instant, anticipated\)/);
+  assert.match(appSource, /case 'reveal':[\s\S]{0,1600}const anticipated = hasRevealAnticipation\(event\.anticipation\);[\s\S]{0,220}await settleReelMotion\(event\.board, instant, event\.anticipation\)/);
   assert.doesNotMatch(appSource, /Boolean\(event\.anticipation\)/);
   assert.match(appSource, /ui\.featureProgress = node\('section', 'feature-progress'\)/);
   assert.match(appSource, /ui\.featureFinale = node\('section', 'feature-finale'\)/);

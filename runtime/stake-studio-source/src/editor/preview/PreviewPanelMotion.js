@@ -19,6 +19,10 @@ import {
   seedMatchingCluster,
   seedStickyWilds,
 } from '../../engines/presentation/cueSheetToTumbleEvents.js';
+import {
+  buildLiveBoardArtBrief,
+  slimBoardArtBrief,
+} from '../../engines/assets/BoardArtBrief.js';
 
 const PHASE_LABELS = {
   'symbol.dropIn': 'Board fills',
@@ -133,7 +137,8 @@ export class PreviewPanel extends BasePreviewPanel {
     copyArt.className = 'tool-btn';
     copyArt.id = 'previewMotionArtCopyToolbar';
     copyArt.type = 'button';
-    copyArt.textContent = 'Copy art brief';
+    copyArt.textContent = 'Copy board brief';
+    copyArt.title = 'Copy the loaded board art brief. Ways games: do not commission cluster-hex gems.';
 
     trigger.insertAdjacentElement('afterend', label);
     label.insertAdjacentElement('afterend', button);
@@ -171,20 +176,9 @@ export class PreviewPanel extends BasePreviewPanel {
   }
 
   copyLiveArtBrief() {
-    const brief = this.liveProjectArtBrief();
-    const slim = {
-      ...brief,
-      slots: (brief.slots || []).map((slot) => ({
-        symbolId: slot.symbolId,
-        label: slot.label,
-        role: slot.role,
-        status: slot.status,
-        guidance: slot.guidance,
-        hasArt: Boolean(slot.artKey),
-      })),
-    };
+    const slim = slimBoardArtBrief(this.liveProjectArtBrief());
     void navigator.clipboard?.writeText(JSON.stringify(slim, null, 2));
-    this.setMotionStatus(`Art brief copied · ${slim.slots.length} symbols`);
+    this.setMotionStatus(`Board brief copied · ${slim.slots.length} symbols`);
   }
 
   async populateMotionTemplates() {
@@ -288,52 +282,11 @@ export class PreviewPanel extends BasePreviewPanel {
     return { width, height };
   }
 
-  liveSlotGuidance(role, winType) {
-    if (role === 'wild') return 'Wild badge must read under tumble and sticky morph.';
-    if (role === 'scatter') return 'Scatter must read at a glance for 3/4/5/6-tier entry.';
-    if (role === 'special') return 'Feature/collect — distinct from pays; keep silhouette clear in tumble.';
-    if (role === 'high') return 'Hero symbol; strongest silhouette on the 6×4 ways board.';
-    if (winType === 'cluster') return 'Readable cluster gem; clear at 5-connected pays.';
-    return 'Readable at symbol size; pays as adjacent-ways 3-kind, not a cluster blob.';
-  }
-
   liveProjectArtBrief() {
-    const gaps = new Set(this.liveProjectArtGaps().map((gap) => gap.name));
-    const winType = this.motionWinType();
-    const size = this.liveSymbolSize();
-    let regular = 0;
-    const slots = (this.project?.theme?.symbols || [])
-      .filter((symbol) => symbol && !symbol.special?.includes?.('empty'))
-      .map((symbol) => {
-        const name = symbol.name || symbol.id || 'symbol';
-        const special = symbol.special || [];
-        let role = 'low';
-        if (special.includes('wild') || /wild/i.test(name)) role = 'wild';
-        else if (special.includes('scatter') || /scatter|gate/i.test(name)) role = 'scatter';
-        else if (special.includes('bonus') || /rift|star|mystery|purge|split/i.test(name)) role = 'special';
-        else if (regular++ === 0) role = 'high';
-        return {
-          symbolId: symbol.id || name,
-          label: name,
-          role,
-          artKey: symbol.src || null,
-          status: gaps.has(name) ? 'missing' : 'assigned',
-          guidance: this.liveSlotGuidance(role, winType),
-        };
-      });
-    return {
-      gameId: this.project?.id || 'preview',
-      title: this.project?.name || this.project?.id || 'Loaded project',
-      grid: this.motionGridLabel(),
-      winType,
-      motion: winType === 'cluster'
-        ? 'Cluster tumble. Min 5 to pay; rehearsal pops 3+ 4-connected.'
-        : 'Adjacent-ways 6×4 like Waylanders Forge. Min 3-kind left-to-right, then tumble. Swap art; keep motion.',
-      symbolSize: size,
-      slots,
-      missingCount: slots.filter((slot) => slot.status === 'missing').length,
-      readyToCommission: slots.length > 0,
-    };
+    return buildLiveBoardArtBrief(this.project, {
+      symbolSize: this.liveSymbolSize(),
+      missingNames: new Set(this.liveProjectArtGaps().map((gap) => gap.name)),
+    });
   }
 
   syncMotionArtStatus() {

@@ -145,6 +145,8 @@ await page.screenshot({ path: `${OUT}/preview-loaded.png` });
 
 const three = await playMotion(page, 'scatter-tease-3', 'play-3-scatter');
 await waitIdle(page);
+const four = await playMotion(page, 'scatter-tease-4', 'play-4-scatter');
+await waitIdle(page);
 const five = await playMotion(page, 'scatter-tease-5', 'play-5-scatter');
 await waitIdle(page);
 const live = await playLiveTwo(page);
@@ -154,6 +156,7 @@ const report = {
   url: BASE,
   project: await page.locator('#projectName').innerText().catch(() => ''),
   three,
+  four,
   five,
   live: {
     firstSeen: live.firstSeen,
@@ -162,10 +165,12 @@ const report = {
     board: live.board,
   },
   threeWaitingGaps: waitingGaps(three),
+  fourWaitingGaps: waitingGaps(four),
   fiveWaitingGaps: waitingGaps(five),
   liveWaitingGaps: waitingGaps(live),
   sequentialHold: {
     three: waitingGaps(three).every((ms) => gapOk(ms)),
+    four: waitingGaps(four).every((ms) => gapOk(ms)),
     five: waitingGaps(five).every((ms) => gapOk(ms)),
     live: waitingGaps(live).every((ms) => gapOk(ms)),
   },
@@ -176,9 +181,11 @@ console.log(JSON.stringify(report, null, 2));
 
 const failed = [];
 if (!report.sequentialHold.three) failed.push('3-scatter waiting gaps not ~1200ms');
+if (!report.sequentialHold.four) failed.push('4-scatter waiting gaps not ~1200ms');
 if (!report.sequentialHold.five) failed.push('5-scatter waiting gaps not ~1200ms');
 if (!report.sequentialHold.live) failed.push('live 2-scatter waiting gaps not ~1200ms');
 if (three.firstSeen.filter(Number.isFinite).length < 6) failed.push('3-scatter did not land all reels');
+if (four.firstSeen.filter(Number.isFinite).length < 6) failed.push('4-scatter did not land all reels');
 if (five.firstSeen.filter(Number.isFinite).length < 6) failed.push('5-scatter did not land all reels');
 if (live.firstSeen.filter(Number.isFinite).length < 6) failed.push('live 2-scatter did not land all reels');
 if (failed.length) {

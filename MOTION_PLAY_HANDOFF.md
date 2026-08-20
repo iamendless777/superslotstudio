@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-20  
 **Branch:** `integrate/studio-motion`  
-**HEAD:** see latest commit on this branch — *3/5-scatter Play Motion + live 2-scatter.*  
+**HEAD:** see latest commit on this branch — *board art brief + portable waiting-reel + 4-scatter.*  
 **Repo:** https://github.com/iamendless777/superslotstudio  
 **Local path:** `~/Developer/superslotstudio`  
 **Goal:** Ship many Stake.com games quickly (target ~2 days each). Motion + templates stay reliable so the bottleneck is **art**, not fighting the studio.
@@ -46,7 +46,7 @@ git pull origin integrate/studio-motion
 
 Work is **live-play pixels** on Morpheus (Waylanders Forge clone, new art). Play Motion is the rehearsal harness. Live SPIN is the product.
 
-**2-scatter, 3-scatter, and 5-scatter teasers are video-confirmed.** Waiting-reel gaps ~**1390ms**. Live SPIN with two early scatters uses the same schedule. Do not reopen that mechanic unless pixels regress.
+**2-scatter, 3-scatter, 4-scatter, and 5-scatter teasers are video-confirmed.** Waiting-reel gaps ~**1390ms**. Live SPIN with two early scatters uses the same schedule. Portable `game-app.js` now accrues the same waiting-reel hold (not last-reel-only). Do not reopen that mechanic unless pixels regress.
 
 ### What a spin looks like now
 
@@ -92,7 +92,7 @@ Live Preview can plant two early scatters with **Live 2-scatter** (`MathEngine.a
 | anticipation-five | older last-reel-hold fixture (planner template) | not the product tease |
 | **2-scatter tease** | seed 2 doors on reels 1–2; reels 3–6 each hold the same beat | **video-confirmed 2026-08-20** |
 | **3-scatter tease** | seed 3; reel 3 holds then lands the third door; leftover wait for 4+ | **video-confirmed 2026-08-20** |
-| **4-scatter tease** | seed 4 | optional |
+| **4-scatter tease** | seed 4; leftover wait for 5+ | **video-confirmed 2026-08-20** |
 | **5-scatter tease** | seed 5; last reel waits for 6 | **video-confirmed 2026-08-20** |
 | **Live 2-scatter** | paid SPIN; `forceScatterCount: 2` through `resolveRound` | **same schedule confirmed 2026-08-20** |
 
@@ -220,8 +220,7 @@ Unit tests:
 
 ### Still watch
 
-- **4-scatter tease** not specifically video-confirmed (same rule; optional).
-- Portable `game-app.js` still last-reel-only when `hasRevealAnticipation` is true — do not “fix” portable by inventing a second animator; match studio schedule if you touch it.
+- **Portable `game-app.js`** uses `waitingReelsFromReveal` + accrued holds (same rule as Preview). Boolean `true` still last-reel-only for old books. Do not invent a second animator.
 - Incoming rehearsal symbols are still filled from surviving board art (not a certified math book). Occupancy is real; the round is not certified.
 - `anticipation-five` planner fixture is the old last-reel demo. Product tease is scatter-tease 2/3/4/5.
 - Ways games seed a L→R **3-of-a-kind**. Cluster templates still seed a 2×2.
@@ -283,8 +282,11 @@ Studio Preview remains **pixel** authority — one tumble, one spin-track.
 - [x] Keep scatter-tease 2/3/4/5 in Play Motion after planner `index.json` rebuilds (`mergeMotionTemplateIndex`).
 - [x] Video-confirm **3-scatter** and **5-scatter** teasers (3 continues waiting for 4; 5 holds last reel for 6). Gaps ~1390ms.
 - [x] Live SPIN 2-scatter uses the same schedule (`forceScatterCount: 2` through `resolveRound` / Live 2-scatter). Unforced books share `reveal.anticipation`.
+- [x] Video-confirm **4-scatter** tease (same sequential hold; leftover waits for 5+).
+- [x] Atlas + Preview copy the **board** art brief (not cluster-hex Ruby/Sapphire). Ways games commission those slots.
+- [x] Portable `game-app.js` waiting-reel schedule matches Preview (`waitingReelsFromReveal`, accrued `anticipationHoldMs`).
 - [ ] If 1.2s/waiting-reel feels short or long, change **one** number: `anticipationHoldMs`. Do not special-case the last reel.
-- [ ] Art loop: Art panel → copy **board** brief. Do not commission cluster-hex as the ways art recipe.
+- [ ] Commission Morpheus **board** art from Atlas → Copy board brief. Swap tiles; keep motion.
 
 ### P3 — Cleanup
 
@@ -315,6 +317,10 @@ runtime/stake-studio-source/public/motion-fixtures/scatter-tease-3.json
 runtime/stake-studio-source/public/motion-fixtures/scatter-tease-4.json
 runtime/stake-studio-source/public/motion-fixtures/scatter-tease-5.json
 
+# Art
+runtime/stake-studio-source/src/engines/assets/BoardArtBrief.js
+runtime/stake-studio-source/src/editor/atlas/AtlasPanel.js
+
 # CSS contract
 runtime/stake-studio-source/src/styles.css          ← .preview-reel-spin-track
 
@@ -322,6 +328,7 @@ runtime/stake-studio-source/src/styles.css          ← .preview-reel-spin-track
 runtime/stake-studio-source/test/presentation-director.test.mjs
 runtime/stake-studio-source/test/stake-round-book.test.mjs
 runtime/stake-studio-source/test/forced-scatter-tease.test.mjs
+runtime/stake-studio-source/test/board-art-brief.test.mjs
 runtime/stake-studio-source/test/preview-motion-polish.test.mjs
 runtime/stake-studio-source/src/engines/presentation/cueSheetToTumbleEvents.test.js
 
@@ -342,6 +349,7 @@ npm run dev:agent          # build + fixtures + http://127.0.0.1:3001/
 ```bash
 node --test runtime/stake-studio-source/src/engines/presentation/cueSheetToTumbleEvents.test.js
 node --test runtime/stake-studio-source/test/presentation-director.test.mjs
+node --test runtime/stake-studio-source/test/board-art-brief.test.mjs
 node --test runtime/stake-studio-source/test/forced-scatter-tease.test.mjs
 node --test runtime/stake-studio-source/test/stake-round-book.test.mjs
 npm test
@@ -369,6 +377,10 @@ npm run studio -- art-brief cluster-hex
 ### 3-scatter tease (confirmed)
 
 Same hold. Reels 1–2 land two doors quickly. Reel 3 holds, then lands the third door. Reels 4–6 keep the same beat, waiting for 4+.
+
+### 4-scatter tease (confirmed)
+
+Same hold. Reels 1–4 land doors. Reels 5–6 keep the beat, waiting for 5+.
 
 ### 5-scatter tease (confirmed)
 
@@ -398,11 +410,11 @@ Do not mix 3000 and 3001. Do not commit 50MB art in a motion PR.
 Continue Stake Studio from `integrate/studio-motion` (pull first). Read `MOTION_PLAY_HANDOFF.md`. GitHub is source of truth — pull, commit, push. Do not ask for patch files.
 
 1. `git pull origin integrate/studio-motion`. Hard-refresh 3001.
-2. **2/3/5-scatter Play Motion and live 2-scatter are video-confirmed.** Same ~1390ms sequential hold. Do not reopen unless pixels regress.
+2. **2/3/4/5-scatter Play Motion and live 2-scatter are video-confirmed.** Portable frontend uses the same waiting-reel hold. Do not reopen unless pixels regress.
 3. If hold length is wrong, change `anticipationHoldMs` only.
 4. Do not revive GSAP travel, fake scatters, last-reel-only, or an HTML overlay grid.
-5. Art loop can run in parallel: Art panel → copy **board** brief (not cluster-hex as the ways recipe).
-6. Optional: 4-scatter Play Motion, portable `game-app.js` schedule parity, merge to `main`.
+5. Art: Atlas → **Copy board brief**. Commission those slots. Do not use cluster-hex gems for a ways board.
+6. Optional: merge `integrate/studio-motion` → `main`.
 
 ---
 
@@ -417,7 +429,8 @@ Continue Stake Studio from `integrate/studio-motion` (pull first). Read `MOTION_
 Recent commits (newest first):
 
 ```
-this commit  Confirm 3/5-scatter Play Motion and live 2-scatter.
+this commit  Copy board art brief; portable waiting-reel; confirm 4-scatter.
+d7bb42b Confirm 3/5-scatter Play Motion and live 2-scatter.
 bd89fab Update motion handoff after confirmed 2-scatter tease.
 a1ee81c Fill reveal.anticipation from waiting-reel schedule.
 4d8f8b1 Update motion handoff to waiting-reel tease (8ce256b).
@@ -442,4 +455,4 @@ b47d871 Hold leftover reels after two scatters, last reel longest.   ← superse
 
 ## 13. One-line summary for the next agent
 
-**3/5-scatter Play Motion and live 2-scatter confirmed: waiting reels share the same ~1390ms sequential hold. Next: hold-length feel (`anticipationHoldMs`) and art. Same Stake CSS tracks + playStakeTumble. Do not invent a second animator.**
+**4-scatter confirmed. Atlas copies the board art brief (not cluster-hex). Portable frontend now accrues the same waiting-reel hold. Next: hold-length feel (`anticipationHoldMs`) and commission Morpheus board art. Same Stake CSS tracks + playStakeTumble. Do not invent a second animator.**

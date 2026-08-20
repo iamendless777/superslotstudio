@@ -159,6 +159,6 @@ test('portable template has an explicit presentation branch for every authoritat
   assert.match(source, /case 'stackedReels':[\s\S]{0,600}currentBoard/);
   assert.match(source, /case 'guaranteedScatters':[\s\S]{0,420}event\.positions/);
   const expansionBranch = source.match(/case 'expandReelHeight':[\s\S]*?case 'tumbleChainProgress':/)?.[0] || '';
-  assert.equal((expansionBranch.match(/settleReelMotion\(event\.board, instant, hasRevealAnticipation\(event\.anticipation\)\)/g) || []).length, 1,
+  assert.equal((expansionBranch.match(/settleReelMotion\(event\.board, instant, event\.anticipation\)/g) || []).length, 1,
     'authoritative reel growth must settle the board once');
 });
