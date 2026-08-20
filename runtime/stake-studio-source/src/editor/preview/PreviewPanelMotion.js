@@ -590,7 +590,7 @@ export class PreviewPanel extends BasePreviewPanel {
 
     const rows = this.project?.math?.grid?.rows || [this.board[0]?.length || 3];
     const allSymNames = (this.project?.theme?.symbols || [])
-      .filter((symbol) => !symbol.special?.length)
+      .filter((symbol) => symbol?.src && !symbol.special?.includes?.('empty'))
       .map((symbol) => symbol.name)
       .filter(Boolean);
     const hasAnticipation = (sheet.cues || []).some((cue) => cue.cue === 'reel.anticipation');

@@ -2228,8 +2228,9 @@ export class PreviewPanel {
     const buffer = this.reelGeometry.buffer;
     const strips = this.container.querySelectorAll('.reel-strip');
     const allSymNames = this.project.theme.symbols
-      .filter(s => !s.special?.length)
-      .map(s => s.name);
+      .filter(s => s?.src && !s.special?.includes('empty'))
+      .map(s => s.name)
+      .filter(Boolean);
 
     strips.forEach(strip => {
       const r = parseInt(strip.dataset.reel);
@@ -3351,9 +3352,14 @@ export class PreviewPanel {
 
   previewReelSpinSequence(reelIndex, visibleRows, symbolNames) {
     if (!symbolNames.length) return [];
+    const scatter = symbolNames.find(name => this.isScatterSymbol(name));
     const sequence = [];
     const stride = reelIndex % 2 === 0 ? 3 : 7;
     for (let index = 0; index < visibleRows * 3; index++) {
+      if (scatter && (index + reelIndex * 2) % 5 === 0) {
+        sequence.push(scatter);
+        continue;
+      }
       const cycle = Math.floor(index / visibleRows);
       const poolIndex = (reelIndex * 2 + cycle * (reelIndex + 3) + index * stride) % symbolNames.length;
       sequence.push(symbolNames[poolIndex]);
@@ -3364,32 +3370,26 @@ export class PreviewPanel {
   createPreviewReelSpinTrack(mask, reelIndex, visibleRows, symbolNames) {
     const sequence = this.previewReelSpinSequence(reelIndex, visibleRows, symbolNames);
     if (!mask || sequence.length === 0) return null;
+    const cellH = Number(this.reelGeometry?.cellH) || (mask.clientHeight / Math.max(1, visibleRows));
     const track = document.createElement('div');
     track.className = 'preview-reel-spin-track';
     track.dataset.reel = String(reelIndex);
     track.style.setProperty('--spin-rows', String(sequence.length));
+    track.style.top = `${-visibleRows * cellH}px`;
+    track.style.height = `${sequence.length * cellH}px`;
     const timing = normalizeReelChoreography(this.project.presentationDirector?.reelChoreography);
     const cycleMs = Math.max(180, timing.blurIntervalMs * timing.blurTicks);
     track.style.setProperty('--spin-duration', `${(this.turboMode ? Math.max(140, cycleMs * .52) : cycleMs) / 1000}s`);
     track.style.setProperty('--spin-phase', `${-reelIndex * (this.turboMode ? 0.019 : 0.037)}s`);
-    for (const symbolName of sequence) {
-      const symbol = this.project.theme.symbols.find(item => item.name === symbolName || item.id === symbolName);
-      if (!symbol?.src) continue;
+    sequence.forEach((symbolName, index) => {
       const cell = document.createElement('div');
-      cell.className = 'preview-reel-spin-symbol';
-      cell.dataset.symbol = symbolName;
-      const image = document.createElement('img');
-      image.src = symbol.src;
-      image.alt = '';
-      image.draggable = false;
-      image.decoding = 'async';
-      const safeRect = this.morpheusSymbolContentSafeRect(symbol);
-      image.style.width = safeRect ? `${safeRect.width}px` : '100%';
-      image.style.height = safeRect ? `${safeRect.height}px` : '100%';
-      image.style.objectFit = 'contain';
-      cell.appendChild(image);
+      cell.className = 'reel-sym preview-reel-spin-symbol';
+      cell.style.top = `${index * cellH}px`;
+      cell.style.height = `${cellH}px`;
+      cell.style.width = '100%';
+      this.setSymbolCell(cell, symbolName);
       track.appendChild(cell);
-    }
+    });
     if (!track.childElementCount) return null;
     mask.classList.add('is-spinning');
     mask.appendChild(track);
@@ -3470,8 +3470,9 @@ export class PreviewPanel {
     const strips = this.container.querySelectorAll('.reel-strip');
     const masks = this.container.querySelectorAll('.reel-mask');
     const allSymNames = this.project.theme.symbols
-      .filter(s => !s.special?.length)
-      .map(s => s.name);
+      .filter(s => s?.src && !s.special?.includes('empty'))
+      .map(s => s.name)
+      .filter(Boolean);
 
     const hasAnticipation = this.hasScatterAnticipation(newBoard);
     const reelSchedule = getReelStopSchedule(this.project, false);
@@ -3608,7 +3609,7 @@ export class PreviewPanel {
     remaining.forEach((mask, index) => {
       mask.classList.add('is-anticipation', 'is-spinning');
       const last = index === remaining.length - 1;
-      const seconds = this.turboMode ? (last ? 1.8 : 1.25) : (last ? 3.2 : 2.2);
+      const seconds = this.turboMode ? (last ? 2.2 : 1.5) : (last ? 4.4 : 2.8);
       const track = mask.querySelector('.preview-reel-spin-track');
       if (!track) return;
       track.style.visibility = 'visible';
@@ -3617,8 +3618,8 @@ export class PreviewPanel {
     });
     if (this.spinTimeline.timeScale() > 1) return;
     const slow = this.turboMode
-      ? (remaining.length <= 1 ? 0.38 : 0.5)
-      : (remaining.length <= 1 ? 0.16 : 0.28);
+      ? (remaining.length <= 1 ? 0.32 : 0.42)
+      : (remaining.length <= 1 ? 0.12 : 0.2);
     this.spinTimeline.timeScale(slow);
   }
 
