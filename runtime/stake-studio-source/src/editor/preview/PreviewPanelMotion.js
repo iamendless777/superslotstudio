@@ -601,7 +601,6 @@ export class PreviewPanel extends BasePreviewPanel {
       const seeded = this.seedTwoScatterTease(board);
       board = seeded.board;
       this.board = board;
-      this.paintBoard?.(board);
       this.setMotionStatus(seeded.scatter ? 'Seed 2 scatters' : 'No scatter in theme');
       this.setMotionDebug({
         path: 'reel',
@@ -615,7 +614,6 @@ export class PreviewPanel extends BasePreviewPanel {
         this.restoreMotionBoard();
         return false;
       }
-      await this.waitMs(280);
     }
 
     this.landedReels?.clear?.();
@@ -687,17 +685,12 @@ export class PreviewPanel extends BasePreviewPanel {
           }
         };
         if (track) {
-          tl.to(track, {
-            opacity: 1,
-            duration: landingLead,
-            ease: 'power2.out',
-            onStart: prepare,
-            onComplete: () => {
-              settle();
-              track.remove();
-              mask.classList.remove('is-spinning', 'is-stopping');
-            },
-          }, Math.max(0, stopAt - landingLead));
+          tl.call(prepare, [], Math.max(0, stopAt - landingLead));
+          tl.call(() => {
+            settle();
+            track.remove();
+            mask.classList.remove('is-spinning', 'is-stopping');
+          }, [], stopAt);
         } else {
           tl.call(() => {
             prepare();
@@ -711,6 +704,7 @@ export class PreviewPanel extends BasePreviewPanel {
     this.motionReelTimeline = null;
     this.spinTimeline = null;
     this.reelAnticipationActive = false;
+    this.container?.querySelector('#previewStage')?.classList.remove('is-reel-tease');
     this.clearPreviewReelSpinTracks?.();
     this.paintBoard?.(board);
     this.setAnimationState?.('idle');

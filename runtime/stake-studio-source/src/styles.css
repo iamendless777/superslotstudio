@@ -1652,8 +1652,19 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .preview-stage:is([data-animation-state="spinning"], [data-animation-state="anticipation"]) .reel-mask {
   background: linear-gradient(180deg, rgba(77,205,225,.035), rgba(5,10,21,.15) 42%, rgba(77,205,225,.025));
 }
+.reel-mask.is-spinning > .reel-strip .reel-sym,
+.reel-mask.is-spinning > .reel-strip .reel-sym img {
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+.preview-stage:is([data-animation-state="spinning"], [data-animation-state="anticipation"], .is-reel-tease) .reel-mask.is-spinning .preview-reel-spin-track {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+.preview-stage.is-reel-tease .reel-mask.has-stopped .reel-sym:not(.is-scatter) { filter: brightness(.8) saturate(.86); }
+.preview-stage.is-reel-tease .reel-mask.has-stopped .reel-sym.is-scatter { z-index: 12; filter: brightness(1.18) saturate(1.1); }
 .preview-stage:is([data-animation-state="spinning"], [data-animation-state="anticipation"]) .reel-mask.is-anticipation:not(.has-stopped) .preview-reel-spin-track {
-  filter: blur(.55px) saturate(.9) brightness(.9);
+  filter: blur(.7px) saturate(.9) brightness(.9);
 }
 .preview-stage:is([data-animation-state="spinning"], [data-animation-state="anticipation"]) .reel-mask:not(.has-stopped):has(.preview-reel-spin-track) > .reel-strip .reel-sym img { visibility: hidden; opacity: 0 !important; }
 .preview-reel-spin-track {

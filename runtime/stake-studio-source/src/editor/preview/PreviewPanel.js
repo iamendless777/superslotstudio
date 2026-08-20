@@ -3419,6 +3419,7 @@ export class PreviewPanel {
     this.reelsSlammed = false;
     this.reelAnticipationActive = false;
     this.reelAnticipationCued = false;
+    this.container.querySelector('#previewStage')?.classList.remove('is-reel-tease');
     this.visualEffectRuntime?.cancel?.();
     this.visualEffectRuntime?.cancelEnergyTaps?.();
     this.visualEffectRuntime?.disablePresentationEnergy?.();
@@ -3503,6 +3504,7 @@ export class PreviewPanel {
           if (this.activeSpinToken !== spinToken) return;
           this.recordPlaybackEvent('reelsSettled', { mode: this.selectedMode });
           this.directorRuntime?.cancel('reels-settled');
+          this.container.querySelector('#previewStage')?.classList.remove('is-reel-tease');
           this.setAnimationState('spinStop');
           this.updateHUD();
           this.scheduleSymbolMotionSync({ authoritativeLanded: true });
@@ -3571,10 +3573,10 @@ export class PreviewPanel {
       };
       if (track) {
         tl.to(track, {
-          opacity: 1,
           filter: 'blur(.2px) saturate(.96) brightness(.94)',
           duration: landingLead,
           ease: 'power2.out',
+          immediateRender: false,
           onStart: prepareReelStop,
           onComplete: () => {
             settleReel();
@@ -3597,24 +3599,26 @@ export class PreviewPanel {
       .filter(mask => !mask.classList.contains('has-stopped'));
     if (remaining.length === 0) return;
     this.reelAnticipationActive = true;
-    this.setAnimationState('anticipation');
+    const stage = this.container.querySelector('#previewStage');
+    stage?.classList.add('is-reel-tease');
     if (!this.reelAnticipationCued) {
       this.reelAnticipationCued = true;
-      void this.dispatchPresentation('anticipation', {
-        board: this.spinResult?.board || this.board,
-        mode: this.selectedMode,
-      });
+      this.audioEngine?.playStinger?.('anticipation');
     }
     remaining.forEach((mask, index) => {
-      mask.classList.add('is-anticipation');
+      mask.classList.add('is-anticipation', 'is-spinning');
       const last = index === remaining.length - 1;
-      const seconds = this.turboMode ? (last ? 1.45 : 1.05) : (last ? 2.7 : 1.75);
-      mask.querySelector('.preview-reel-spin-track')?.style.setProperty('--spin-duration', `${seconds}s`);
+      const seconds = this.turboMode ? (last ? 1.8 : 1.25) : (last ? 3.2 : 2.2);
+      const track = mask.querySelector('.preview-reel-spin-track');
+      if (!track) return;
+      track.style.visibility = 'visible';
+      track.style.opacity = '1';
+      track.style.setProperty('--spin-duration', `${seconds}s`);
     });
     if (this.spinTimeline.timeScale() > 1) return;
     const slow = this.turboMode
-      ? (remaining.length <= 1 ? 0.42 : 0.56)
-      : (remaining.length <= 1 ? 0.18 : 0.3);
+      ? (remaining.length <= 1 ? 0.38 : 0.5)
+      : (remaining.length <= 1 ? 0.16 : 0.28);
     this.spinTimeline.timeScale(slow);
   }
 
