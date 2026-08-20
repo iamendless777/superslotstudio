@@ -410,7 +410,6 @@ export class PreviewPanel extends BasePreviewPanel {
 
   seedTwoScatterTease(board) {
     const scatter = this.motionScatterSymbol();
-    const filler = this.motionFillerSymbol();
     const next = cloneBoard(board);
     const cells = [];
     if (!scatter || !next.length) return { board: next, cells, scatter };
@@ -419,11 +418,6 @@ export class PreviewPanel extends BasePreviewPanel {
       const row = Math.min(1, next[reel].length - 1);
       next[reel][row] = scatter;
       cells.push([reel, row]);
-    }
-    for (let reel = 2; reel < next.length; reel++) {
-      next[reel] = (next[reel] || []).map((symbol) => (
-        this.isScatterSymbol?.(symbol?.name || symbol) ? filler : symbol
-      ));
     }
     return { board: next, cells, scatter };
   }

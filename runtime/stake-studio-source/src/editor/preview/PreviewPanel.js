@@ -3352,14 +3352,9 @@ export class PreviewPanel {
 
   previewReelSpinSequence(reelIndex, visibleRows, symbolNames) {
     if (!symbolNames.length) return [];
-    const scatter = symbolNames.find(name => this.isScatterSymbol(name));
     const sequence = [];
     const stride = reelIndex % 2 === 0 ? 3 : 7;
     for (let index = 0; index < visibleRows * 3; index++) {
-      if (scatter && (index + reelIndex * 2) % 5 === 0) {
-        sequence.push(scatter);
-        continue;
-      }
       const cycle = Math.floor(index / visibleRows);
       const poolIndex = (reelIndex * 2 + cycle * (reelIndex + 3) + index * stride) % symbolNames.length;
       sequence.push(symbolNames[poolIndex]);
