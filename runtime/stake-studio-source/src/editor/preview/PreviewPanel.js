@@ -17,7 +17,7 @@ import {
   PresentationDirectorRuntime,
   createProfessionalPresentationDirector,
   ensurePresentationDirector,
-  getReelStopSchedule,
+  getScatterTeaseSchedule,
   getPresentationCoverage,
   normalizeReelChoreography,
   normalizeWinEscalation,
@@ -3471,7 +3471,10 @@ export class PreviewPanel {
       .filter(Boolean);
 
     const hasAnticipation = this.hasScatterAnticipation(newBoard);
-    const reelSchedule = getReelStopSchedule(this.project, hasAnticipation);
+    const reelSchedule = getScatterTeaseSchedule(this.project, {
+      reelCount: masks.length,
+      triggerReel: this.scatterTeaseTriggerReel(newBoard),
+    });
     const motionScale = this.turboMode ? 0.42 : 1;
 
     const spinToken = Symbol('preview-spin');
@@ -4845,10 +4848,18 @@ export class PreviewPanel {
     return String(name || '').toLowerCase().includes('scatter') || symbol?.special?.includes('scatter');
   }
 
+  scatterTeaseTriggerReel(board) {
+    if (!Array.isArray(board) || board.length < 2) return -1;
+    let count = 0;
+    for (let reel = 0; reel < board.length - 1; reel++) {
+      count += (board[reel] || []).filter(symbol => this.isScatterSymbol(symbol?.name || symbol)).length;
+      if (count >= 2) return reel;
+    }
+    return -1;
+  }
+
   hasScatterAnticipation(board) {
-    if (!Array.isArray(board) || board.length < 2) return false;
-    const beforeFinalReel = board.slice(0, -1).flat();
-    return beforeFinalReel.filter(symbol => this.isScatterSymbol(symbol)).length >= 2;
+    return this.scatterTeaseTriggerReel(board) >= 0;
   }
 
   /** Repaint the visible window from a board, leaving buffer cells alone. */

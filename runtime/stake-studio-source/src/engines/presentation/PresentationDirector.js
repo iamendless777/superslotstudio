@@ -58,6 +58,35 @@ export function getReelStopSchedule(project, anticipation = false) {
   };
 }
 
+export function getScatterTeaseSchedule(project, {
+  reelCount,
+  triggerReel = -1,
+  holdMs,
+} = {}) {
+  const timing = normalizeReelChoreography(project?.presentationDirector?.reelChoreography);
+  const reels = Math.max(1, Number(reelCount) || Number(project?.math?.grid?.reels) || 5);
+  const last = reels - 1;
+  const hold = Math.max(0, Number(holdMs ?? timing.anticipationHoldMs) || 0);
+  const trigger = Number.isInteger(triggerReel) ? triggerReel : -1;
+  const teasing = hold > 0 && trigger >= 0 && trigger < last;
+  const stops = Array.from({ length: reels }, (_, reel) => {
+    const delayMs = reel * timing.perReelDelayMs;
+    const extra = teasing && reel > trigger
+      ? (reel === last ? hold : hold / 2)
+      : 0;
+    const durationMs = timing.baseDurationMs + reel * timing.perReelDurationMs + extra;
+    return { reel, delayMs, durationMs, stopAtMs: delayMs + durationMs };
+  });
+  const cueFrom = teasing ? stops[trigger] : stops[Math.max(0, last - 1)];
+  return {
+    timing,
+    stops,
+    totalMs: Math.max(...stops.map(stop => stop.stopAtMs)),
+    anticipationCueMs: teasing ? cueFrom.stopAtMs + timing.anticipationCueLagMs : null,
+    triggerReel: teasing ? trigger : -1,
+  };
+}
+
 export function createProfessionalWinEscalation() {
   return {
     thresholds: { winSmall: 0, winMedium: 10, winBig: 50, winMega: 100 },

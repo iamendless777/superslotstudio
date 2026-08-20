@@ -8,7 +8,7 @@
 import gsap from 'gsap';
 import { PreviewPanel as BasePreviewPanel } from './PreviewPanel.js?orchestration=20260815-40';
 import { playMotionTemplate, loadMotionFixture } from '../../engines/presentation/playMotionTemplate.js';
-import { getReelStopSchedule } from '../../engines/presentation/PresentationDirector.js';
+import { getScatterTeaseSchedule } from '../../engines/presentation/PresentationDirector.js';
 import {
   cloneBoard,
   cueSheetHasReel,
@@ -47,26 +47,15 @@ function artworkOf(el) {
   return el.querySelector?.('img') || el;
 }
 
-function rehearsalReelSchedule(project, hasAnticipation, reelCount) {
-  const base = getReelStopSchedule(project, hasAnticipation);
-  const timing = base.timing;
-  const holdMs = hasAnticipation ? Math.max(Number(timing.anticipationHoldMs) || 0, 2200) : 0;
-  const count = Math.max(1, reelCount);
-  const stops = Array.from({ length: count }, (_, reel) => {
-    const delayMs = reel * timing.perReelDelayMs;
-    const extra = hasAnticipation && reel === count - 1 ? holdMs : 0;
-    const durationMs = timing.baseDurationMs + reel * timing.perReelDurationMs + extra;
-    return { reel, delayMs, durationMs, stopAtMs: delayMs + durationMs };
+function rehearsalReelSchedule(project, hasAnticipation, reelCount, triggerReel = 1) {
+  const holdMs = hasAnticipation
+    ? Math.max(Number(getScatterTeaseSchedule(project, { reelCount }).timing.anticipationHoldMs) || 0, 2200)
+    : 0;
+  return getScatterTeaseSchedule(project, {
+    reelCount,
+    triggerReel: hasAnticipation ? triggerReel : -1,
+    holdMs,
   });
-  const penultimate = stops[Math.max(0, stops.length - 2)];
-  return {
-    timing,
-    stops,
-    totalMs: Math.max(...stops.map((stop) => stop.stopAtMs)),
-    anticipationCueMs: hasAnticipation
-      ? penultimate.stopAtMs + (timing.anticipationCueLagMs || 50)
-      : null,
-  };
 }
 
 export class PreviewPanel extends BasePreviewPanel {
@@ -668,7 +657,7 @@ export class PreviewPanel extends BasePreviewPanel {
           ), 0);
           if (hasAnticipation && scatterCount >= 2) {
             this.enterReelAnticipation?.();
-            this.setMotionStatus('Tease · last reel holds');
+            this.setMotionStatus('Tease · remaining reels hold');
             this.setMotionDebug({
               path: 'reel',
               grid: this.motionGridLabel(),
