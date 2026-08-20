@@ -6,7 +6,10 @@ import {
   createPresentationDirectorManifest,
   createProfessionalPresentationDirector,
   getPresentationCoverage,
+  getScatterTeaseSchedule,
+  scatterThresholds,
   validatePresentationDirector,
+  waitingReelsFromBoard,
 } from '../src/engines/presentation/PresentationDirector.js';
 
 function project() {
@@ -64,4 +67,30 @@ test('validation catches empty, late, and duplicate cues and export stays portab
   const manifest = createPresentationDirectorManifest(project());
   assert.equal(manifest.format, 'stake-studio-presentation-director-v1');
   assert.equal(manifest.recipes.some(recipe => recipe.event === 'wincap'), true);
+});
+
+test('waiting reels share one hold for every scatter threshold', () => {
+  const isScatter = (symbol) => symbol === 'S';
+  const pay = () => ['A', 'B', 'C', 'D'];
+  const board = (scatterReels) => Array.from({ length: 6 }, (_, reel) => {
+    const column = pay();
+    if (scatterReels.includes(reel)) column[1] = 'S';
+    return column;
+  });
+
+  assert.deepEqual(scatterThresholds({ math: { featureArchitecture: { tiers: { 3: {}, 4: {}, 5: {}, 6: {} } } } }), [3, 4, 5, 6]);
+  assert.deepEqual(waitingReelsFromBoard(board([0, 1]), { isScatter }), [false, false, true, true, true, true]);
+  assert.deepEqual(waitingReelsFromBoard(board([0, 1, 2]), { isScatter }), [false, false, true, true, true, true]);
+  assert.deepEqual(waitingReelsFromBoard(board([0, 1, 2, 3, 4]), { isScatter }), [false, false, true, true, true, true]);
+  assert.deepEqual(waitingReelsFromBoard(board([0]), { isScatter }), [false, false, false, false, false, false]);
+
+  const waiting = waitingReelsFromBoard(board([0, 1]), { isScatter });
+  const schedule = getScatterTeaseSchedule({
+    math: { grid: { reels: 6 } },
+    presentationDirector: { reelChoreography: { anticipationHoldMs: 1200 } },
+  }, { reelCount: 6, waiting, holdMs: 1200 });
+  const waitingStops = schedule.stops.filter((stop) => stop.waiting);
+  assert.equal(waitingStops.length, 4);
+  const gaps = waitingStops.slice(1).map((stop, index) => stop.stopAtMs - waitingStops[index].stopAtMs);
+  for (const gap of gaps) assert.ok(gap >= 1200 && gap <= 1600, `gap ${gap}`);
 });

@@ -18,6 +18,9 @@ import {
   createProfessionalPresentationDirector,
   ensurePresentationDirector,
   getScatterTeaseSchedule,
+  scatterThresholds,
+  waitingReelsFromAnticipation,
+  waitingReelsFromBoard,
   getPresentationCoverage,
   normalizeReelChoreography,
   normalizeWinEscalation,
@@ -3470,10 +3473,10 @@ export class PreviewPanel {
       .map(s => s.name)
       .filter(Boolean);
 
-    const hasAnticipation = this.hasScatterAnticipation(newBoard);
+    const waiting = this.resolveWaitingReels(newBoard, masks.length);
     const reelSchedule = getScatterTeaseSchedule(this.project, {
       reelCount: masks.length,
-      triggerReel: this.scatterTeaseTriggerReel(newBoard),
+      waiting,
     });
     const motionScale = this.turboMode ? 0.42 : 1;
 
@@ -3534,6 +3537,7 @@ export class PreviewPanel {
     });
     this.spinTimeline = tl;
     this.updateHUD();
+    if (reelSchedule.stops[0]?.waiting) this.enterReelAnticipation();
 
     strips.forEach((strip, r) => {
       const rRows = rows[r] || rows[0];
@@ -3563,10 +3567,7 @@ export class PreviewPanel {
         }
         this.pulseReelImpact(r);
         this.updateHUD();
-        const scatterCount = [...this.landedReels].reduce((count, reel) => (
-          count + (newBoard[reel] || []).filter(symbol => this.isScatterSymbol(symbol)).length
-        ), 0);
-        if (scatterCount >= 2) this.enterReelAnticipation();
+        if (reelSchedule.stops[r + 1]?.waiting) this.enterReelAnticipation();
         const impactMs = reelSchedule.timing.impactMs * (this.turboMode ? 0.5 : 1);
         const landedCellMs = this.turboMode ? 170 : 340;
         reelLandingBarriers[r] = this.wait(Math.max(impactMs, landedCellMs));
@@ -4844,22 +4845,27 @@ export class PreviewPanel {
   }
 
   isScatterSymbol(name) {
-    const symbol = this.project.theme.symbols?.find(item => item.name === name || item.id === name);
-    return String(name || '').toLowerCase().includes('scatter') || symbol?.special?.includes('scatter');
+    const raw = name?.name || name;
+    const symbol = this.project.theme.symbols?.find(item => item.name === raw || item.id === raw);
+    return String(raw || '').toLowerCase().includes('scatter') || symbol?.special?.includes('scatter');
+  }
+
+  resolveWaitingReels(board, reelCount = board?.length || 0) {
+    const reveal = (this.spinResult?.state || []).find((event) => event?.type === 'reveal');
+    const fromBook = waitingReelsFromAnticipation(reveal?.anticipation, reelCount);
+    if (fromBook) return fromBook;
+    return waitingReelsFromBoard(board, {
+      isScatter: (symbol) => this.isScatterSymbol(symbol),
+      thresholds: scatterThresholds(this.project),
+    });
   }
 
   scatterTeaseTriggerReel(board) {
-    if (!Array.isArray(board) || board.length < 2) return -1;
-    let count = 0;
-    for (let reel = 0; reel < board.length - 1; reel++) {
-      count += (board[reel] || []).filter(symbol => this.isScatterSymbol(symbol?.name || symbol)).length;
-      if (count >= 2) return reel;
-    }
-    return -1;
+    return this.resolveWaitingReels(board).findIndex(Boolean);
   }
 
   hasScatterAnticipation(board) {
-    return this.scatterTeaseTriggerReel(board) >= 0;
+    return this.resolveWaitingReels(board).some(Boolean);
   }
 
   /** Repaint the visible window from a board, leaving buffer cells alone. */

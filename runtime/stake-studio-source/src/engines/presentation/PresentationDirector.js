@@ -41,6 +41,52 @@ export function normalizeReelChoreography(raw = {}) {
   };
 }
 
+export function scatterThresholds(project) {
+  const keys = Object.keys(project?.math?.featureArchitecture?.tiers || {})
+    .map(Number)
+    .filter((count) => Number.isFinite(count) && count > 0)
+    .sort((left, right) => left - right);
+  return keys.length ? keys : [3, 4, 5, 6];
+}
+
+export function waitingReelsFromAnticipation(anticipation, reelCount) {
+  const reels = Math.max(0, Number(reelCount) || 0);
+  if (!reels || !Array.isArray(anticipation) || !anticipation.some((value) => value === true || Number(value) > 0)) {
+    return null;
+  }
+  return Array.from({ length: reels }, (_, reel) => {
+    const value = anticipation[reel];
+    return value === true || Number(value) > 0;
+  });
+}
+
+export function waitingReelsFromBoard(board, {
+  isScatter = () => false,
+  thresholds = [3, 4, 5, 6],
+} = {}) {
+  const reels = Array.isArray(board) ? board.length : 0;
+  const waiting = Array.from({ length: reels }, () => false);
+  if (!reels) return waiting;
+  const counts = board.map((column) => (column || []).filter((symbol) => isScatter(symbol?.name || symbol)).length);
+  const rowsOf = (reel) => Math.max(1, (board[reel] || []).length);
+  const maxTier = Math.max(0, ...thresholds);
+  let landed = 0;
+  for (let reel = 0; reel < reels; reel++) {
+    const next = thresholds.find((tier) => tier > landed);
+    const capacity = counts.slice(reel).length
+      ? Array.from({ length: reels - reel }, (_, index) => rowsOf(reel + index)).reduce((sum, rows) => sum + rows, 0)
+      : 0;
+    waiting[reel] = Boolean(
+      next != null
+      && landed < maxTier
+      && landed >= next - 1
+      && landed + capacity >= next,
+    );
+    landed += counts[reel];
+  }
+  return waiting;
+}
+
 export function getReelStopSchedule(project, anticipation = false) {
   const timing = normalizeReelChoreography(project.presentationDirector?.reelChoreography);
   const reels = Math.max(1, Number(project.math?.grid?.reels) || 5);
@@ -60,30 +106,34 @@ export function getReelStopSchedule(project, anticipation = false) {
 
 export function getScatterTeaseSchedule(project, {
   reelCount,
-  triggerReel = -1,
+  waiting = [],
   holdMs,
 } = {}) {
   const timing = normalizeReelChoreography(project?.presentationDirector?.reelChoreography);
   const reels = Math.max(1, Number(reelCount) || Number(project?.math?.grid?.reels) || 5);
-  const last = reels - 1;
   const hold = Math.max(0, Number(holdMs ?? timing.anticipationHoldMs) || 0);
-  const trigger = Number.isInteger(triggerReel) ? triggerReel : -1;
-  const teasing = hold > 0 && trigger >= 0 && trigger < last;
+  const flags = Array.from({ length: reels }, (_, reel) => Boolean(waiting[reel]));
+  let accrued = 0;
   const stops = Array.from({ length: reels }, (_, reel) => {
     const delayMs = reel * timing.perReelDelayMs;
-    const extra = teasing && reel > trigger
-      ? (reel === last ? hold : hold / 2)
-      : 0;
-    const durationMs = timing.baseDurationMs + reel * timing.perReelDurationMs + extra;
-    return { reel, delayMs, durationMs, stopAtMs: delayMs + durationMs };
+    const baseMs = timing.baseDurationMs + reel * timing.perReelDurationMs;
+    if (flags[reel]) accrued += hold;
+    return {
+      reel,
+      delayMs,
+      durationMs: baseMs + (flags[reel] ? hold : 0),
+      stopAtMs: delayMs + baseMs + accrued,
+      waiting: flags[reel],
+    };
   });
-  const cueFrom = teasing ? stops[trigger] : stops[Math.max(0, last - 1)];
+  const firstWaiting = flags.findIndex(Boolean);
+  const cueFrom = firstWaiting > 0 ? stops[firstWaiting - 1] : stops[0];
   return {
     timing,
     stops,
-    totalMs: Math.max(...stops.map(stop => stop.stopAtMs)),
-    anticipationCueMs: teasing ? cueFrom.stopAtMs + timing.anticipationCueLagMs : null,
-    triggerReel: teasing ? trigger : -1,
+    totalMs: Math.max(...stops.map((stop) => stop.stopAtMs)),
+    anticipationCueMs: firstWaiting >= 0 ? cueFrom.stopAtMs + timing.anticipationCueLagMs : null,
+    waiting: flags,
   };
 }
 

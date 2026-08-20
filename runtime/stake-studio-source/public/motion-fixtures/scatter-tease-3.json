@@ -1,13 +1,12 @@
 {
   "styleId": "scatter-tease",
   "catalogVersion": 2,
-  "templateId": "scatter-tease",
-  "seedScatterCount": 2,
+  "templateId": "scatter-tease-3",
+  "seedScatterCount": 3,
   "totalDurationMs": 7200,
   "cues": [
     { "cue": "reel.blur", "startMs": 0, "durationMs": 400, "stepKind": "reveal", "depth": 0, "cells": [] },
-    { "cue": "reel.stop", "startMs": 400, "durationMs": 280, "stepKind": "reveal", "depth": 0, "cells": ["0:1"] },
-    { "cue": "reel.anticipation", "startMs": 900, "durationMs": 4800, "stepKind": "reveal", "depth": 0, "cells": ["0:1", "1:1"] },
+    { "cue": "reel.anticipation", "startMs": 900, "durationMs": 4800, "stepKind": "reveal", "depth": 0, "cells": ["0:1", "1:1", "2:1"] },
     { "cue": "reel.stop", "startMs": 5700, "durationMs": 400, "stepKind": "reveal", "depth": 0, "cells": [] },
     { "cue": "board.settle", "startMs": 6200, "durationMs": 200, "stepKind": "settle", "depth": 0, "cells": [] }
   ]

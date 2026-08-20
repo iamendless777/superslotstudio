@@ -8,7 +8,7 @@
 import gsap from 'gsap';
 import { PreviewPanel as BasePreviewPanel } from './PreviewPanel.js?orchestration=20260815-40';
 import { playMotionTemplate, loadMotionFixture } from '../../engines/presentation/playMotionTemplate.js';
-import { getScatterTeaseSchedule } from '../../engines/presentation/PresentationDirector.js';
+import { getScatterTeaseSchedule, scatterThresholds, waitingReelsFromBoard } from '../../engines/presentation/PresentationDirector.js';
 import {
   cloneBoard,
   cueSheetHasReel,
@@ -47,14 +47,10 @@ function artworkOf(el) {
   return el.querySelector?.('img') || el;
 }
 
-function rehearsalReelSchedule(project, hasAnticipation, reelCount, triggerReel = 1) {
-  const holdMs = hasAnticipation
-    ? Math.max(Number(getScatterTeaseSchedule(project, { reelCount }).timing.anticipationHoldMs) || 0, 2200)
-    : 0;
+function rehearsalReelSchedule(project, waiting, reelCount) {
   return getScatterTeaseSchedule(project, {
     reelCount,
-    triggerReel: hasAnticipation ? triggerReel : -1,
-    holdMs,
+    waiting,
   });
 }
 
@@ -79,6 +75,9 @@ export class PreviewPanel extends BasePreviewPanel {
         <option value="sticky-five">sticky-five</option>
         <option value="anticipation-five">anticipation-five</option>
         <option value="scatter-tease">2-scatter tease</option>
+        <option value="scatter-tease-3">3-scatter tease</option>
+        <option value="scatter-tease-4">4-scatter tease</option>
+        <option value="scatter-tease-5">5-scatter tease</option>
       </select>`;
 
     const button = document.createElement('button');
@@ -372,7 +371,10 @@ export class PreviewPanel extends BasePreviewPanel {
   }
 
   motionTemplateLabel(template) {
-    if (template?.id === 'scatter-tease') return '2-scatter tease';
+    if (String(template?.id || '').startsWith('scatter-tease')) {
+      const count = Number(template.seedScatterCount) || Number(String(template.id).split('-').pop()) || 2;
+      return `${count}-scatter tease`;
+    }
     if (template?.kind === 'tumble' && this.motionWinType() !== 'cluster') {
       return 'cascade · ways';
     }
@@ -397,18 +399,29 @@ export class PreviewPanel extends BasePreviewPanel {
     return named?.name || null;
   }
 
-  seedTwoScatterTease(board) {
+  seedScatterTease(board, count = 2) {
     const scatter = this.motionScatterSymbol();
+    const filler = this.motionFillerSymbol();
     const next = cloneBoard(board);
     const cells = [];
-    if (!scatter || !next.length) return { board: next, cells, scatter };
-    for (const reel of [0, 1]) {
+    if (!scatter || !next.length) return { board: next, cells, scatter, count: 0 };
+    const want = Math.max(0, Math.min(Number(count) || 0, next.length));
+    for (let reel = 0; reel < next.length; reel++) {
+      for (let row = 0; row < (next[reel] || []).length; row++) {
+        if (this.isScatterSymbol?.(next[reel][row]?.name || next[reel][row])) next[reel][row] = filler;
+      }
+    }
+    for (let reel = 0; reel < want; reel++) {
       if (!next[reel]?.length) continue;
       const row = Math.min(1, next[reel].length - 1);
       next[reel][row] = scatter;
       cells.push([reel, row]);
     }
-    return { board: next, cells, scatter };
+    return { board: next, cells, scatter, count: want };
+  }
+
+  seedTwoScatterTease(board) {
+    return this.seedScatterTease(board, 2);
   }
 
   motionFillerSymbol() {
@@ -576,15 +589,19 @@ export class PreviewPanel extends BasePreviewPanel {
       .filter((symbol) => symbol?.src && !symbol.special?.length)
       .map((symbol) => symbol.name)
       .filter(Boolean);
-    const hasAnticipation = (sheet.cues || []).some((cue) => cue.cue === 'reel.anticipation');
-    const reelSchedule = rehearsalReelSchedule(this.project, hasAnticipation, masks.length);
+    const seedCount = Math.max(
+      0,
+      Number(sheet.seedScatterCount)
+      || (String(sheet.templateId || sheet.styleId || '').match(/scatter-tease-(\d+)/)?.[1])
+      || ((sheet.cues || []).some((cue) => cue.cue === 'reel.anticipation') ? 2 : 0),
+    );
     this.motionSourceBoard = cloneBoard(this.board);
     let board = this.board;
-    if (hasAnticipation) {
-      const seeded = this.seedTwoScatterTease(board);
+    if (seedCount > 0) {
+      const seeded = this.seedScatterTease(board, seedCount);
       board = seeded.board;
       this.board = board;
-      this.setMotionStatus(seeded.scatter ? 'Seed 2 scatters' : 'No scatter in theme');
+      this.setMotionStatus(seeded.scatter ? `Seed ${seeded.count} scatters` : 'No scatter in theme');
       this.setMotionDebug({
         path: 'reel',
         grid: this.motionGridLabel(),
@@ -598,6 +615,11 @@ export class PreviewPanel extends BasePreviewPanel {
         return false;
       }
     }
+    const waiting = waitingReelsFromBoard(board, {
+      isScatter: (symbol) => this.isScatterSymbol?.(symbol),
+      thresholds: scatterThresholds(this.project),
+    });
+    const reelSchedule = rehearsalReelSchedule(this.project, waiting, masks.length);
 
     this.landedReels?.clear?.();
     this.reelsSlammed = false;
@@ -610,7 +632,7 @@ export class PreviewPanel extends BasePreviewPanel {
       grid: this.motionGridLabel(),
       step: 'blur',
       tumbling: false,
-      note: hasAnticipation ? '2-scatter tease' : 'classic',
+      note: seedCount ? `${seedCount}-scatter tease` : 'classic',
     });
     this.setAnimationState?.('spinning');
     this.clearPreviewReelSpinTracks?.();
@@ -628,6 +650,7 @@ export class PreviewPanel extends BasePreviewPanel {
       });
       this.motionReelTimeline = tl;
       this.spinTimeline = tl;
+      if (reelSchedule.stops[0]?.waiting) this.enterReelAnticipation?.();
       this.motionPlayback = {
         stop: () => {
           tl.kill();
@@ -652,12 +675,12 @@ export class PreviewPanel extends BasePreviewPanel {
             this.audioEngine?.playStinger?.('reelStop', reel);
           }
           this.pulseReelImpact?.(reel);
-          const scatterCount = [...(this.landedReels || [])].reduce((count, landed) => (
-            count + (board[landed] || []).filter((symbol) => this.isScatterSymbol?.(symbol?.name || symbol)).length
-          ), 0);
-          if (hasAnticipation && scatterCount >= 2) {
+          if (reelSchedule.stops[reel + 1]?.waiting) {
             this.enterReelAnticipation?.();
-            this.setMotionStatus('Tease · remaining reels hold');
+            const scatterCount = [...(this.landedReels || [])].reduce((count, landed) => (
+              count + (board[landed] || []).filter((symbol) => this.isScatterSymbol?.(symbol?.name || symbol)).length
+            ), 0);
+            this.setMotionStatus(`Tease · waiting for scatter ${scatterCount + 1}`);
             this.setMotionDebug({
               path: 'reel',
               grid: this.motionGridLabel(),
