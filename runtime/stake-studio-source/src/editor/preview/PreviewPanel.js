@@ -2093,7 +2093,7 @@ export class PreviewPanel {
       this.symbolMotionLastSync = { status: 'transition', count: 0, authoritativeLanded };
       return;
     }
-    if (this.spinning && !authoritativeLanded) {
+    if (this.spinning && !authoritativeLanded && this.landedReels.size === 0) {
       this.symbolMotionLastSync = { status: 'reels-moving', count: 0, authoritativeLanded };
       return;
     }
@@ -2116,7 +2116,7 @@ export class PreviewPanel {
       runtime?.clearSymbolFlipbooks?.();
       return 0;
     }
-    if (this.spinning && !authoritativeLanded) {
+    if (this.spinning && !authoritativeLanded && this.landedReels.size === 0) {
       runtime?.clearSymbolFlipbooks?.();
       return 0;
     }
@@ -3498,6 +3498,7 @@ export class PreviewPanel {
           await Promise.all(reelLandingBarriers.filter(Boolean));
           if (this.activeSpinToken !== spinToken) return;
           this.recordPlaybackEvent('reelsSettled', { mode: this.selectedMode });
+          this.scheduleSymbolMotionSync({ authoritativeLanded: true });
           this.clearWinHighlights();
           await this.dispatchPresentation('reveal', {
             board: newBoard,
@@ -3545,6 +3546,7 @@ export class PreviewPanel {
         this.paintReelBoard(r, newBoard[r]);
         this.landedReels.add(r);
         this.animateLandedCells(cells);
+        this.scheduleSymbolMotionSync();
         this.audioEngine.playStinger('reelStop', r);
         this.pulseReelImpact(r);
         const impactMs = reelSchedule.timing.impactMs * (this.turboMode ? 0.5 : 1);
@@ -3738,18 +3740,14 @@ export class PreviewPanel {
         if (feature) this.updateFeatureProgress(mode, featureIndex, featureTotal, (featureRunning + running) * this.baseBet);
         this.animateWinDisplay(stepWin * this.baseBet, { overlay: false });
         const winMotion = this.highlightWins(wins);
-        await Promise.all([
-          this.waitForPresentationMotion(winMotion),
-          Promise.resolve(this.dispatchPresentation('winInfo', {
-            wins,
-            winsAlreadyHighlighted: true,
-            amount: stepWin * this.baseBet,
-            runningAmount: (featureRunning + running) * this.baseBet,
-            mode,
-          })),
-        ]);
-        await this.waitForActiveVisualChoreography('tile-connection');
-        if (!this.turboMode) await this.wait(240);
+        await this.waitForPresentationMotion(winMotion);
+        await Promise.resolve(this.dispatchPresentation('winInfo', {
+          wins,
+          winsAlreadyHighlighted: true,
+          amount: stepWin * this.baseBet,
+          runningAmount: (featureRunning + running) * this.baseBet,
+          mode,
+        }));
         continue;
       }
 
@@ -5010,6 +5008,7 @@ export class PreviewPanel {
         const cell = this.cellAt(r, row);
         if (cell) {
           cell.classList.add('win-highlight');
+          cell.classList.remove('is-landed');
           winningCells.add(cell);
         }
       }
@@ -5019,7 +5018,10 @@ export class PreviewPanel {
       const visible = pos >= 0 && pos < this.reelGeometry.maxRows;
       cell.classList.toggle('win-dimmed', visible && winningCells.size > 0 && !winningCells.has(cell));
     });
-    return staticOnly ? null : this.renderWinPaths(wins);
+    // Paying tiles glow themselves. Do not wait for a second connection layer.
+    this.scheduleSymbolMotionSync({ authoritativeLanded: true });
+    if (staticOnly) return null;
+    return { finished: this.wait(this.turboMode ? 160 : 420) };
   }
 
   renderWinPaths(wins) {
