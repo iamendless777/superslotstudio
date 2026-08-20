@@ -50,7 +50,7 @@ function artworkOf(el) {
 function rehearsalReelSchedule(project, hasAnticipation, reelCount) {
   const base = getReelStopSchedule(project, hasAnticipation);
   const timing = base.timing;
-  const holdMs = hasAnticipation ? Math.max(Number(timing.anticipationHoldMs) || 0, 1400) : 0;
+  const holdMs = hasAnticipation ? Math.max(Number(timing.anticipationHoldMs) || 0, 2200) : 0;
   const count = Math.max(1, reelCount);
   const stops = Array.from({ length: count }, (_, reel) => {
     const delayMs = reel * timing.perReelDelayMs;
