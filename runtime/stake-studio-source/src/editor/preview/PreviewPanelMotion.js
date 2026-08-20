@@ -136,22 +136,26 @@ export class PreviewPanel extends BasePreviewPanel {
       const templates = Array.isArray(index?.templates) ? index.templates : [];
       if (!templates.length) return;
       this.motionTemplateIndex = templates;
-      const current = select.value || 'cluster-hex';
+      const preferred = this.preferredMotionTemplate();
+      const current = select.dataset.userPicked ? (select.value || preferred) : preferred;
       select.replaceChildren();
       for (const template of templates) {
         const option = document.createElement('option');
         option.value = template.id;
-        option.textContent = template.kind ? `${template.id} · ${template.kind}` : template.id;
+        option.textContent = this.motionTemplateLabel(template);
         option.selected = template.id === current;
         select.appendChild(option);
       }
       if (![...select.options].some((option) => option.selected) && select.options.length) {
-        const cluster = [...select.options].find((option) => option.value === 'cluster-hex');
-        (cluster || select.options[0]).selected = true;
+        const fallback = [...select.options].find((option) => option.value === preferred);
+        (fallback || select.options[0]).selected = true;
       }
       if (!select.dataset.artBound) {
         select.dataset.artBound = '1';
-        select.addEventListener('change', () => this.syncMotionArtStatus());
+        select.addEventListener('change', () => {
+          select.dataset.userPicked = '1';
+          this.syncMotionArtStatus();
+        });
       }
       this.syncMotionArtStatus();
     } catch {
@@ -213,8 +217,28 @@ export class PreviewPanel extends BasePreviewPanel {
       }));
   }
 
+  liveSymbolSize() {
+    const el = this.container?.querySelector('.reel-sym');
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    const width = Math.round(rect.width);
+    const height = Math.round(rect.height);
+    if (!width || !height) return null;
+    return { width, height };
+  }
+
+  liveSlotGuidance(role, winType) {
+    if (role === 'wild') return 'Wild badge must read under tumble and sticky morph.';
+    if (role === 'scatter') return 'Scatter must read at a glance for 3/4/5/6-tier entry.';
+    if (role === 'high') return 'Hero symbol; strongest silhouette on the 6×4 ways board.';
+    if (winType === 'cluster') return 'Readable cluster gem; clear at 5-connected pays.';
+    return 'Readable at symbol size; pays as adjacent-ways 3-kind, not a cluster blob.';
+  }
+
   liveProjectArtBrief() {
     const gaps = new Set(this.liveProjectArtGaps().map((gap) => gap.name));
+    const winType = this.motionWinType();
+    const size = this.liveSymbolSize();
     let regular = 0;
     const slots = (this.project?.theme?.symbols || [])
       .filter((symbol) => symbol && !symbol.special?.includes?.('empty'))
@@ -231,12 +255,18 @@ export class PreviewPanel extends BasePreviewPanel {
           role,
           artKey: symbol.src || null,
           status: gaps.has(name) ? 'missing' : 'assigned',
+          guidance: this.liveSlotGuidance(role, winType),
         };
       });
     return {
       gameId: this.project?.id || 'preview',
       title: this.project?.name || this.project?.id || 'Loaded project',
       grid: this.motionGridLabel(),
+      winType,
+      motion: winType === 'cluster'
+        ? 'Cluster tumble. Min 5 to pay; rehearsal pops 3+ 4-connected.'
+        : 'Adjacent-ways 6×4 like Waylanders Forge. Min 3-kind left-to-right, then tumble. Swap art; keep motion.',
+      symbolSize: size,
       slots,
       missingCount: slots.filter((slot) => slot.status === 'missing').length,
       readyToCommission: slots.length > 0,
@@ -247,15 +277,11 @@ export class PreviewPanel extends BasePreviewPanel {
     if (this.motionPlaying) return;
     const select = this.container?.querySelector('#previewMotionTemplate');
     const id = select?.value;
-    const entry = (this.motionTemplateIndex || []).find((template) => template.id === id);
     const liveGaps = this.liveProjectArtGaps();
-    const templateMissing = Number(entry?.missingArt) || 0;
     if (liveGaps.length) {
       this.setMotionStatus(`Board ${liveGaps.length} art gaps`);
-    } else if (templateMissing) {
-      this.setMotionStatus(`Board art ready · ${id} recipe ${templateMissing} unassigned`);
     } else {
-      this.setMotionStatus('Art assigned');
+      this.setMotionStatus('Board art ready');
     }
     void this.loadMotionArtBrief(id, liveGaps);
   }
@@ -265,48 +291,47 @@ export class PreviewPanel extends BasePreviewPanel {
     if (!host || !templateId) return;
     const summary = host.querySelector('summary');
     const body = host.querySelector('.preview-motion-art-body');
+    const boardBrief = this.liveProjectArtBrief();
+    let brief = null;
     try {
       const response = await fetch(`/motion-fixtures/art-briefs/${templateId}.json`);
-      if (!response.ok) return;
-      const brief = await response.json();
-      const boardBrief = this.liveProjectArtBrief();
-      this.motionArtBrief = { board: boardBrief, recipe: brief };
-      const esc = (value) => this.escapeMotionText(value);
-      if (summary) {
-        summary.textContent = liveGaps.length
-          ? `Art · ${liveGaps.length} board gaps`
-          : 'Art · board ready';
-      }
-      if (body) {
-        const liveItems = liveGaps.length
-          ? liveGaps.map((gap) => `<li data-status="missing"><strong>${esc(gap.name)}</strong> · ${esc(gap.reason)}</li>`).join('')
-          : `<li data-status="assigned"><strong>${esc(boardBrief.title)}</strong> · ${boardBrief.slots.length} symbols assigned</li>`;
-        const slots = (brief.slots || [])
-          .map((slot) => (
-            `<li data-status="${esc(slot.status)}"><strong>${esc(slot.label)}</strong> · ${esc(slot.role)} · ${esc(slot.status)}<span>${esc(slot.guidance)}</span></li>`
-          ))
-          .join('');
-        body.innerHTML = `
-          <p>This board · ${esc(boardBrief.grid)}</p>
-          <ol>${liveItems}</ol>
-          <p>${esc(brief.title)} recipe · ${esc(brief.notes || '')}</p>
-          <ol>${slots}</ol>
-          <button type="button" class="tool-btn" id="previewMotionArtCopyBoard">Copy board brief</button>
-          <button type="button" class="tool-btn" id="previewMotionArtCopy">Copy recipe brief</button>`;
-        body.querySelector('#previewMotionArtCopyBoard')?.addEventListener('click', (event) => {
-          event.preventDefault();
-          void navigator.clipboard?.writeText(JSON.stringify(boardBrief, null, 2));
-          this.setMotionStatus('Board art brief copied');
-        });
-        body.querySelector('#previewMotionArtCopy')?.addEventListener('click', (event) => {
-          event.preventDefault();
-          void navigator.clipboard?.writeText(JSON.stringify(brief, null, 2));
-          this.setMotionStatus('Recipe art brief copied');
-        });
-      }
+      if (response.ok) brief = await response.json();
     } catch {
-      /* keep last brief */
+      brief = null;
     }
+    this.motionArtBrief = { board: boardBrief, recipe: brief };
+    const esc = (value) => this.escapeMotionText(value);
+    if (summary) {
+      summary.textContent = liveGaps.length
+        ? `Art · ${liveGaps.length} board gaps`
+        : `Art · ${boardBrief.slots.length} to swap`;
+    }
+    if (!body) return;
+    const size = boardBrief.symbolSize
+      ? `${boardBrief.symbolSize.width}×${boardBrief.symbolSize.height}px`
+      : 'symbol size from preview';
+    const boardSlots = (boardBrief.slots || []).map((slot) => (
+      `<li data-status="${esc(slot.status)}"><strong>${esc(slot.label)}</strong> · ${esc(slot.role)} · ${esc(slot.status)}<span>${esc(slot.guidance)}</span></li>`
+    )).join('');
+    const recipeSlots = (brief?.slots || []).map((slot) => (
+      `<li data-status="${esc(slot.status)}"><strong>${esc(slot.label)}</strong> · ${esc(slot.role)} · ${esc(slot.status)}</li>`
+    )).join('');
+    body.innerHTML = `
+      <p>This board · ${esc(boardBrief.grid)} · ${esc(boardBrief.winType)} · ${esc(size)}</p>
+      <p>${esc(boardBrief.motion)}</p>
+      <ol>${boardSlots || '<li>No symbols on this board</li>'}</ol>
+      <button type="button" class="tool-btn" id="previewMotionArtCopyBoard">Copy board brief</button>
+      ${brief ? `<details class="preview-motion-art-recipe"><summary>${esc(brief.title)} motion clock</summary><ol>${recipeSlots}</ol><button type="button" class="tool-btn" id="previewMotionArtCopy">Copy recipe brief</button></details>` : ''}`;
+    body.querySelector('#previewMotionArtCopyBoard')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      void navigator.clipboard?.writeText(JSON.stringify(boardBrief, null, 2));
+      this.setMotionStatus('Board art brief copied');
+    });
+    body.querySelector('#previewMotionArtCopy')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      void navigator.clipboard?.writeText(JSON.stringify(brief, null, 2));
+      this.setMotionStatus('Recipe art brief copied');
+    });
   }
 
   motionWildSymbol() {
@@ -319,6 +344,20 @@ export class PreviewPanel extends BasePreviewPanel {
 
   waitMs(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  preferredMotionTemplate() {
+    if (this.motionWinType() === 'cluster') return 'cluster-hex';
+    const type = String(this.project?.math?.gameType || '').toLowerCase();
+    if (type === 'lines') return 'classic-nine';
+    return 'cluster-hex';
+  }
+
+  motionTemplateLabel(template) {
+    if (template?.kind === 'tumble' && this.motionWinType() !== 'cluster') {
+      return 'cascade · ways';
+    }
+    return template?.kind ? `${template.id} · ${template.kind}` : (template?.id || '');
   }
 
   motionWinType() {
