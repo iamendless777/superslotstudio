@@ -3610,10 +3610,11 @@ export class PreviewPanel {
       return;
     }
     const playback = await this.playSpinEventBook(res, { alreadyLanded: true, mode: this.selectedMode });
-    await this.recoverWinPresentation();
+    await this.recoverWinPresentation({ immediate: true });
     this.board = playback.currentBoard;
     this.paintBoard(playback.currentBoard);
     this.clearWinHighlights();
+    this.directorRuntime?.cancel('spin-complete');
 
     // Settle on the engine's capped total — running sum is pre-cap.
     this.lastWin = res.totalWin * this.baseBet;
@@ -3766,7 +3767,7 @@ export class PreviewPanel {
       }
 
       if (event.type === 'setWin' && !feature) {
-        await this.dispatchPresentation('setWin', {
+        void this.dispatchPresentation('setWin', {
           amount: Number(event.amount || 0) / BOOK_AMOUNT_MULTIPLIER * this.baseBet,
           runningAmount: running * this.baseBet,
           mode,
@@ -3811,8 +3812,7 @@ export class PreviewPanel {
 
     if (!presentedWin) {
       this.clearWinHighlights();
-      await this.dispatchPresentation('roundLose', { amount: 0, mode });
-      await this.wait(this.turboMode ? 160 : 720);
+      void this.dispatchPresentation('roundLose', { amount: 0, mode });
     }
     return { currentBoard, running, presentedWin };
   }
@@ -4591,14 +4591,12 @@ export class PreviewPanel {
     });
 
     try {
-      await Promise.all([
-        motion,
-        Promise.resolve(this.dispatchPresentation('tumbleBoard', {
-          newSymbols: event.newSymbols,
-          explodingSymbols: event.explodingSymbols,
-          mode: this.selectedMode,
-        })),
-      ]);
+      await motion;
+      void this.dispatchPresentation('tumbleBoard', {
+        newSymbols: event.newSymbols,
+        explodingSymbols: event.explodingSymbols,
+        mode: this.selectedMode,
+      });
       const settled = applyTumbleEvent(board, event);
       this.board = settled;
       this.paintBoard(settled);
