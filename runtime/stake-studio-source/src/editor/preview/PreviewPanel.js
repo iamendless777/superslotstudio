@@ -3356,22 +3356,28 @@ export class PreviewPanel {
     for (let i = 0; i < visibleRows; i++) {
       page.push(symbolNames[(reelIndex * 3 + i * 5) % symbolNames.length]);
     }
-    return [...page, ...page, ...page];
+    return page;
   }
 
-  createPreviewReelSpinTrack(mask, reelIndex, visibleRows, symbolNames) {
-    const sequence = this.previewReelSpinSequence(reelIndex, visibleRows, symbolNames);
-    if (!mask || sequence.length === 0) return null;
+  createPreviewReelSpinTrack(mask, reelIndex, visibleRows, symbolNames, landingSymbols = [], travelPages = 2) {
+    const mix = this.previewReelSpinSequence(reelIndex, visibleRows, symbolNames);
+    if (!mask || !mix.length) return null;
+    const landPage = [];
+    for (let i = 0; i < visibleRows; i++) {
+      const raw = landingSymbols[i];
+      landPage.push(raw?.name || raw || mix[i % mix.length]);
+    }
+    const pages = Math.max(2, Number(travelPages) || 2);
+    const sequence = [...landPage];
+    for (let page = 0; page < pages; page++) sequence.push(...mix);
     const cellH = Number(this.reelGeometry?.cellH) || (mask.clientHeight / Math.max(1, visibleRows));
+    const travel = pages * visibleRows * cellH;
     const track = document.createElement('div');
     track.className = 'preview-reel-spin-track';
     track.dataset.reel = String(reelIndex);
-    track.style.top = `${-visibleRows * cellH}px`;
+    track.dataset.travel = String(travel);
+    track.style.top = '0';
     track.style.height = `${sequence.length * cellH}px`;
-    const timing = normalizeReelChoreography(this.project.presentationDirector?.reelChoreography);
-    const cycleMs = Math.max(180, timing.blurIntervalMs * timing.blurTicks);
-    track.style.setProperty('--spin-duration', `${(this.turboMode ? Math.max(140, cycleMs * .52) : cycleMs) / 1000}s`);
-    track.style.setProperty('--spin-phase', `${-reelIndex * (this.turboMode ? 0.019 : 0.037)}s`);
     sequence.forEach((symbolName, index) => {
       const symbol = this.symbolDefinition(symbolName);
       if (!symbol?.src) return;
@@ -3390,6 +3396,7 @@ export class PreviewPanel {
     if (!track.childElementCount) return null;
     mask.classList.add('is-spinning');
     mask.appendChild(track);
+    gsap.set(track, { y: -travel });
     return track;
   }
 
@@ -3479,12 +3486,18 @@ export class PreviewPanel {
     this.activeSpinToken = spinToken;
     this.clearPreviewReelSpinTracks();
     const reelLandingBarriers = [];
-    const spinTracks = [...masks].map((mask, reelIndex) => this.createPreviewReelSpinTrack(
-      mask,
-      reelIndex,
-      rows[reelIndex] || rows[0],
-      allSymNames,
-    ));
+    const spinTracks = [...masks].map((mask, reelIndex) => {
+      const stopAt = reelSchedule.stops[reelIndex].stopAtMs * motionScale / 1000;
+      const pages = Math.max(2, Math.round(stopAt / 0.32));
+      return this.createPreviewReelSpinTrack(
+        mask,
+        reelIndex,
+        rows[reelIndex] || rows[0],
+        allSymNames,
+        newBoard[reelIndex],
+        pages,
+      );
+    });
     const tl = gsap.timeline({
       onComplete: () => {
         void (async () => {
@@ -3570,18 +3583,19 @@ export class PreviewPanel {
         reelLandingBarriers[r] = this.wait(Math.max(impactMs, landedCellMs));
       };
       if (track) {
-        tl.to(track, {
-          filter: 'blur(.2px) saturate(.96) brightness(.94)',
-          duration: landingLead,
+        const travel = Number(track.dataset.travel) || 0;
+        tl.fromTo(track, { y: -travel }, {
+          y: 0,
+          duration: stopAt,
           ease: 'power2.out',
-          immediateRender: false,
-          onStart: prepareReelStop,
+          immediateRender: true,
           onComplete: () => {
             settleReel();
             mask?.classList.remove('is-spinning', 'is-stopping');
             track.remove();
           },
-        }, Math.max(0, stopAt - landingLead));
+        }, 0);
+        tl.call(prepareReelStop, [], Math.max(0, stopAt - landingLead));
       } else {
         tl.call(() => {
           settleReel();
@@ -3602,13 +3616,8 @@ export class PreviewPanel {
       this.reelAnticipationCued = true;
       this.audioEngine?.playStinger?.('anticipation');
     }
-    remaining.forEach((mask, index) => {
+    remaining.forEach((mask) => {
       mask.classList.add('is-anticipation', 'is-spinning');
-      const last = index === remaining.length - 1;
-      const rate = this.turboMode ? (last ? 0.38 : 0.52) : (last ? 0.22 : 0.34);
-      mask.querySelector('.preview-reel-spin-track')?.getAnimations?.().forEach((anim) => {
-        anim.playbackRate = rate;
-      });
     });
     if (this.spinTimeline.timeScale() > 1) return;
     const slow = this.turboMode
