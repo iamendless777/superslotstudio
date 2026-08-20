@@ -12,7 +12,7 @@ import { persistProjectDocument } from '../server/project-storage.mjs';
 import { resolveStudioHome } from '../server/studio-paths.mjs';
 import { createGameProject } from '../src/engines/schema.js';
 import { ensurePresentationDirector } from '../src/engines/presentation/PresentationDirector.js';
-import { applyBoardSymbolPack, applyMorpheusWorldPack } from '../src/engines/assets/BoardSymbolPack.js';
+import { applyBoardSymbolPack, applyMorpheusWorldPack, ensureMorpheusSpecials } from '../src/engines/assets/BoardSymbolPack.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const studioHome = resolveStudioHome(null, { cwd: resolve(root, '..') });
@@ -20,11 +20,13 @@ const projectPath = join(studioHome, 'games', 'morpheus', 'project.json');
 const scatterName = 'Gate of Sleep';
 
 function fillPack(project, { overwrite = false } = {}) {
+  const specials = ensureMorpheusSpecials(project, { overwrite });
   const symbols = applyBoardSymbolPack(project, { overwrite });
   const world = applyMorpheusWorldPack(project, { overwrite });
+  if (specials.added) console.log(`[seed] added ${specials.added} specials`);
   if (symbols.filled) console.log(`[seed] applied board pack to ${symbols.filled} empty slots`);
   if (world.filled) console.log(`[seed] applied world pack (${world.filled})`);
-  return { filled: symbols.filled + world.filled };
+  return { filled: specials.added + specials.filled + symbols.filled + world.filled };
 }
 
 if (existsSync(projectPath)) {

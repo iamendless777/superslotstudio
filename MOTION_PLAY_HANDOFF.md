@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-20  
 **Branch:** `integrate/studio-motion`  
-**HEAD:** see latest commit on this branch — *world art + slop pass.*  
+**HEAD:** see latest commit on this branch — *Forge map + special tiles.*  
 **Repo:** https://github.com/iamendless777/superslotstudio  
 **Local path:** `~/Developer/superslotstudio`  
 **Goal:** Ship many Stake.com games quickly (target ~2 days each). Motion + templates stay reliable so the bottleneck is **art**, not fighting the studio.
@@ -139,6 +139,43 @@ If pixels go wrong: inspect `createPreviewReelSpinTrack` + `getScatterTeaseSched
 4. Then: pick art → grade → ship. Motion is not the bottleneck.
 
 Morpheus is a Waylanders Forge clone with new art. Match that game’s *feel* (tumble, 3-kind ways, scatter-count features), not a unique mechanic.
+
+### Waylanders Forge → Morpheus (frozen contract)
+
+Forge is the *feel* reference. Morpheus `MorpheusGameContract.js` is the *rules* source. Do not copy Forge prices or 80,085x cap; Morpheus is 100,000x / $500 / $50M exposure.
+
+| Forge | Morpheus | Rule |
+|-------|----------|------|
+| 6×4 adjacent ways + tumble | same | min 3-kind L→R, then cascade |
+| Expanding Wild (down) | **Veil Wild** | expands down; stops before wild/protected special; next-board |
+| Multiplier Wild 2–1000x | **Lucid Wild** | ladder `2,3,5,7,10,25,50,100,200,500,1000` |
+| Wild Bomb 2×2 | **Dream Rift** | wild block after a positive win, next board |
+| Golden Wild Bomb 3×3 | **Golden Rift** | same, 3×3 |
+| Split Symbol | **Echo Split** | extra ways; unique contributing cell |
+| Royal Remover | **Dawn Purge** | strips lows, refill excludes lows |
+| Wild Star | **Oneiric Star** | announces one paying family, then those become wild next board |
+| Mystery | **Mystery Veil** | reveals one family next board; keeps Mystery identity |
+| Max Wild | **Max Morpheus** | exact 100,000x only; ordinary cap 99,999.9x |
+| Scatter | **Gate of Sleep** | count is the feature |
+| Forge Spins (3, 10 FS, symbol bar) | **Veil Ascent** (buy 100x) | bar fill upgrades lowest paying family |
+| Wayfinder’s Blessing (4, 10 FS, doubled family multi) | **Lucid Blessing** (buy 200x) | winning family doubles; 3 scatters +5 spins |
+| Mine Shaft Tumble (5, grow to 8 rows) | **Dreamfall** (1000x-class, release-gated) | +1 row on a random non-maxed reel per win; 5th+ tumble hit +1 FS; scatters never refill |
+| The Soul Forge (6, multiplier grid) | **Oneiric Nexus** (natural only) | position grid: 1+sum(cell−1), then contributing cells double to 1024x |
+| Bonus Enhancer ~3x | **Dream Enhancer** 3x | natural feature ~5× more often (1 in 12) |
+| Trickster Spin ~75x | **Trickster Dream** 75x | **one** paid spin, persistent 1x position grid, no free-spin lifecycle |
+| (extreme) | **Nightmare Descent** | release-gated; three guaranteed specials, sequential |
+| — | **Raining wilds / stacked reels / guaranteed scatters** | predetermined, published before reveal |
+
+**Build the rest in this order (art in the ivory/gold/cyan pack, no new animator):**
+
+1. Special tiles (Veil/Lucid/Rift/Split/Purge/Star/Mystery/Max) — paying board is done. Pack is on the reels.
+2. Selectable mode menu: Base, Enhancer, Trickster, Veil Ascent, Lucid Blessing. Dreamfall/Nexus/Nightmare stay gated.
+3. Feature chrome: Veil symbol bar, Lucid family multis, Dreamfall reel growth, Nexus/Trickster position grid.
+4. Restyle the old photoreal Dreamfall shaft overlay.
+5. Hold-length feel (`anticipationHoldMs`) — human call.
+
+Do not invent a 2000x “F U Spins” buy. Do not revive GSAP travel / fake scatters / last-reel-only / HTML overlay grid.
+
 
 ---
 
@@ -288,7 +325,7 @@ Studio Preview remains **pixel** authority — one tumble, one spin-track.
 - [x] Morpheus **board** symbol pack from the brief (moon / lantern / hourglass / moth / star / crescent / coins / wild seal / Gate of Sleep). Atlas **Apply board pack** fills empty slots only.
 - [x] HUD / spin / mode-card chrome uses the same ivory–gold–cyan language. Old photoreal atlas + generation sources deleted.
 - [x] Slop pass: spin plate is concentric rings (no double arrow). Wild is a sleeping-eye seal (no letter). Hourglass and coins have finished frames (no skulls).
-- [x] Cabinet background, reel frame, and dream-warden character share the board language. Character stands right of the 6×4 window.
+- [x] Special tiles mapped from Forge (Veil Wild, Lucid Wild, Dream/Golden Rift, Echo Split, Dawn Purge, Oneiric Star, Mystery Veil, Max Morpheus).
 - [ ] If 1.2s/waiting-reel feels short or long, change **one** number: `anticipationHoldMs`. Do not special-case the last reel.
 - [ ] Swap in final commissioned art over the starter pack; keep motion.
 

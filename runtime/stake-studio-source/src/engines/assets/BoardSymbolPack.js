@@ -16,7 +16,39 @@ export const MORPHEUS_BOARD_PACK = Object.freeze({
   W: '/symbol-pack/morpheus/wild.png',
   S: '/symbol-pack/morpheus/scatter.png',
   'Gate of Sleep': '/symbol-pack/morpheus/scatter.png',
+  GATE_OF_SLEEP: '/symbol-pack/morpheus/scatter.png',
+  VEIL_WILD: '/symbol-pack/morpheus/veil-wild.png',
+  'Veil Wild': '/symbol-pack/morpheus/veil-wild.png',
+  LUCID_WILD: '/symbol-pack/morpheus/lucid-wild.png',
+  'Lucid Wild': '/symbol-pack/morpheus/lucid-wild.png',
+  DREAM_RIFT: '/symbol-pack/morpheus/dream-rift.png',
+  'Dream Rift': '/symbol-pack/morpheus/dream-rift.png',
+  GOLDEN_RIFT: '/symbol-pack/morpheus/golden-rift.png',
+  'Golden Rift': '/symbol-pack/morpheus/golden-rift.png',
+  ECHO_SPLIT: '/symbol-pack/morpheus/echo-split.png',
+  'Echo Split': '/symbol-pack/morpheus/echo-split.png',
+  DAWN_PURGE: '/symbol-pack/morpheus/dawn-purge.png',
+  'Dawn Purge': '/symbol-pack/morpheus/dawn-purge.png',
+  ONEIRIC_STAR: '/symbol-pack/morpheus/oneiric-star.png',
+  'Oneiric Star': '/symbol-pack/morpheus/oneiric-star.png',
+  MYSTERY_VEIL: '/symbol-pack/morpheus/mystery-veil.png',
+  'Mystery Veil': '/symbol-pack/morpheus/mystery-veil.png',
+  MAX_MORPHEUS: '/symbol-pack/morpheus/max-morpheus.png',
+  'Max Morpheus': '/symbol-pack/morpheus/max-morpheus.png',
+  RIFT_WILD: '/symbol-pack/morpheus/wild.png',
 });
+
+export const MORPHEUS_SPECIAL_DEFS = Object.freeze([
+  { id: 'VEIL_WILD', name: 'Veil Wild', special: ['wild', 'expandingWild'] },
+  { id: 'LUCID_WILD', name: 'Lucid Wild', special: ['wild', 'multiplier'] },
+  { id: 'DREAM_RIFT', name: 'Dream Rift', special: ['wildBomb'] },
+  { id: 'GOLDEN_RIFT', name: 'Golden Rift', special: ['wildBomb'] },
+  { id: 'ECHO_SPLIT', name: 'Echo Split', special: ['split'] },
+  { id: 'DAWN_PURGE', name: 'Dawn Purge', special: ['royalRemover'] },
+  { id: 'ONEIRIC_STAR', name: 'Oneiric Star', special: ['wildStar'] },
+  { id: 'MYSTERY_VEIL', name: 'Mystery Veil', special: ['mystery'] },
+  { id: 'MAX_MORPHEUS', name: 'Max Morpheus', special: ['wild', 'maxWild'] },
+]);
 
 export const MORPHEUS_WORLD_PACK = Object.freeze({
   background: '/symbol-pack/morpheus/background.jpg',
@@ -135,4 +167,32 @@ export function applyMorpheusWorldPack(project, { overwrite = false } = {}) {
     project.theme.submission.foreground = pack.foreground;
   }
   return { filled, pack: MORPHEUS_BOARD_PACK_ID };
+}
+
+export function ensureMorpheusSpecials(project, { overwrite = false } = {}) {
+  if (!boardSymbolPackFor(project)) return { added: 0, filled: 0 };
+  project.theme ||= {};
+  project.theme.symbols ||= [];
+  let added = 0;
+  for (const def of MORPHEUS_SPECIAL_DEFS) {
+    const exists = project.theme.symbols.some((symbol) => (
+      symbol?.id === def.id || symbol?.name === def.id || symbol?.name === def.name
+    ));
+    if (exists) continue;
+    project.theme.symbols.push({
+      id: def.id,
+      name: def.name,
+      tier: 'special',
+      src: '',
+      payouts: {},
+      special: [...def.special],
+    });
+    added += 1;
+  }
+  const filled = applyBoardSymbolPack(project, { overwrite }).filled;
+  const math = project.math ||= {};
+  const specials = math.specialSymbols ||= { wild: [], scatter: [] };
+  specials.wild = [...new Set([...(specials.wild || []), 'W', 'VEIL_WILD', 'LUCID_WILD', 'MAX_MORPHEUS', 'RIFT_WILD'])];
+  specials.scatter = [...new Set([...(specials.scatter || []), 'Gate of Sleep', 'GATE_OF_SLEEP', 'S'])];
+  return { added, filled };
 }

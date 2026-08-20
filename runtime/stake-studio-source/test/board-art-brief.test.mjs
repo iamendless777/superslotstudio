@@ -14,6 +14,7 @@ import {
   MORPHEUS_WORLD_PACK,
   applyBoardSymbolPack,
   applyMorpheusWorldPack,
+  ensureMorpheusSpecials,
 } from '../src/engines/assets/BoardSymbolPack.js';
 
 test('ways board brief is the loaded project, not cluster-hex gems', () => {
@@ -86,5 +87,23 @@ test('Morpheus world pack lays background, reel frame, and character', () => {
   assert.equal(frame.src, MORPHEUS_WORLD_PACK.foreground);
   const second = applyMorpheusWorldPack(project);
   assert.equal(second.filled, 0);
+});
+
+test('Morpheus specials fill Forge-mapped tiles without clobbering pays', () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const packDir = join(here, '../public/symbol-pack/morpheus');
+  for (const file of ['veil-wild.png', 'lucid-wild.png', 'dream-rift.png', 'golden-rift.png', 'echo-split.png', 'dawn-purge.png', 'oneiric-star.png', 'mystery-veil.png', 'max-morpheus.png']) {
+    assert.equal(existsSync(join(packDir, file)), true, file);
+  }
+  const project = createGameProject({ id: 'morpheus', name: 'Morpheus' });
+  project.theme.symbols = [
+    { id: 'H1', name: 'H1', src: 'keep-h1.png', special: [] },
+  ];
+  const first = ensureMorpheusSpecials(project);
+  assert.equal(first.added, 9);
+  assert.equal(project.theme.symbols[0].src, 'keep-h1.png');
+  assert.equal(project.theme.symbols.find((symbol) => symbol.id === 'VEIL_WILD').src, MORPHEUS_BOARD_PACK.VEIL_WILD);
+  const second = ensureMorpheusSpecials(project);
+  assert.equal(second.added, 0);
 });
 
