@@ -3417,6 +3417,8 @@ export class PreviewPanel {
     });
     this.landedReels.clear();
     this.reelsSlammed = false;
+    this.reelAnticipationActive = false;
+    this.reelAnticipationCued = false;
     this.visualEffectRuntime?.cancel?.();
     this.visualEffectRuntime?.cancelEnergyTaps?.();
     this.visualEffectRuntime?.disablePresentationEnergy?.();
@@ -3471,7 +3473,7 @@ export class PreviewPanel {
       .map(s => s.name);
 
     const hasAnticipation = this.hasScatterAnticipation(newBoard);
-    const reelSchedule = getReelStopSchedule(this.project, hasAnticipation);
+    const reelSchedule = getReelStopSchedule(this.project, false);
     const motionScale = this.turboMode ? 0.42 : 1;
 
     const spinToken = Symbol('preview-spin');
@@ -3559,6 +3561,10 @@ export class PreviewPanel {
         }
         this.pulseReelImpact(r);
         this.updateHUD();
+        const scatterCount = [...this.landedReels].reduce((count, reel) => (
+          count + (newBoard[reel] || []).filter(symbol => this.isScatterSymbol(symbol)).length
+        ), 0);
+        if (scatterCount >= 2) this.enterReelAnticipation();
         const impactMs = reelSchedule.timing.impactMs * (this.turboMode ? 0.5 : 1);
         const landedCellMs = this.turboMode ? 170 : 340;
         reelLandingBarriers[r] = this.wait(Math.max(impactMs, landedCellMs));
@@ -3583,12 +3589,33 @@ export class PreviewPanel {
         }, [], stopAt);
       }
     });
+  }
 
-    if (hasAnticipation) {
-      tl.call(() => {
-        void this.dispatchPresentation('anticipation', { board: newBoard, mode: this.selectedMode });
-      }, [], reelSchedule.anticipationCueMs * motionScale / 1000);
+  enterReelAnticipation() {
+    if (this.reelsSlammed || !this.spinTimeline) return;
+    const remaining = [...this.container.querySelectorAll('.reel-mask')]
+      .filter(mask => !mask.classList.contains('has-stopped'));
+    if (remaining.length === 0) return;
+    this.reelAnticipationActive = true;
+    this.setAnimationState('anticipation');
+    if (!this.reelAnticipationCued) {
+      this.reelAnticipationCued = true;
+      void this.dispatchPresentation('anticipation', {
+        board: this.spinResult?.board || this.board,
+        mode: this.selectedMode,
+      });
     }
+    remaining.forEach((mask, index) => {
+      mask.classList.add('is-anticipation');
+      const last = index === remaining.length - 1;
+      const seconds = this.turboMode ? (last ? 1.45 : 1.05) : (last ? 2.7 : 1.75);
+      mask.querySelector('.preview-reel-spin-track')?.style.setProperty('--spin-duration', `${seconds}s`);
+    });
+    if (this.spinTimeline.timeScale() > 1) return;
+    const slow = this.turboMode
+      ? (remaining.length <= 1 ? 0.42 : 0.56)
+      : (remaining.length <= 1 ? 0.18 : 0.3);
+    this.spinTimeline.timeScale(slow);
   }
 
   slamRemainingReels() {
