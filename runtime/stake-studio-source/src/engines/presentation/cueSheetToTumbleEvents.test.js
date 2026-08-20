@@ -9,6 +9,8 @@ import {
   cueSheetHasTumble,
   cueSheetToTumbleEvents,
   largestEqualCluster,
+  largestAdjacentWaysWin,
+  seedAdjacentWaysWin,
   seedMatchingCluster,
   seedStickyWilds,
 } from './cueSheetToTumbleEvents.js';
@@ -173,6 +175,46 @@ test('seedStickyWilds writes a horizontal wild run', () => {
   assert.equal(seeded.cells.length, 3);
   for (const [reel, row] of seeded.cells) assert.equal(seeded.board[reel][row], 'WILD');
 });
+
+test('largestAdjacentWaysWin needs 3 consecutive reels from the left', () => {
+  const miss = [
+    ['A', 'X', 'Y', 'Z'],
+    ['B', 'C', 'D', 'E'],
+    ['A', 'F', 'G', 'H'],
+    ['A', 'I', 'J', 'K'],
+    ['L', 'M', 'N', 'O'],
+    ['P', 'Q', 'R', 'S'],
+  ];
+  assert.deepEqual(largestAdjacentWaysWin(miss, 3), []);
+  const hit = [
+    ['A', 'X', 'Y', 'Z'],
+    ['A', 'C', 'D', 'E'],
+    ['A', 'F', 'G', 'H'],
+    ['B', 'I', 'J', 'K'],
+    ['L', 'M', 'N', 'O'],
+    ['P', 'Q', 'R', 'S'],
+  ];
+  assert.deepEqual(
+    largestAdjacentWaysWin(hit, 3).map(([reel, row]) => `${reel}:${row}`),
+    ['0:0', '1:0', '2:0'],
+  );
+});
+
+test('seedAdjacentWaysWin paints a left-to-right 3-kind and retargets', () => {
+  const seeded = seedAdjacentWaysWin(board6x4, 3);
+  assert.equal(seeded.cells.length, 3);
+  assert.deepEqual(seeded.cells, [[0, 1], [1, 1], [2, 1]]);
+  const names = new Set(seeded.cells.map(([reel, row]) => seeded.board[reel][row]));
+  assert.equal(names.size, 1);
+  const events = cueSheetToTumbleEvents(oneDepthSheet, seeded.board, {
+    retargetFromBoard: true,
+    retargetMode: 'ways',
+  });
+  const popped = events[0].explodingSymbols.map((cell) => `${cell.reel}:${cell.row}`).sort();
+  const ways = largestAdjacentWaysWin(seeded.board, 3).map(([reel, row]) => `${reel}:${row}`).sort();
+  assert.deepEqual(popped, ways);
+});
+
 
 
 

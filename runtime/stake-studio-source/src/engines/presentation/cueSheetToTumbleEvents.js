@@ -161,6 +161,64 @@ export function seedMatchingCluster(board, size = 4) {
   return { board: next, cells, name };
 }
 
+/** Adjacent-reel ways win: same name on 3+ consecutive reels from the left. */
+export function largestAdjacentWaysWin(board, minCount = 3) {
+  const source = cloneBoard(board);
+  if (!source.length) return [];
+  const names = new Set();
+  for (const reel of source) {
+    for (const cell of reel || []) {
+      if (cell && !/wild|scatter|bonus|star/i.test(cell)) names.add(cell);
+    }
+  }
+  let best = [];
+  let bestCount = 0;
+  for (const name of names) {
+    let count = 0;
+    const positions = [];
+    for (let reel = 0; reel < source.length; reel++) {
+      const hits = [];
+      for (let row = 0; row < (source[reel] || []).length; row++) {
+        if (source[reel][row] === name) hits.push([reel, row]);
+      }
+      if (!hits.length) break;
+      count += 1;
+      positions.push(...hits);
+    }
+    if (count >= minCount && (count > bestCount || (count === bestCount && positions.length > best.length))) {
+      best = positions;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+/** Paint a left-to-right 3-of-a-kind so ways rehearsal looks like a real win. */
+export function seedAdjacentWaysWin(board, count = 3) {
+  const next = cloneBoard(board);
+  const reels = next.length;
+  const rows = next[0]?.length || 0;
+  if (!reels || !rows) return { board: next, cells: [], name: null };
+  const name = pickSeedSymbol(next, symbolName(next[0][0]) || 'L1');
+  const n = Math.min(Math.max(count, 3), reels);
+  const row = Math.min(1, rows - 1);
+  const cells = [];
+  for (let reel = 0; reel < n; reel++) {
+    if (!next[reel]) continue;
+    next[reel][row] = name;
+    cells.push([reel, row]);
+  }
+  return { board: next, cells, name };
+}
+
+function liveExplodingCells(current, options) {
+  if (!options.retargetFromBoard) return [];
+  if (options.retargetMode === 'ways') {
+    return largestAdjacentWaysWin(current, Number(options.minWays) > 0 ? Number(options.minWays) : 3);
+  }
+  return largestEqualCluster(current, Number(options.minCluster) > 0 ? Number(options.minCluster) : 3);
+}
+
 export function seedStickyWilds(board, wildName, count = 3) {
   const next = cloneBoard(board);
   if (!wildName || !next.length) return { board: next, cells: [] };
@@ -198,9 +256,7 @@ export function cueSheetToTumbleEvents(sheet, board, options = {}) {
   const events = [];
   for (const depth of depths) {
     const depthCues = cues.filter((cue) => (Number(cue.depth) || 0) === depth);
-    const live = options.retargetFromBoard
-      ? largestEqualCluster(current, Number(options.minCluster) > 0 ? Number(options.minCluster) : 3)
-      : [];
+    const live = liveExplodingCells(current, options);
     const fallback = options.retargetFromBoard && depth > 0 ? [] : explodingForDepth(depthCues);
     const exploding = (live.length ? live : fallback)
       .filter(([reel, row]) => Number.isFinite(reel) && Number.isFinite(row)

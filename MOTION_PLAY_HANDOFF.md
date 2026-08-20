@@ -127,7 +127,8 @@ Cluster templates now call `playStakeTumble` only. Classic-nine still uses the c
 ### Remaining risks
 
 - Incoming rehearsal symbols are filled from surviving board art (not a math book). Occupancy is real; the round is not certified.
-- Unique boards seed a 2×2 matching cluster before tumble so pops look like a win, then restore.
+- Ways games (Morpheus / Waylanders-style) seed a left-to-right **3-of-a-kind**, not a cluster blob. Cluster templates still seed a 2×2.
+- Unique cluster boards seed a 2×2 matching cluster before tumble so pops look like a win, then restore.
 
 ### Overlay era (already rejected)
 
@@ -321,4 +322,4 @@ Local highlight / shared tumble win classes only.
 
 ## 13. One-line summary for the next agent
 
-**Play Motion: cluster → seed matching 2×2 if needed → playStakeTumble; reel templates → Preview spin tracks (last-reel hold + sticky seed). Smoke passed 2026-08-19. Next: art brief / optional merge. Do not invent a second animator.**
+**Play Motion: ways (Morpheus / Waylanders) → seed 3-kind L→R → playStakeTumble. Cluster → seed 2×2 → tumble. Reel templates → spin tracks. Do not invent a second animator. Art swap is the ship path.**

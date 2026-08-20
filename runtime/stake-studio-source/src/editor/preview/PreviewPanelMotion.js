@@ -14,7 +14,9 @@ import {
   cueSheetHasReel,
   cueSheetHasTumble,
   cueSheetToTumbleEvents,
+  largestAdjacentWaysWin,
   largestEqualCluster,
+  seedAdjacentWaysWin,
   seedMatchingCluster,
   seedStickyWilds,
 } from '../../engines/presentation/cueSheetToTumbleEvents.js';
@@ -320,6 +322,16 @@ export class PreviewPanel extends BasePreviewPanel {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
 
+  motionWinType() {
+    const type = String(
+      this.project?.math?.gameType
+      || this.project?.math?.winType
+      || this.project?.blueprint?.winType
+      || 'ways',
+    ).toLowerCase();
+    return type === 'cluster' ? 'cluster' : 'ways';
+  }
+
   motionFillerSymbol() {
     const names = (this.project?.math?.symbols || [])
       .map((symbol) => symbol?.name)
@@ -375,19 +387,25 @@ export class PreviewPanel extends BasePreviewPanel {
     const original = cloneBoard(this.board);
     this.motionSourceBoard = original;
     let working = original;
-    if (!largestEqualCluster(working, 3).length) {
-      const seeded = seedMatchingCluster(working);
+    const winType = this.motionWinType();
+    const live = winType === 'cluster'
+      ? largestEqualCluster(working, 3)
+      : largestAdjacentWaysWin(working, 3);
+    if (!live.length) {
+      const seeded = winType === 'cluster'
+        ? seedMatchingCluster(working)
+        : seedAdjacentWaysWin(working, 3);
       working = seeded.board;
       this.board = working;
       this.paintBoard?.(working);
-      this.setMotionStatus('Seed cluster');
+      this.setMotionStatus(winType === 'cluster' ? 'Seed cluster' : 'Seed 3-kind');
       this.setMotionDebug({
         path: 'tumble',
         grid: this.motionGridLabel(),
         step: 'seed',
         exploding: seeded.cells.map(([reel, row]) => ({ reel, row })),
         tumbling: false,
-        note: seeded.name,
+        note: `${winType} ${seeded.name || ''}`.trim(),
       });
       await this.waitMs(280);
     }
@@ -395,7 +413,9 @@ export class PreviewPanel extends BasePreviewPanel {
     const events = cueSheetToTumbleEvents(sheet, working, {
       fillerSymbol: this.motionFillerSymbol(),
       retargetFromBoard: true,
+      retargetMode: winType,
       minCluster: 3,
+      minWays: 3,
     });
     if (!events.length) {
       this.restoreMotionBoard();
