@@ -2044,6 +2044,7 @@ export class PreviewPanel {
     cell.title = authoredName || '';
     cell.dataset.symbol = String(authoredName || '').toLowerCase().replaceAll('_', '-');
     cell.dataset.symbolName = authoredName || '';
+    cell.classList.toggle('is-scatter', this.isScatterSymbol(authoredName));
     if (sym?.motionProfile) cell.dataset.motion = sym.motionProfile;
     else delete cell.dataset.motion;
     if (sym?.src && this.assetStatus.get(sym.src) === true) {
@@ -3550,6 +3551,9 @@ export class PreviewPanel {
         this.animateLandedCells(cells);
         this.scheduleSymbolMotionSync();
         this.audioEngine.playStinger('reelStop', r);
+        if ((newBoard[r] || []).some(symbol => this.isScatterSymbol(symbol))) {
+          this.audioEngine.playStinger('scatterLand', r);
+        }
         this.pulseReelImpact(r);
         this.updateHUD();
         const impactMs = reelSchedule.timing.impactMs * (this.turboMode ? 0.5 : 1);
@@ -4549,28 +4553,20 @@ export class PreviewPanel {
       const fallPhase = plan.phases.find(item => item.id === 'fall');
       const settlePhase = plan.phases.find(item => item.id === 'settle');
       if (plan.motionEnabled) {
-        timeline.call(() => explodingCells.forEach(cell => {
-          cell.classList.remove('is-tumble-reacting', 'is-tumble-clearing');
-          cell.classList.add('is-tumble-recognized');
-        }), [], (recognitionPhase?.startMs || 0) / 1000);
-        timeline.call(() => explodingCells.forEach(cell => {
-          cell.classList.remove('is-tumble-recognized');
-          cell.classList.add('is-tumble-reacting');
-        }), [], (reactionPhase?.startMs || 0) / 1000);
-        timeline.call(() => explodingCells.forEach(cell => {
-          cell.classList.remove('is-tumble-reacting');
-          cell.classList.add('is-tumble-clearing');
-        }), [], (clearPhase?.startMs || 0) / 1000);
-        if (explodingCells.length) timeline.to(explodingCells, {
-          yPercent: -8,
-          scale: 0.58,
-          opacity: 0,
-          rotation: (_, target) => (Number(target.dataset.reel) % 2 ? 4 : -4),
-          filter: 'blur(5px) brightness(1.25)',
-          duration: Math.max(0.001, phase('clear') / 1000),
-          stagger: Math.max(0, (clearPhase?.cues?.[1]?.relativeAtMs || 0) / 1000),
-          ease: 'power2.inOut',
-        }, (clearPhase?.startMs || 0) / 1000);
+        if (explodingCells.length) {
+          timeline.to(explodingCells, {
+            scale: 1.08,
+            filter: 'brightness(1.35) saturate(1.12)',
+            duration: Math.max(0.001, phase('reaction') / 1000),
+            ease: 'power2.out',
+          }, (reactionPhase?.startMs || 0) / 1000);
+          timeline.to(explodingCells, {
+            scale: 1.16,
+            opacity: 0,
+            duration: Math.max(0.001, phase('clear') / 1000),
+            ease: 'power2.in',
+          }, (clearPhase?.startMs || 0) / 1000);
+        }
         timeline.to(survivorMotions.concat(incomingCells), {
           top: (_, target) => Number(target.dataset.targetTop),
           opacity: 1,
