@@ -1,12 +1,15 @@
 # Motion / Play Motion — Full Handoff
 
-**Date:** 2026-08-19  
+**Date:** 2026-08-20  
 **Branch:** `integrate/studio-motion`  
+**HEAD:** `8ce256b` — *Tease every reel that is one scatter away.*  
 **Repo:** https://github.com/iamendless777/superslotstudio  
 **Local path:** `~/Developer/superslotstudio`  
-**Goal:** Ship many Stake.com games quickly (target ~2 days each) by making motion + templates reliable so the bottleneck is **art selection**, not fighting the studio.
+**Goal:** Ship many Stake.com games quickly (target ~2 days each). Motion + templates stay reliable so the bottleneck is **art**, not fighting the studio.
 
-This document is the single handoff for humans or agents continuing the work.
+This is the single handoff for a new chat. Read this before touching reel spin or scatter tease.
+
+---
 
 ## Start here — 3001 (agent lane, live reload)
 
@@ -23,35 +26,110 @@ npm run dev:agent
 cd ~/Developer/superslotstudio
 ```
 
-Open Preview on **3001**, load a project, **Motion → cascade · ways → Play Motion**.
-
-Smoke (60 seconds):
-1. cascade / ways — 3-kind L→R, survivors fall, new tiles enter, board restores, no max-win overlay
-2. classic-nine — reels blur and stop, no wager deducted
-3. sticky-five — stop + sticky pulse
-4. anticipation-five — last-reel hold
-Status may say “Board art ready”. That is the point.
-
-Equivalent (if Terminal 1 is already in the studio folder):
-
-```bash
-cd ~/Developer/superslotstudio/runtime/stake-studio-source
-npm run dev:agent
-```
+Open Preview on **3001**, load Morpheus, hard-refresh after every `git pull`.
 
 Port split: **3000** = ChatGPT/human lane (`npm run dev`). **3001** = agent lane (`npm run dev:agent`). Do not mix them.
 
-Fixtures regenerate on `npm run build`, on 3001 boot, and live while 3001 is running if `src/motion` or `src/studio` changes. You do not need to remember `studio:fixtures`. CI fails if generated JSON is not committed.
+After pulling motion/CSS/JS changes: **hard refresh**. Vite live-reload is not enough for spin-track CSS.
 
+```bash
+cd ~/Developer/superslotstudio
+git pull origin integrate/studio-motion
+# then hard-refresh the 3001 tab
+```
+
+---
+
+## Current truth (2026-08-20, HEAD 8ce256b)
+
+Work moved from “make Play Motion exist” into **live-play pixels** on Morpheus (Waylanders Forge clone, new art). Play Motion is the rehearsal harness. Live SPIN is the product.
+
+### What a spin looks like now
+
+1. All 6 reels start together. Spin cover is a **filled CSS grid loop** (Stake frontend-template contract): 300% track, `top: -100%`, 3× repeated page, hide **imgs only** (not the cell plates).
+2. Reels stop L→R on `getScatterTeaseSchedule` / `getReelStopSchedule`.
+3. Landed tiles paint immediately. Pay glow is the tile, not a late overlay.
+4. SPIN stays locked until the cascade (if any) finishes. Second SPIN slams remaining reels.
+5. Small-win plaques, mode banner, and the door-shaped highlight on the character rig are gone from ordinary spins.
+
+### Scatter anticipation (this is the live mechanic)
+
+Morpheus scatter **count is the feature**, not a 3-scatter binary.
+
+| Count | Mode |
+|------:|------|
+| 3 | Veil Ascent |
+| 4 | Lucid Blessing |
+| 5 | Dreamfall |
+| 6 | Oneiric Nexus |
+
+**One rule.** As reels land L→R, keep a running scatter count. A still-spinning reel is a **waiting reel** when:
+
+1. Current count is **one away** from the next live threshold (2→3, 3→4, 4→5, 5→6).
+2. Leftover reels can still reach that threshold (a reel can hold more than one scatter).
+
+Every waiting reel gets the **same** extra hold (`anticipationHoldMs`, default **1200ms**), applied **sequentially** (accrued). Last reel is not special. Hitting 3 does **not** turn 4/5/6 off.
+
+Prefer the book’s `anticipation[]` if it has any truthy flags. Else derive from the board (`waitingReelsFromBoard` + `scatterThresholds`).
+
+Live and Play Motion share this schedule.
+
+### Play Motion dropdown (3001)
+
+| Option | Path |
+|--------|------|
+| cluster-hex | ways: seed 3-kind L→R → `playStakeTumble` |
+| classic-nine | reel spin tracks, no wager |
+| sticky-five | reel path + sticky pulse |
+| anticipation-five | older last-reel-hold fixture (planner template) |
+| **2-scatter tease** | seed 2 doors on reels 1–2; reels 3–6 each hold the same beat |
+| **3-scatter tease** | seed 3; remaining wait for 4+ |
+| **4-scatter tease** | seed 4 |
+| **5-scatter tease** | seed 5; last reel waits for 6 |
+
+Use **2-scatter tease** first when checking the mechanic. You should see four identical holds, not a dump of reels 3–5 then a long 6.
+
+### Timing (do not invent new numbers unless asked)
+
+- `baseDurationMs` 520, `perReelDelayMs` 120, `perReelDurationMs` 70
+- `anticipationHoldMs` **1200** on **each waiting reel**, accrued so gaps stay ~hold
+- Live uses project choreography. Rehearsal uses the same hold (the old 2200 last-reel floor is gone)
+- QA still uses `getReelStopSchedule(project, true)` = last-reel-only. Do not change that to pass polish QA. Preview/live tease goes through `getScatterTeaseSchedule`.
+
+---
+
+## Do not do (paid for in video)
+
+These were tried, looked worse, and were reverted. Do not revive them.
+
+| Rejected | Why |
+|----------|-----|
+| HTML overlay grid / second animator | Parallel toy. Cluster path is `playStakeTumble` only. |
+| GSAP `y` travel + landing page of true symbols | Empty dark pockets, ghost orbs, last-reel flash. |
+| `setSymbolCell` / `.reel-sym` on the spin track | Triggers Pixi flipbooks. Ghost glow, delayed land. |
+| Hide entire `.reel-sym` cells while spinning | Empty plates. Hide **imgs only**. |
+| Change `--spin-duration` mid-spin | Restarts the CSS animation, jump at the seam. |
+| `timeScale` the whole GSAP timeline for “slow-mo” | Stretches stops, yanks settled reels. |
+| Fake extra scatters in the blur strip | User: “no need to make fake anything.” Landing tiles are the real board. |
+| Last-reel-only hold as the product tease | Misses 3/4/5/6. Only QA `getReelStopSchedule(..., true)` keeps this. |
+| Half-hold on middle reels, full on last | Wrong model. Every waiting reel is the same beat. |
+| Overlay TOTAL WIN / mode banner on every spin | Ugly. Mode lives in the bonus menu. |
+| Door highlight on the character rig | Was meant for the background portal; unreadable. |
+
+**Spin cover contract (Stake frontend-template):** filled 3-page CSS grid, infinite `translateY`, real board underneath, anticipation is **schedule delay** not a second strip. Tests in `preview-motion-polish.test.mjs` lock the CSS.
+
+If pixels go wrong: inspect `createPreviewReelSpinTrack` + `getScatterTeaseSchedule`. Do not invent a travel strip.
 
 ---
 
 ## 1. Product goal (do not lose this)
 
 1. Style-agnostic motion (not locked to one look).
-2. Templates (classic-nine, cluster-hex, sticky-five, anticipation-five, …) that validate, plan cues, and list art gaps.
-3. **Play Motion** in studio preview must look like a real slot cascade/spin — same visual authority as a live round.
-4. Then: pick art → grade → ship. Motion pipeline should not be the bottleneck.
+2. Templates that validate, plan cues, and list art gaps.
+3. **Play Motion** and **live SPIN** share pixel authority with a real Stake round.
+4. Then: pick art → grade → ship. Motion is not the bottleneck.
+
+Morpheus is a Waylanders Forge clone with new art. Match that game’s *feel* (tumble, 3-kind ways, scatter-count features), not a unique mechanic.
 
 ---
 
@@ -66,69 +144,72 @@ Fixtures regenerate on `npm run build`, on 3001 boot, and live while 3001 is run
 | `npm run studio — …` | `assess`, `plan`, `cues`, `templates`, art-gap style flows |
 | Tests | `npm test` at repo root — domain suite should stay green |
 
+Planner templates are still: classic-nine, cluster-hex, sticky-five, anticipation-five. Scatter-tease fixtures live only in studio `public/motion-fixtures/` (not in `src/studio/templates.ts`). Do not add them to the planner unless you also update `studio-motion-fixture.test.ts`.
+
 ### Studio runtime (`runtime/stake-studio-source/`)
 
 | Piece | Role |
 |--------|------|
-| `MotionCueHost.js` | Plays a cue sheet on a clock (classic-nine fallback) |
-| `playMotionTemplate.js` | Loads `/motion-fixtures/<id>.json` |
-| `cueSheetToTumbleEvents.js` | Adapter: cue sheet → `tumbleBoard` payloads |
-| `public/motion-fixtures/classic-nine.json`, `cluster-hex.json` | Rehearsal sheets |
-| `PreviewPanelMotion.js` | Motion dropdown + **Play Motion** → `playStakeTumble` |
-| `PreviewPanel.playStakeTumble(board, event)` | **Pixel authority** for cascade |
-| `CUE_BRIDGE` safety | `win.pulse` / `board.shake` must **not** fire wincap / setWin |
+| `PreviewPanel.js` | Live SPIN, `playStakeTumble`, spin tracks, waiting-reel schedule |
+| `PreviewPanelMotion.js` | Motion dropdown + Play Motion (tumble **or** reel rehearsal) |
+| `PresentationDirector.js` | `getReelStopSchedule` (QA last-reel) + `getScatterTeaseSchedule` + `waitingReelsFromBoard` |
+| `playStakeTumble(board, event)` | **Pixel authority** for cascade |
+| `createPreviewReelSpinTrack` | Stake CSS loop (filled, 3× page, imgs hidden) |
+| `MotionCueHost.js` | Cue clock fallback (classic-nine if rehearsal adapter misses) |
+| `cueSheetToTumbleEvents.js` | Cue sheet → `tumbleBoard` payloads |
+| `public/motion-fixtures/*.json` | Rehearsal sheets, including `scatter-tease.json` + `-3/-4/-5` |
+| `CUE_BRIDGE` | `win.pulse` / `board.shake` must **not** fire wincap / setWin |
 | `npm run dev:agent` | `PORT=3001 STAKE_STUDIO_AGENT=1 STAKE_STUDIO_LIVE_RELOAD=1` |
 
-### Authoritative tumble API (located 2026-08-19)
+### Authoritative tumble API
 
-**Preview (studio):** `PreviewPanel.playStakeTumble(board, event)`  
-Triggered by book events `type === 'tumbleBoard'`.
-
+**Preview:** `PreviewPanel.playStakeTumble(board, event)`  
 **Portable frontend:** `game-app.js` → `playTumbleBoard(event)`
-
-**Payload shape:**
 
 ```js
 {
   type: 'tumbleBoard',
-  explodingSymbols: [{ reel, row }, ...],   // also accepts [reel, row]
-  newSymbols: [[{ name }, ...], ...],       // per reel, prepended at top
+  explodingSymbols: [{ reel, row }, ...],
+  newSymbols: [[{ name }, ...], ...],  // per reel, prepended at top
 }
 ```
 
-Occupancy: `applyTumbleEvent` / `applyTumbleOccupancy`  
-→ survivors compact, incoming prepended (`[...incoming, ...survivors]`). Row 0 = top.
+Occupancy: survivors compact, incoming prepended. Row 0 = top.
 
-### Operational setup that works
+### Scatter schedule API
 
-```bash
-cd ~/Developer/superslotstudio
-npm run dev:agent
-# → http://127.0.0.1:3001/
+```js
+waitingReelsFromBoard(board, { isScatter, thresholds })
+waitingReelsFromAnticipation(bookReveal.anticipation, reelCount) // null if empty
+getScatterTeaseSchedule(project, { reelCount, waiting, holdMs })
+scatterThresholds(project) // featureArchitecture.tiers keys, else [3,4,5,6]
 ```
 
-Open preview on **3001**, load project, use **Motion → cascade · ways → Play Motion**.
-
-Adapter unit test (no studio):
-
-```bash
-node --test runtime/stake-studio-source/src/engines/presentation/cueSheetToTumbleEvents.test.js
-```
+Unit test: `runtime/stake-studio-source/test/presentation-director.test.mjs`  
+(“waiting reels share one hold for every scatter threshold”)
 
 ---
 
 ## 3. What was broken / still watch
 
-### Core architectural mistake (fixed for cluster-hex)
+### Fixed this session (video-verified, then iterated)
 
-Play Motion used to be a parallel toy animator (DOM guess + ad-hoc WAAPI).  
-Cluster templates now call `playStakeTumble` only. Classic-nine still uses the cue clock (P2).
+- SPIN stuck behind leftover presentation / tile glows
+- Glow loading 1–3s after the tile (unlock was tied to glow, not land)
+- Empty grid flash on tumble refill
+- Pay light turning off before explode
+- Scatter tease: empty last reel, ghost blur, yank, fake scatter density
+- GSAP travel pages (empty pockets) — reverted to Stake CSS loop
+- Last-reel-only then half-hold middle reels — replaced by waiting-reel rule
 
-### Remaining risks
+### Still watch
 
-- Incoming rehearsal symbols are filled from surviving board art (not a math book). Occupancy is real; the round is not certified.
-- Ways games (Morpheus / Waylanders-style) seed a left-to-right **3-of-a-kind**, not a cluster blob. Cluster templates still seed a 2×2.
-- Unique cluster boards seed a 2×2 matching cluster before tumble so pops look like a win, then restore.
+- **2-scatter tease on 3001 after `8ce256b` has not been video-confirmed yet.** First job of the next chat: pull, hard refresh, record 2-scatter tease. Expect four equal holds on reels 3–6, real landing tiles, no empty flash.
+- Incoming rehearsal symbols are still filled from surviving board art (not a certified math book). Occupancy is real; the round is not certified.
+- Studio `compileSpinBook` still emits `anticipation: []`. Live preview **derives** waiting flags from the board. When math books grow a real array, `waitingReelsFromAnticipation` already prefers it.
+- `anticipation-five` planner fixture is the old last-reel demo. Product tease is scatter-tease 2/3/4/5.
+- Ways games seed a L→R **3-of-a-kind**. Cluster templates still seed a 2×2.
+- `preview-motion-polish.test.mjs` may still have unrelated tumble/connection failures. Do not “fix” those by weakening the spin-track CSS contract.
 
 ### Overlay era (already rejected)
 
@@ -136,65 +217,60 @@ Full-cabinet HTML grid was correctly removed. **Do not bring it back.**
 
 ---
 
-## 4. Target architecture (do this)
+## 4. Target architecture
 
 ```text
-Template / planner / fixture
-    → MotionCueSheet (timing + cells + stepKind + depth)
-        → cueSheetToTumbleEvents(sheet, board)
-            → tumbleBoard { explodingSymbols, newSymbols }
-        → PreviewPanel.playStakeTumble
-            → Real symbols move
+Live SPIN / Play Motion reel
+    → waiting flags (book anticipation[] or waitingReelsFromBoard)
+    → getScatterTeaseSchedule
+    → createPreviewReelSpinTrack (Stake CSS loop)
+    → stop L→R; waiting reels accrue the same hold
+    → paintReelBoard with the real result column
+    → playStakeTumble if the book says so
+
+Cluster Play Motion
+    → cueSheetToTumbleEvents
+    → playStakeTumble
 ```
 
-**Not:**
+**Not:** CueSheet → querySelector → ad-hoc WAAPI / GSAP travel / fake blur symbols.
 
-```text
-CueSheet → random querySelector → ad-hoc WAAPI
-```
-
-Domain TS planner remains source of timing authority.  
-Studio Preview remains pixel authority — **one** tumble implementation.
+Domain TS planner remains source of **template** timing.  
+Studio Preview remains **pixel** authority — one tumble, one spin-track.
 
 ---
 
-## 5. TODO list (priority order)
+## 5. TODO list
 
-### P0 — Make Play Motion real
+### P0 — Play Motion real (done 2026-08-19)
 
-- [x] **Locate** cascade path: `PreviewPanel.playStakeTumble(board, event)` + portable `playTumbleBoard(event)`. Payload `{ explodingSymbols, newSymbols }`.
-- [x] **Adapter:** `cueSheetToTumbleEvents(sheet, board)` in `cueSheetToTumbleEvents.js`.
-- [x] **Wire Play Motion** for cluster templates to `playStakeTumble` (ad-hoc pop/fall/refill no longer used).
-- [x] **Fixture rewrite** `cluster-hex.json` catalogVersion 2: pop → remove per depth; fall/refill cells empty; no dropIn-on-full-board; no win.pulse/shake overlays.
-- [x] **Smoke check:** Play Motion on Morpheus 6×4.
-  - cluster-hex (14:34 + 21:26): `playStakeTumble`, two depths, gravity, restore, no wager.
-  - classic-nine (21:43): sequential reel blur/stop, no wager.
-  - sticky-five (21:27): reel path + sticky cue (seeds wilds if the live board has none).
-  - anticipation-five (21:56): last-reel hold ~1.4s, status `Anticipation`, no wager.
+- [x] Cluster → `playStakeTumble` only
+- [x] Classic-nine / sticky / anticipation reel path
+- [x] Smoke on Morpheus 6×4
+- [x] No HTML overlay grid, no max-win from motion cues
 
-### P1 — Hardening
+### P1 — Live-play polish (done 2026-08-20)
 
-- [x] Unit test: occupancy + one-depth + sequential second depth (`cueSheetToTumbleEvents.test.js`).
-- [x] Integration test: adapter occupancy matches `StakeRoundBook.applyTumbleEvent`.
-- [x] Cue host: unknown cue → warn + skip, not throw whole play.
-- [x] Stop mapping `symbol.dropIn` → `spinStart` for cascade templates.
-- [x] `reel.stop` → `presentationEvent: 'reveal'` only when `allowPresentationEvents` is explicitly true; rehearsal default is no-op.
-- [x] Ensure `app.js` import of `PreviewPanelMotion` is stable and documented.
-- [x] Confirm fixtures served under Vite on 3001 (`publicDir: 'public'` → `/motion-fixtures/*.json`).
+- [x] Kill small-win plaques / mode banner / rig door highlight on ordinary spins
+- [x] SPIN lock = cascade ownership, not glow leftover
+- [x] Landed tile + pay light are one
+- [x] Solid tumble refill, no empty flash
+- [x] Stake CSS spin-track (filled loop, hide imgs)
+- [x] Waiting-reel scatter tease for 3/4/5/6
+- [x] Play Motion 2/3/4/5-scatter teasers
 
-### P2 — Multi-style + art loop (2-day goal)
+### P2 — Next chat (do these in order)
 
-- [x] CLI: `npm run build` / `npm run dev:agent` write fixtures + index. Play Motion dropdown loads that index. `studio:fixtures` is an alias, not a required extra step.
-- [x] Templates each lock a recommended style; Play Motion dropdown lists classic-nine, cluster-hex, sticky-five, anticipation-five.
-- [x] Art brief: `npm run studio -- art-brief <template>` — missing symbols + role guidance; motion not blocked on art.
-- [x] Classic-nine path: reel blur/stop via Preview `createPreviewReelSpinTrack` + `getReelStopSchedule` (no wager, no setWin).
-- [x] Sticky / anticipation templates: fixtures + Play Motion parity (reel path + local sticky morph / anticipation hold).
+- [ ] **Video-confirm `8ce256b` 2-scatter tease.** Four equal holds. If it dumps 3–5 then only 6 hangs, the waiting flags or accrued hold did not load — hard refresh, then inspect `getScatterTeaseSchedule` stops.
+- [ ] Video-confirm 3-scatter and 5-scatter teasers (3 continues waiting for 4; 5 holds last reel for 6).
+- [ ] Live SPIN: a natural 2-scatter (not only Play Motion) should use the same schedule.
+- [ ] If 1.2s/waiting-reel feels short or long, change **one** number: `anticipationHoldMs`. Do not special-case the last reel.
+- [ ] Optional: fill `compileSpinBook` `anticipation[]` from the board so books match presentation.
+- [ ] Art loop: Art panel → copy **board** brief. Do not commission cluster-hex as the ways art recipe.
 
 ### P3 — Cleanup
 
-- [x] Remove dead overlay CSS/IDs if any remain (no Play Motion cabinet HTML grid left).
-- [x] Trim MotionCueHost comments that claim TumbleChoreography is wired when it is not.
-- [ ] Optional: merge `integrate/studio-motion` → `main` after P0 smoke pass.
+- [ ] Optional: merge `integrate/studio-motion` → `main` after P2 video pass.
 - [x] Large binary assets: keep out of motion-only PRs.
 
 ---
@@ -207,119 +283,131 @@ MOTION_PLAY_HANDOFF.md                          ← this file
 # Domain
 src/motion/
 src/studio/
-src/studio/stake-runtime-bridge.ts
 
-# Studio presentation
-runtime/stake-studio-source/src/engines/presentation/MotionCueHost.js
-runtime/stake-studio-source/src/engines/presentation/playMotionTemplate.js
-runtime/stake-studio-source/src/engines/presentation/cueSheetToTumbleEvents.js
-runtime/stake-studio-source/src/engines/presentation/cueSheetToTumbleEvents.test.js
+# Live + rehearsal pixels
+runtime/stake-studio-source/src/editor/preview/PreviewPanel.js
 runtime/stake-studio-source/src/editor/preview/PreviewPanelMotion.js
-runtime/stake-studio-source/src/editor/preview/PreviewPanel.js          ← playStakeTumble
-runtime/stake-studio-source/src/app.js
-runtime/stake-studio-source/public/motion-fixtures/*.json
+runtime/stake-studio-source/src/engines/presentation/PresentationDirector.js
+runtime/stake-studio-source/src/engines/presentation/cueSheetToTumbleEvents.js
+runtime/stake-studio-source/src/engines/presentation/playMotionTemplate.js
+runtime/stake-studio-source/public/motion-fixtures/scatter-tease.json
+runtime/stake-studio-source/public/motion-fixtures/scatter-tease-3.json
+runtime/stake-studio-source/public/motion-fixtures/scatter-tease-4.json
+runtime/stake-studio-source/public/motion-fixtures/scatter-tease-5.json
 
-# Reference implementation of correct cascade pixels
-runtime/stake-studio-source/server/frontend-template/game-app.js       ← playTumbleBoard()
+# CSS contract
+runtime/stake-studio-source/src/styles.css          ← .preview-reel-spin-track
+
+# Tests
+runtime/stake-studio-source/test/presentation-director.test.mjs
+runtime/stake-studio-source/test/preview-motion-polish.test.mjs
+runtime/stake-studio-source/src/engines/presentation/cueSheetToTumbleEvents.test.js
+
+# Stake reference
+runtime/stake-studio-source/server/frontend-template/game-app.js
 ```
 
 ---
 
 ## 7. Commands cheat sheet
 
-### One command that matters
-
 ```bash
 cd ~/Developer/superslotstudio
-npm run dev:agent          # build + write fixtures + http://127.0.0.1:3001/
+npm run dev:agent          # build + fixtures + http://127.0.0.1:3001/
+git pull origin integrate/studio-motion
 ```
 
-### Domain (repo root)
-
 ```bash
-cd ~/Developer/superslotstudio
+# Adapter unit test (no studio)
+node --test runtime/stake-studio-source/src/engines/presentation/cueSheetToTumbleEvents.test.js
+
+# Waiting-reel schedule
+node --test runtime/stake-studio-source/test/presentation-director.test.mjs
+
+# Domain
 npm test
 npm run studio -- templates
 npm run studio -- art-brief cluster-hex
 ```
 
-### Studio (if already in the studio folder)
+---
 
-```bash
-cd ~/Developer/superslotstudio/runtime/stake-studio-source
-npm run dev:agent          # 3001, live reload; syncs fixtures if dist/ exists
-```
+## 8. Play Motion / live expected behavior
 
-### Git
+### cascade · ways (cluster-hex clock on a ways game)
 
-```bash
-cd ~/Developer/superslotstudio
-git fetch origin
-git checkout integrate/studio-motion
-git pull origin integrate/studio-motion
-git status
-```
+1. Status `Seed 3-kind` → `Cascade 1 / N` → `Done`.
+2. No HTML grid over the cabinet. No MAXIMUM WIN overlay.
+3. Three matching tiles on reels 1–3, survivors fall, new tiles enter, restore.
+
+### 2-scatter tease
+
+1. Status `Seed 2 scatters` → `Reels spinning` → `Tease · waiting for scatter 3` on each leftover reel.
+2. Reels 1–2 land two Gate of Sleep doors. Reels 3, 4, 5, **and** 6 each keep spinning, then land, one after another, **same hold**.
+3. Landing tiles are the real result. No fake doors in the blur.
+4. Board restores so Play Motion is repeatable.
+
+### Live SPIN with 2+ scatters before the last reel
+
+Same schedule as Play Motion. No wager-free shortcut — this is the real round.
 
 ---
 
-## 8. Play Motion expected behavior (definition of done for P0)
+## 9. Safety rules
 
-When user clicks **Play Motion** with **cascade · ways** (cluster-hex clock on a ways game):
+Never map during Play Motion / cue rehearsal:
 
-1. Status shows `Seed 3-kind`, then `Cascade 1 / N`, then `Done`.
-2. **No** HTML grid covering the cabinet.
-3. **No** MAXIMUM WIN / 100,000× overlay from motion cues.
-4. A coherent cascade:
-   - Three matching tiles on reels 1–3 (left to right)
-   - Tiles above fall into gaps (real `playStakeTumble` layer)
-   - New tiles enter from above
-   - Board settles
-5. After completion, board restores to the pre-rehearsal occupancy so Play Motion is repeatable.
-6. Failures should surface clearly.
+- `board.shake` → `wincap` / max-win UI
+- `win.pulse` → `setWin` / full-screen payout
+
+`executePresentation` for Play Motion stays a **no-op** unless a future flag explicitly enables director recipes.
+
+Do not mix 3000 and 3001. Do not commit 50MB art in a motion PR.
 
 ---
 
-## 9. Safety rules for motion rehearsal
+## 10. Next session (paste this into the new chat)
 
-Never map these during Play Motion / cue rehearsal:
-
-- `board.shake` → `wincap` / max-win UI  
-- `win.pulse` → `setWin` / payout celebration that owns the full screen  
-
-Local highlight / shared tumble win classes only.
-
-`executePresentation` for Play Motion should stay a **no-op** unless a future flag explicitly enables director recipes for a controlled demo mode.
-
----
-
-## 10. Next session
-
-1. Motion smoke is done. Ways rehearsal is a clean 3-kind L→R tumble (Waylanders-style).
-2. Art loop is the ship path: open Art → copy **board** brief (live symbols + roles + pixel size). Do not commission the cluster-hex recipe.
-3. Optional: merge `integrate/studio-motion` → `main` after a `git pull` on 3001.
-4. If pixels are wrong, inspect `playStakeTumble` / reel tracks — do not revive ad-hoc WAAPI.
+1. `git pull origin integrate/studio-motion` (HEAD should be `8ce256b` or later). Hard-refresh 3001.
+2. Play Motion → **2-scatter tease**. Record it. Waiting reels 3–6 must each hold ~1.2s. If they dump, the new schedule is not loaded.
+3. Then **3-scatter** and **5-scatter**. Then a live SPIN that happens to 2-scatter.
+4. If hold length is wrong, change `anticipationHoldMs` only.
+5. Do not revive GSAP travel, fake scatters, last-reel-only, or an HTML overlay grid.
+6. Art loop can run in parallel once the tease video looks like one mechanic.
 
 ---
 
 ## 11. Branch / PR notes
 
-- Active integration branch: **`integrate/studio-motion`**
-- Related historical branches: `motion/multi-style-foundation`, `agent/recover-game-source`
-- Prefer small commits on motion wiring; avoid mixing 50MB art blobs into motion-only commits
-- Remote: `https://github.com/iamendless777/superslotstudio.git` (account `iamendless777`)
+- Active branch: **`integrate/studio-motion`**
+- Related historical: `motion/multi-style-foundation`, `agent/recover-game-source`
+- Prefer small commits on motion wiring; no 50MB art blobs
+- Remote: `https://github.com/iamendless777/superslotstudio.git` (`iamendless777`)
+
+Recent commits (newest first):
+
+```
+8ce256b Tease every reel that is one scatter away.
+b47d871 Hold leftover reels after two scatters, last reel longest.   ← superseded
+0273958 Give the last reel time to tease.                          ← superseded
+d016d2b Match Stake reel spin: filled loop, last-reel hold.
+e824bd5 Stop covering tumbles with small-win plaques.
+```
+
+`b47d871` / `0273958` last-reel and half-hold behavior is **replaced** by `8ce256b`. Do not restore it.
 
 ---
 
 ## 12. Non-goals (for now)
 
 - Rebuilding Morpheus art or math from scratch
-- New HTML overlay “motion preview grid” as user-facing UI
-- Perfect multi-style VFX polish before tumble path is shared
-- Three.js / minimax — noise for the 2-day cascade ship loop
-- Blocking art pipeline on motion perfection — after P0 smoke, art-brief can proceed in parallel
+- New HTML overlay “motion preview grid”
+- Three.js / minimax — noise for this ship loop
+- Perfect VFX polish before the waiting-reel tease is video-confirmed
+- Blocking art on motion perfection
 
 ---
 
 ## 13. One-line summary for the next agent
 
-**Play Motion: ways (Morpheus / Waylanders) → seed 3-kind L→R → playStakeTumble. Cluster → seed 2×2 → tumble. Reel templates → spin tracks. Do not invent a second animator. Art swap is the ship path.**
+**Live + Play Motion share Stake CSS spin tracks and playStakeTumble. Scatter tease = every reel that is one-away from 3/4/5/6 gets the same sequential hold. Confirm 8ce256b on 2-scatter tease before changing pixels. Do not invent a second animator.**
