@@ -36,6 +36,15 @@
       "title": "Anticipation Five",
       "missingArt": 5,
       "readyToCommission": true
+    },
+    {
+      "id": "scatter-tease",
+      "styleId": "scatter-tease",
+      "kind": "reel",
+      "totalDurationMs": 4200,
+      "title": "2-scatter tease",
+      "missingArt": 0,
+      "readyToCommission": true
     }
   ]
 }

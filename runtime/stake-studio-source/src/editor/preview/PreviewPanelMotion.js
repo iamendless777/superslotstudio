@@ -89,6 +89,7 @@ export class PreviewPanel extends BasePreviewPanel {
         <option value="cluster-hex" selected>cluster-hex</option>
         <option value="sticky-five">sticky-five</option>
         <option value="anticipation-five">anticipation-five</option>
+        <option value="scatter-tease">2-scatter tease</option>
       </select>`;
 
     const button = document.createElement('button');
@@ -382,6 +383,7 @@ export class PreviewPanel extends BasePreviewPanel {
   }
 
   motionTemplateLabel(template) {
+    if (template?.id === 'scatter-tease') return '2-scatter tease';
     if (template?.kind === 'tumble' && this.motionWinType() !== 'cluster') {
       return 'cascade · ways';
     }
@@ -398,11 +400,43 @@ export class PreviewPanel extends BasePreviewPanel {
     return type === 'cluster' ? 'cluster' : 'ways';
   }
 
+  motionScatterSymbol() {
+    const symbols = this.project?.theme?.symbols || [];
+    const flagged = symbols.find((symbol) => (symbol.special || []).includes('scatter'));
+    if (flagged?.name) return flagged.name;
+    const named = symbols.find((symbol) => /scatter|gate/i.test(String(symbol.name || symbol.id || '')));
+    return named?.name || null;
+  }
+
+  seedTwoScatterTease(board) {
+    const scatter = this.motionScatterSymbol();
+    const filler = this.motionFillerSymbol();
+    const next = cloneBoard(board);
+    const cells = [];
+    if (!scatter || !next.length) return { board: next, cells, scatter };
+    for (const reel of [0, 1]) {
+      if (!next[reel]?.length) continue;
+      const row = Math.min(1, next[reel].length - 1);
+      next[reel][row] = scatter;
+      cells.push([reel, row]);
+    }
+    for (let reel = 2; reel < next.length; reel++) {
+      next[reel] = (next[reel] || []).map((symbol) => (
+        this.isScatterSymbol?.(symbol?.name || symbol) ? filler : symbol
+      ));
+    }
+    return { board: next, cells, scatter };
+  }
+
   motionFillerSymbol() {
     const names = (this.project?.math?.symbols || [])
       .map((symbol) => symbol?.name)
       .filter(Boolean);
-    return names.find((name) => !/wild|scatter|bonus|star/i.test(String(name))) || names[0] || 'L1';
+    const themeNames = (this.project?.theme?.symbols || [])
+      .map((symbol) => symbol?.name)
+      .filter(Boolean);
+    const pool = names.length ? names : themeNames;
+    return pool.find((name) => !/wild|scatter|bonus|star|gate/i.test(String(name))) || pool[0] || 'L1';
   }
 
   stickyMorphCells(board, morphCue) {
@@ -560,9 +594,34 @@ export class PreviewPanel extends BasePreviewPanel {
       .map((symbol) => symbol.name)
       .filter(Boolean);
     const hasAnticipation = (sheet.cues || []).some((cue) => cue.cue === 'reel.anticipation');
-    const reelSchedule = rehearsalReelSchedule(this.project, hasAnticipation, masks.length);
-    const board = this.board;
-    this.motionSourceBoard = cloneBoard(board);
+    const reelSchedule = rehearsalReelSchedule(this.project, false, masks.length);
+    this.motionSourceBoard = cloneBoard(this.board);
+    let board = this.board;
+    if (hasAnticipation) {
+      const seeded = this.seedTwoScatterTease(board);
+      board = seeded.board;
+      this.board = board;
+      this.paintBoard?.(board);
+      this.setMotionStatus(seeded.scatter ? 'Seed 2 scatters' : 'No scatter in theme');
+      this.setMotionDebug({
+        path: 'reel',
+        grid: this.motionGridLabel(),
+        step: 'seed',
+        exploding: seeded.cells.map(([reel, row]) => ({ reel, row })),
+        tumbling: false,
+        note: seeded.scatter || 'missing-scatter',
+      });
+      if (!seeded.scatter) {
+        this.restoreMotionBoard();
+        return false;
+      }
+      await this.waitMs(280);
+    }
+
+    this.landedReels?.clear?.();
+    this.reelsSlammed = false;
+    this.reelAnticipationActive = false;
+    this.reelAnticipationCued = false;
 
     this.setMotionStatus('Reels spinning');
     this.setMotionDebug({
@@ -570,7 +629,7 @@ export class PreviewPanel extends BasePreviewPanel {
       grid: this.motionGridLabel(),
       step: 'blur',
       tumbling: false,
-      note: hasAnticipation ? 'anticipation' : 'classic',
+      note: hasAnticipation ? '2-scatter tease' : 'classic',
     });
     this.setAnimationState?.('spinning');
     this.clearPreviewReelSpinTracks?.();
@@ -587,6 +646,7 @@ export class PreviewPanel extends BasePreviewPanel {
         onComplete: resolve,
       });
       this.motionReelTimeline = tl;
+      this.spinTimeline = tl;
       this.motionPlayback = {
         stop: () => {
           tl.kill();
@@ -596,36 +656,61 @@ export class PreviewPanel extends BasePreviewPanel {
       masks.forEach((mask, reel) => {
         const stopAt = Math.max(0, Number(reelSchedule.stops[reel]?.stopAtMs || 400 + reel * 120) / 1000);
         const landingLead = 0.12;
-        tl.call(() => {
+        const track = spinTracks[reel];
+        const prepare = () => {
           mask.classList.add('is-stopping');
           this.setMotionStatus(`Reel ${reel + 1} stop`);
-        }, [], Math.max(0, stopAt - landingLead));
-        tl.call(() => {
-          this.paintReelBoard?.(reel, board[reel]);
-          spinTracks[reel]?.remove();
-          mask.classList.remove('is-spinning', 'is-stopping');
+        };
+        const settle = () => {
           mask.classList.add('has-stopped');
+          this.paintReelBoard?.(reel, board[reel]);
+          this.landedReels?.add?.(reel);
+          if ((board[reel] || []).some((symbol) => this.isScatterSymbol?.(symbol?.name || symbol))) {
+            this.audioEngine?.playStinger?.('scatterLand', reel);
+          } else {
+            this.audioEngine?.playStinger?.('reelStop', reel);
+          }
           this.pulseReelImpact?.(reel);
-        }, [], stopAt);
+          const scatterCount = [...(this.landedReels || [])].reduce((count, landed) => (
+            count + (board[landed] || []).filter((symbol) => this.isScatterSymbol?.(symbol?.name || symbol)).length
+          ), 0);
+          if (hasAnticipation && scatterCount >= 2) {
+            this.enterReelAnticipation?.();
+            this.setMotionStatus('Tease · remaining reels crawl');
+            this.setMotionDebug({
+              path: 'reel',
+              grid: this.motionGridLabel(),
+              step: `tease r${reel + 1}`,
+              tumbling: false,
+              note: `${scatterCount} scatters in`,
+            });
+          }
+        };
+        if (track) {
+          tl.to(track, {
+            opacity: 1,
+            duration: landingLead,
+            ease: 'power2.out',
+            onStart: prepare,
+            onComplete: () => {
+              settle();
+              track.remove();
+              mask.classList.remove('is-spinning', 'is-stopping');
+            },
+          }, Math.max(0, stopAt - landingLead));
+        } else {
+          tl.call(() => {
+            prepare();
+            settle();
+            mask.classList.remove('is-spinning', 'is-stopping');
+          }, [], stopAt);
+        }
       });
-      if (hasAnticipation) {
-        const cueMs = Number(reelSchedule.anticipationCueMs || 0) / 1000;
-        const lastMask = masks[masks.length - 1];
-        tl.call(() => {
-          lastMask?.classList.add('is-anticipation');
-          this.setMotionStatus('Anticipation');
-          this.setMotionDebug({
-            path: 'reel',
-            grid: this.motionGridLabel(),
-            step: 'hold',
-            tumbling: false,
-            note: 'last-reel hold',
-          });
-        }, [], Math.max(0, cueMs));
-      }
     });
 
     this.motionReelTimeline = null;
+    this.spinTimeline = null;
+    this.reelAnticipationActive = false;
     this.clearPreviewReelSpinTracks?.();
     this.paintBoard?.(board);
     this.setAnimationState?.('idle');

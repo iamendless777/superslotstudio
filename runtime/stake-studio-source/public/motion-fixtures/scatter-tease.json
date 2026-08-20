@@ -1,0 +1,48 @@
+{
+  "styleId": "scatter-tease",
+  "catalogVersion": 2,
+  "templateId": "scatter-tease",
+  "totalDurationMs": 4200,
+  "cues": [
+    {
+      "cue": "reel.blur",
+      "startMs": 0,
+      "durationMs": 400,
+      "stepKind": "reveal",
+      "depth": 0,
+      "cells": []
+    },
+    {
+      "cue": "reel.stop",
+      "startMs": 400,
+      "durationMs": 280,
+      "stepKind": "reveal",
+      "depth": 0,
+      "cells": ["0:1"]
+    },
+    {
+      "cue": "reel.anticipation",
+      "startMs": 900,
+      "durationMs": 1800,
+      "stepKind": "reveal",
+      "depth": 0,
+      "cells": ["0:1", "1:1"]
+    },
+    {
+      "cue": "reel.stop",
+      "startMs": 2700,
+      "durationMs": 400,
+      "stepKind": "reveal",
+      "depth": 0,
+      "cells": []
+    },
+    {
+      "cue": "board.settle",
+      "startMs": 3200,
+      "durationMs": 200,
+      "stepKind": "settle",
+      "depth": 0,
+      "cells": []
+    }
+  ]
+}
