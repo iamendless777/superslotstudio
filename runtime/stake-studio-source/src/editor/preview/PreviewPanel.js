@@ -3746,6 +3746,7 @@ export class PreviewPanel {
           })),
         ]);
         await this.waitForActiveVisualChoreography('tile-connection');
+        if (!this.turboMode) await this.wait(240);
         continue;
       }
 
@@ -5252,6 +5253,12 @@ export class PreviewPanel {
     auto?.classList.toggle('is-active', this.autoSpinsRemaining > 0);
     const betIndex = this.baseBetOptions.findIndex(value => Math.abs(value - this.baseBet) < 1e-9);
     const locked = this.spinning || this.autoSpinsRemaining > 0;
+    const spinLocked = this.spinning && this.autoSpinsRemaining <= 0;
+    if (spin) {
+      spin.disabled = spinLocked;
+      spin.classList.toggle('is-busy', spinLocked);
+      spin.setAttribute('aria-busy', spinLocked ? 'true' : 'false');
+    }
     const down = document.getElementById('previewBetDown');
     const up = document.getElementById('previewBetUp');
     if (down) down.disabled = locked || betIndex <= 0;

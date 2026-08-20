@@ -1444,6 +1444,13 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 }
 .spin-btn:hover { transform: scale(1.035); filter: brightness(1.08) drop-shadow(0 4px 5px rgba(0,0,0,.7)) drop-shadow(0 0 13px rgba(46,205,230,.42)); }
 .spin-btn:active { transform: scale(0.95); }
+.spin-btn.is-busy,
+.spin-btn:disabled {
+  cursor: default;
+  transform: none;
+  filter: drop-shadow(0 4px 5px rgba(0,0,0,.7)) brightness(.86) saturate(.88);
+  pointer-events: none;
+}
 
 /* Preview — HUD */
 .preview-hud {
