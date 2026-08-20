@@ -11,7 +11,9 @@ import {
 } from '../src/engines/assets/BoardArtBrief.js';
 import {
   MORPHEUS_BOARD_PACK,
+  MORPHEUS_WORLD_PACK,
   applyBoardSymbolPack,
+  applyMorpheusWorldPack,
 } from '../src/engines/assets/BoardSymbolPack.js';
 
 test('ways board brief is the loaded project, not cluster-hex gems', () => {
@@ -61,6 +63,28 @@ test('Morpheus board pack fills empty ways slots and leaves real art', () => {
   assert.equal(project.theme.symbols[1].src, MORPHEUS_BOARD_PACK['Gate of Sleep']);
   assert.equal(project.theme.symbols[2].src, 'keep-me.png');
   const second = applyBoardSymbolPack(project);
+  assert.equal(second.filled, 0);
+});
+
+test('Morpheus world pack lays background, reel frame, and character', () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const packDir = join(here, '../public/symbol-pack/morpheus');
+  for (const file of ['background.jpg', 'cabinet-frame.png', 'character.png']) {
+    assert.equal(existsSync(join(packDir, file)), true, file);
+  }
+  const project = createGameProject({ id: 'morpheus', name: 'Morpheus' });
+  const first = applyMorpheusWorldPack(project);
+  assert.ok(first.filled >= 3);
+  const roles = project.theme.cabinet.layers.map((layer) => layer.assetPackRole || layer.type);
+  assert.equal(roles.includes('background'), true);
+  assert.equal(roles.includes('foreground'), true);
+  assert.equal(roles.includes('reel-area'), true);
+  assert.equal(project.theme.character.poses.idle, MORPHEUS_WORLD_PACK.character);
+  const bg = project.theme.cabinet.layers.find((layer) => layer.assetPackRole === 'background');
+  const frame = project.theme.cabinet.layers.find((layer) => layer.assetPackRole === 'foreground');
+  assert.equal(bg.src, MORPHEUS_WORLD_PACK.background);
+  assert.equal(frame.src, MORPHEUS_WORLD_PACK.foreground);
+  const second = applyMorpheusWorldPack(project);
   assert.equal(second.filled, 0);
 });
 

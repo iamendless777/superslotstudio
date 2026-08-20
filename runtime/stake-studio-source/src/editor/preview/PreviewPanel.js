@@ -1347,8 +1347,11 @@ export class PreviewPanel {
     const htmlEnergy = this.allowsHtmlVisibleEffects()
       ? '<div class="preview-character-aura"></div><div class="preview-character-rays"></div><div class="preview-character-heat"></div>'
       : '';
+    const glow = /morpheus/i.test(String(this.project?.id || this.project?.name || ''))
+      ? '--character-glow:#9be7ea;--character-glow-soft:rgba(72,214,222,.28)'
+      : '';
     return `
-      <div class="preview-character" aria-hidden="true" style="left:${x}px;top:${y}px;width:${width}px;height:${height}px;--character-z-index:${character.zIndex}">
+      <div class="preview-character" aria-hidden="true" style="left:${x}px;top:${y}px;width:${width}px;height:${height}px;--character-z-index:${character.zIndex};${glow}">
         ${htmlEnergy}
         <div class="preview-character-rig">
           ${poses}
