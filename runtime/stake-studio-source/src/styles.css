@@ -1657,16 +1657,12 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   visibility: hidden !important;
   opacity: 0 !important;
 }
-.preview-stage:is([data-animation-state="spinning"], [data-animation-state="anticipation"], .is-reel-tease) .reel-mask.is-spinning .preview-reel-spin-track {
+.preview-stage:is([data-animation-state="spinning"], [data-animation-state="anticipation"], .is-reel-tease) .preview-reel-spin-track {
   visibility: visible !important;
   opacity: 1 !important;
 }
 .preview-stage.is-reel-tease .reel-mask.has-stopped .reel-sym:not(.is-scatter) { filter: brightness(.8) saturate(.86); }
 .preview-stage.is-reel-tease .reel-mask.has-stopped .reel-sym.is-scatter { z-index: 12; filter: brightness(1.18) saturate(1.1); }
-.preview-stage:is([data-animation-state="spinning"], [data-animation-state="anticipation"]) .reel-mask.is-anticipation:not(.has-stopped) .preview-reel-spin-track {
-  filter: blur(.7px) saturate(.9) brightness(.9);
-}
-.preview-stage:is([data-animation-state="spinning"], [data-animation-state="anticipation"]) .reel-mask:not(.has-stopped):has(.preview-reel-spin-track) > .reel-strip .reel-sym img { visibility: hidden; opacity: 0 !important; }
 .preview-reel-spin-track {
   position: absolute;
   z-index: 3;
@@ -1676,24 +1672,22 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
-  will-change: transform, filter;
-  filter: blur(1.15px) saturate(.86) brightness(.86);
+  will-change: transform;
+  filter: blur(1.05px) saturate(.88) brightness(.88);
   animation: preview-reel-spin-flow var(--spin-duration) linear var(--spin-phase) infinite;
-}
-.preview-stage.is-reel-tease .reel-mask.is-spinning .preview-reel-spin-track {
-  filter: blur(.85px) saturate(.9) brightness(.9);
 }
 .preview-reel-spin-symbol {
   position: absolute;
   left: 0;
+  width: 100%;
   box-sizing: border-box;
+  display: grid;
+  place-items: center;
 }
-.preview-stage:is([data-animation-state="spinning"], [data-animation-state="anticipation"]) .preview-reel-spin-track { visibility: visible; opacity: 1; }
 .preview-reel-spin-symbol img {
-  position: relative;
-  display: block;
+  width: 82%;
+  height: 82%;
   object-fit: contain;
-}
 }
 .reel-sym {
   isolation: isolate;

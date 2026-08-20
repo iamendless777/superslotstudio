@@ -3352,14 +3352,11 @@ export class PreviewPanel {
 
   previewReelSpinSequence(reelIndex, visibleRows, symbolNames) {
     if (!symbolNames.length) return [];
-    const sequence = [];
-    const stride = reelIndex % 2 === 0 ? 3 : 7;
-    for (let index = 0; index < visibleRows * 3; index++) {
-      const cycle = Math.floor(index / visibleRows);
-      const poolIndex = (reelIndex * 2 + cycle * (reelIndex + 3) + index * stride) % symbolNames.length;
-      sequence.push(symbolNames[poolIndex]);
+    const page = [];
+    for (let i = 0; i < visibleRows; i++) {
+      page.push(symbolNames[(reelIndex * 3 + i * 5) % symbolNames.length]);
     }
-    return sequence;
+    return [...page, ...page, ...page];
   }
 
   createPreviewReelSpinTrack(mask, reelIndex, visibleRows, symbolNames) {
@@ -3369,7 +3366,6 @@ export class PreviewPanel {
     const track = document.createElement('div');
     track.className = 'preview-reel-spin-track';
     track.dataset.reel = String(reelIndex);
-    track.style.setProperty('--spin-rows', String(sequence.length));
     track.style.top = `${-visibleRows * cellH}px`;
     track.style.height = `${sequence.length * cellH}px`;
     const timing = normalizeReelChoreography(this.project.presentationDirector?.reelChoreography);
@@ -3377,12 +3373,18 @@ export class PreviewPanel {
     track.style.setProperty('--spin-duration', `${(this.turboMode ? Math.max(140, cycleMs * .52) : cycleMs) / 1000}s`);
     track.style.setProperty('--spin-phase', `${-reelIndex * (this.turboMode ? 0.019 : 0.037)}s`);
     sequence.forEach((symbolName, index) => {
+      const symbol = this.symbolDefinition(symbolName);
+      if (!symbol?.src) return;
       const cell = document.createElement('div');
-      cell.className = 'reel-sym preview-reel-spin-symbol';
+      cell.className = 'preview-reel-spin-symbol';
       cell.style.top = `${index * cellH}px`;
       cell.style.height = `${cellH}px`;
-      cell.style.width = '100%';
-      this.setSymbolCell(cell, symbolName);
+      const image = document.createElement('img');
+      image.src = symbol.src;
+      image.alt = '';
+      image.draggable = false;
+      image.decoding = 'async';
+      cell.appendChild(image);
       track.appendChild(cell);
     });
     if (!track.childElementCount) return null;
@@ -3465,7 +3467,7 @@ export class PreviewPanel {
     const strips = this.container.querySelectorAll('.reel-strip');
     const masks = this.container.querySelectorAll('.reel-mask');
     const allSymNames = this.project.theme.symbols
-      .filter(s => s?.src && !s.special?.includes('empty'))
+      .filter(s => s?.src && !s.special?.length)
       .map(s => s.name)
       .filter(Boolean);
 
@@ -3576,8 +3578,8 @@ export class PreviewPanel {
           onStart: prepareReelStop,
           onComplete: () => {
             settleReel();
-            track.remove();
             mask?.classList.remove('is-spinning', 'is-stopping');
+            track.remove();
           },
         }, Math.max(0, stopAt - landingLead));
       } else {
@@ -3595,8 +3597,7 @@ export class PreviewPanel {
       .filter(mask => !mask.classList.contains('has-stopped'));
     if (remaining.length === 0) return;
     this.reelAnticipationActive = true;
-    const stage = this.container.querySelector('#previewStage');
-    stage?.classList.add('is-reel-tease');
+    this.container.querySelector('#previewStage')?.classList.add('is-reel-tease');
     if (!this.reelAnticipationCued) {
       this.reelAnticipationCued = true;
       this.audioEngine?.playStinger?.('anticipation');
@@ -3604,12 +3605,10 @@ export class PreviewPanel {
     remaining.forEach((mask, index) => {
       mask.classList.add('is-anticipation', 'is-spinning');
       const last = index === remaining.length - 1;
-      const seconds = this.turboMode ? (last ? 2.2 : 1.5) : (last ? 4.4 : 2.8);
-      const track = mask.querySelector('.preview-reel-spin-track');
-      if (!track) return;
-      track.style.visibility = 'visible';
-      track.style.opacity = '1';
-      track.style.setProperty('--spin-duration', `${seconds}s`);
+      const rate = this.turboMode ? (last ? 0.38 : 0.52) : (last ? 0.22 : 0.34);
+      mask.querySelector('.preview-reel-spin-track')?.getAnimations?.().forEach((anim) => {
+        anim.playbackRate = rate;
+      });
     });
     if (this.spinTimeline.timeScale() > 1) return;
     const slow = this.turboMode

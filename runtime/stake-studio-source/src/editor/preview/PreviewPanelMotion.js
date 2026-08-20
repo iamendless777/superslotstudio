@@ -584,7 +584,7 @@ export class PreviewPanel extends BasePreviewPanel {
 
     const rows = this.project?.math?.grid?.rows || [this.board[0]?.length || 3];
     const allSymNames = (this.project?.theme?.symbols || [])
-      .filter((symbol) => symbol?.src && !symbol.special?.includes?.('empty'))
+      .filter((symbol) => symbol?.src && !symbol.special?.length)
       .map((symbol) => symbol.name)
       .filter(Boolean);
     const hasAnticipation = (sheet.cues || []).some((cue) => cue.cue === 'reel.anticipation');
@@ -682,8 +682,8 @@ export class PreviewPanel extends BasePreviewPanel {
           tl.call(prepare, [], Math.max(0, stopAt - landingLead));
           tl.call(() => {
             settle();
-            track.remove();
             mask.classList.remove('is-spinning', 'is-stopping');
+            track.remove();
           }, [], stopAt);
         } else {
           tl.call(() => {
