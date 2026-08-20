@@ -172,6 +172,7 @@ export class PreviewPanel {
     this.featurePositionGridPulse = new Set();
     this.featureSymbolMultipliers = new Map();
     this.featureReelRows = new Map();
+    this.featureVeilBar = { family: '', current: 0, threshold: 4 };
     this.oneiricStarTargetLock = null;
     this.playbackTrace = [];
     this.playbackStartedAt = 0;
@@ -423,6 +424,12 @@ export class PreviewPanel {
       if (!noMotion) this.pulseMechanicCells(payload.targetPositions, 'is-mechanic-target');
       if (!immediate && command.durationMs) await this.wait(command.durationMs);
     } else if (sourceEvent.type === 'symbolBarProgress') {
+      this.featureVeilBar = {
+        family: payload.symbolFamily || '',
+        current: Number(payload.current) || 0,
+        threshold: Math.max(1, Number(payload.threshold) || 4),
+      };
+      this.syncFeatureChrome();
       this.updateFeatureMechanic(`VEIL ASCENT · ${this.label(payload.symbolFamily)} ${payload.previous} → ${payload.current} / ${payload.threshold}`);
       if (!noMotion) this.pulseMechanicCells(payload.hits, 'is-mechanic-target');
       if (!immediate && command.durationMs) await this.wait(command.durationMs);
@@ -1618,6 +1625,7 @@ export class PreviewPanel {
         <small id="previewFeatureTotal"></small>
         <em id="previewFeatureMechanic"></em>
       </div>
+      ${this.renderFeatureChrome()}
       ${this.isMorpheusDreamfallWorldActive() ? `
         <section id="previewDreamfallHud" class="dreamfall-hud" aria-live="polite" data-status="${this.esc(this.morpheusDreamfallState?.status || 'ready')}" style="--dreamfall-hud-art:url('${this.esc(hud.art.modeCard || '')}')">
           ${dreamMaskArt ? `<img class="dreamfall-hud-emblem" src="${this.esc(dreamMaskArt)}" alt="" draggable="false">` : ''}
@@ -1634,6 +1642,65 @@ export class PreviewPanel {
         </section>` : ''}
       ${this.renderPlayerOverlays()}
     `;
+  }
+
+  payingFamilies() {
+    return (this.project.theme?.symbols || []).filter((symbol) => {
+      const special = symbol.special || [];
+      return symbol.tier !== 'special' && !special.some((flag) => /wild|scatter|bomb|split|purge|star|mystery|empty/i.test(flag));
+    });
+  }
+
+  renderFeatureChrome() {
+    if (this.isMorpheusDreamfallWorldActive()) return '';
+    const mode = this.selectedMode;
+    const gridMode = this.featurePositionGridMode;
+    const showVeil = mode === 'veil_ascent';
+    const showLucid = mode === 'lucid_blessing';
+    const showGrid = mode === 'trickster_dream' || gridMode === 'trickster_dream' || gridMode === 'oneiric_nexus';
+    if (!showVeil && !showLucid && !showGrid) return '';
+    const title = showVeil ? 'VEIL ASCENT' : showLucid ? 'LUCID BLESSING' : gridMode === 'oneiric_nexus' ? 'ONEIRIC NEXUS' : 'TRICKSTER DREAM';
+    const fill = Math.max(0, Math.min(1, this.featureVeilBar.current / (this.featureVeilBar.threshold || 4)));
+    const lucid = this.payingFamilies().map((symbol) => {
+      const multiplier = this.featureSymbolMultipliers.get(symbol.id) || this.featureSymbolMultipliers.get(symbol.name) || 1;
+      return `<i data-family="${this.esc(symbol.id || symbol.name)}" class="${multiplier > 1 ? 'is-charged' : ''}"><img src="${this.esc(symbol.src || '')}" alt=""><b>${multiplier}×</b></i>`;
+    }).join('');
+    const charged = [...this.featurePositionMultipliers.values()].filter((value) => Number(value) > 1).length;
+    return `
+      <aside id="previewFeatureChrome" class="preview-feature-chrome" data-mode="${this.esc(showVeil ? 'veil_ascent' : showLucid ? 'lucid_blessing' : gridMode || 'trickster_dream')}" aria-live="polite">
+        <header><small>FEATURE</small><strong>${title}</strong></header>
+        ${showVeil ? `<div class="feature-chrome-veil"><small>SYMBOL BAR${this.featureVeilBar.family ? ` · ${this.esc(this.label(this.featureVeilBar.family))}` : ''}</small><div class="feature-chrome-bar"><i style="width:${(fill * 100).toFixed(1)}%"></i></div><b>${this.featureVeilBar.current} / ${this.featureVeilBar.threshold}</b></div>` : ''}
+        ${showLucid ? `<div class="feature-chrome-lucid"><small>FAMILY MULTIPLIERS</small><div>${lucid}</div></div>` : ''}
+        ${showGrid ? `<div class="feature-chrome-grid"><small>POSITION GRID</small><b>${charged || 0} CHARGED · CELLS DOUBLE AFTER A WIN</b></div>` : ''}
+      </aside>`;
+  }
+
+  syncFeatureChrome() {
+    const chrome = this.container.querySelector('#previewFeatureChrome');
+    if (!chrome) return;
+    if (chrome.dataset.mode === 'veil_ascent') {
+      const fill = Math.max(0, Math.min(1, this.featureVeilBar.current / (this.featureVeilBar.threshold || 4)));
+      const bar = chrome.querySelector('.feature-chrome-bar i');
+      const copy = chrome.querySelector('.feature-chrome-veil b');
+      const family = chrome.querySelector('.feature-chrome-veil small');
+      if (bar) bar.style.width = `${(fill * 100).toFixed(1)}%`;
+      if (copy) copy.textContent = `${this.featureVeilBar.current} / ${this.featureVeilBar.threshold}`;
+      if (family) family.textContent = `SYMBOL BAR${this.featureVeilBar.family ? ` · ${this.label(this.featureVeilBar.family)}` : ''}`;
+    }
+    if (chrome.dataset.mode === 'lucid_blessing') {
+      chrome.querySelectorAll('.feature-chrome-lucid i').forEach((node) => {
+        const id = node.dataset.family;
+        const multiplier = this.featureSymbolMultipliers.get(id) || 1;
+        node.classList.toggle('is-charged', multiplier > 1);
+        const label = node.querySelector('b');
+        if (label) label.textContent = `${multiplier}×`;
+      });
+    }
+    if (chrome.dataset.mode === 'trickster_dream' || chrome.dataset.mode === 'oneiric_nexus') {
+      const charged = [...this.featurePositionMultipliers.values()].filter((value) => Number(value) > 1).length;
+      const copy = chrome.querySelector('.feature-chrome-grid b');
+      if (copy) copy.textContent = `${charged} CHARGED · CELLS DOUBLE AFTER A WIN`;
+    }
   }
 
   selectPlayerMode(name) {
@@ -4111,6 +4178,7 @@ export class PreviewPanel {
       }
     }
     this.featurePositionGridPulse.clear();
+    this.syncFeatureChrome();
   }
 
   collectPositionGridLayoutProof() {
@@ -4166,9 +4234,11 @@ export class PreviewPanel {
     this.featurePositionGridPulse.clear();
     this.featureSymbolMultipliers.clear();
     this.featureReelRows.clear();
+    this.featureVeilBar = { family: '', current: 0, threshold: 4 };
     this.updateFeatureMechanic('');
     this.syncReelLayout(this.project.math.grid.rows);
     this.syncFeatureStateMarkers();
+    this.syncFeatureChrome();
   }
 
   async playSpecialMechanicEvent(event, board = this.board) {

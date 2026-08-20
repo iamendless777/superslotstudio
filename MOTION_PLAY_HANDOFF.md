@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-20  
 **Branch:** `integrate/studio-motion`  
-**HEAD:** see latest commit on this branch — *selectable mode menu.*  
+**HEAD:** see latest commit on this branch — *feature chrome + Dreamfall shaft.*  
 **Repo:** https://github.com/iamendless777/superslotstudio  
 **Local path:** `~/Developer/superslotstudio`  
 **Goal:** Ship many Stake.com games quickly (target ~2 days each). Motion + templates stay reliable so the bottleneck is **art**, not fighting the studio.
@@ -170,8 +170,8 @@ Forge is the *feel* reference. Morpheus `MorpheusGameContract.js` is the *rules*
 
 1. Special tiles (Veil/Lucid/Rift/Split/Purge/Star/Mystery/Max) — paying board is done. Pack is on the reels.
 2. Selectable mode menu: Base, Enhancer, Trickster, Veil Ascent, Lucid Blessing. Dreamfall/Nexus/Nightmare stay gated. **Done.**
-3. Feature chrome: Veil symbol bar, Lucid family multis, Dreamfall reel growth, Nexus/Trickster position grid.
-4. Restyle the old photoreal Dreamfall shaft overlay.
+3. Feature chrome: Veil symbol bar, Lucid family multis, Dreamfall reel growth, Nexus/Trickster position grid. **Done in Preview.**
+4. Restyle the old photoreal Dreamfall shaft overlay. **Done.**
 5. Hold-length feel (`anticipationHoldMs`) — human call.
 
 Do not invent a 2000x “F U Spins” buy. Do not revive GSAP travel / fake scatters / last-reel-only / HTML overlay grid.
@@ -325,7 +325,7 @@ Studio Preview remains **pixel** authority — one tumble, one spin-track.
 - [x] Morpheus **board** symbol pack from the brief (moon / lantern / hourglass / moth / star / crescent / coins / wild seal / Gate of Sleep). Atlas **Apply board pack** fills empty slots only.
 - [x] HUD / spin / mode-card chrome uses the same ivory–gold–cyan language. Old photoreal atlas + generation sources deleted.
 - [x] Slop pass: spin plate is concentric rings (no double arrow). Wild is a sleeping-eye seal (no letter). Hourglass and coins have finished frames (no skulls).
-- [x] Selectable mode menu: Base 1x, Dream Enhancer 3x, Trickster Dream 75x, Veil Ascent 100x, Lucid Blessing 200x. Dreamfall / Nexus / Nightmare are governed, not wager cards.
+- [x] Feature chrome in Preview: Veil symbol bar, Lucid family multipliers, Trickster/Nexus grid legend. Dreamfall keeps its reel-ascent HUD. Photoreal shaft overlay replaced.
 - [ ] If 1.2s/waiting-reel feels short or long, change **one** number: `anticipationHoldMs`. Do not special-case the last reel.
 - [ ] Swap in final commissioned art over the starter pack; keep motion.
 
@@ -472,7 +472,8 @@ Continue Stake Studio from `integrate/studio-motion` (pull first). Read `MOTION_
 Recent commits (newest first):
 
 ```
-this commit  Selectable Forge-mapped mode menu.
+this commit  Feature chrome and Dreamfall shaft in the board language.
+169f6ce Open the five approved Morpheus modes.
 7becccd Map Forge specials onto Morpheus tiles.
 f4ab72c Match HUD chrome to the board pack.
 3f75a34 Put Morpheus board art on the tiles.
