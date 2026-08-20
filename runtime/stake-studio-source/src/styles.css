@@ -2748,6 +2748,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .board-art-brief-copy span { display: block; margin: 4px 0; color: var(--text); font-size: 12px; }
 .board-art-brief-copy p { margin: 0 0 6px; color: var(--text-dim); font-size: 11px; line-height: 1.45; }
 .board-art-brief-copy small { color: var(--warn); font-size: 10px; line-height: 1.4; }
+.board-art-brief-actions { display: flex; flex-direction: column; gap: 8px; }
 .board-art-brief-slots {
   grid-column: 1 / -1;
   display: flex;

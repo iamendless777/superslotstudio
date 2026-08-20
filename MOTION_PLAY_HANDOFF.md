@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-20  
 **Branch:** `integrate/studio-motion`  
-**HEAD:** see latest commit on this branch — *board art brief + portable waiting-reel + 4-scatter.*  
+**HEAD:** see latest commit on this branch — *Morpheus board symbol pack.*  
 **Repo:** https://github.com/iamendless777/superslotstudio  
 **Local path:** `~/Developer/superslotstudio`  
 **Goal:** Ship many Stake.com games quickly (target ~2 days each). Motion + templates stay reliable so the bottleneck is **art**, not fighting the studio.
@@ -285,8 +285,9 @@ Studio Preview remains **pixel** authority — one tumble, one spin-track.
 - [x] Video-confirm **4-scatter** tease (same sequential hold; leftover waits for 5+).
 - [x] Atlas + Preview copy the **board** art brief (not cluster-hex Ruby/Sapphire). Ways games commission those slots.
 - [x] Portable `game-app.js` waiting-reel schedule matches Preview (`waitingReelsFromReveal`, accrued `anticipationHoldMs`).
+- [x] Morpheus **board** symbol pack from the brief (moon / lantern / hourglass / moth / star / crescent / coins / wild seal / Gate of Sleep). Atlas **Apply board pack** fills empty slots only.
 - [ ] If 1.2s/waiting-reel feels short or long, change **one** number: `anticipationHoldMs`. Do not special-case the last reel.
-- [ ] Commission Morpheus **board** art from Atlas → Copy board brief. Swap tiles; keep motion.
+- [ ] Swap in final commissioned art over the starter pack; keep motion.
 
 ### P3 — Cleanup
 
@@ -319,7 +320,9 @@ runtime/stake-studio-source/public/motion-fixtures/scatter-tease-5.json
 
 # Art
 runtime/stake-studio-source/src/engines/assets/BoardArtBrief.js
+runtime/stake-studio-source/src/engines/assets/BoardSymbolPack.js
 runtime/stake-studio-source/src/editor/atlas/AtlasPanel.js
+runtime/stake-studio-source/public/symbol-pack/morpheus/
 
 # CSS contract
 runtime/stake-studio-source/src/styles.css          ← .preview-reel-spin-track
@@ -413,7 +416,7 @@ Continue Stake Studio from `integrate/studio-motion` (pull first). Read `MOTION_
 2. **2/3/4/5-scatter Play Motion and live 2-scatter are video-confirmed.** Portable frontend uses the same waiting-reel hold. Do not reopen unless pixels regress.
 3. If hold length is wrong, change `anticipationHoldMs` only.
 4. Do not revive GSAP travel, fake scatters, last-reel-only, or an HTML overlay grid.
-5. Art: Atlas → **Copy board brief**. Commission those slots. Do not use cluster-hex gems for a ways board.
+5. Art: Atlas → **Copy board brief**. **Apply board pack** fills empty Morpheus slots (not cluster-hex). Swap final art over the pack; keep motion.
 6. Optional: merge `integrate/studio-motion` → `main`.
 
 ---
@@ -429,7 +432,8 @@ Continue Stake Studio from `integrate/studio-motion` (pull first). Read `MOTION_
 Recent commits (newest first):
 
 ```
-this commit  Copy board art brief; portable waiting-reel; confirm 4-scatter.
+this commit  Put Morpheus board art on the tiles.
+08ac17f Copy board art brief; portable waiting-reel; confirm 4-scatter.
 d7bb42b Confirm 3/5-scatter Play Motion and live 2-scatter.
 bd89fab Update motion handoff after confirmed 2-scatter tease.
 a1ee81c Fill reveal.anticipation from waiting-reel schedule.
@@ -455,4 +459,4 @@ b47d871 Hold leftover reels after two scatters, last reel longest.   ← superse
 
 ## 13. One-line summary for the next agent
 
-**4-scatter confirmed. Atlas copies the board art brief (not cluster-hex). Portable frontend now accrues the same waiting-reel hold. Next: hold-length feel (`anticipationHoldMs`) and commission Morpheus board art. Same Stake CSS tracks + playStakeTumble. Do not invent a second animator.**
+**Morpheus board pack is on the tiles. Atlas copies the board brief and can apply the pack to empty slots. Next: hold-length feel (`anticipationHoldMs`) or swap final art. Same Stake CSS tracks + playStakeTumble. Do not invent a second animator.**

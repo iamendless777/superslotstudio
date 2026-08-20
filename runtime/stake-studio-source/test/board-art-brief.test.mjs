@@ -1,11 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { createGameProject } from '../src/engines/schema.js';
 import {
   buildLiveBoardArtBrief,
   slimBoardArtBrief,
 } from '../src/engines/assets/BoardArtBrief.js';
+import {
+  MORPHEUS_BOARD_PACK,
+  applyBoardSymbolPack,
+} from '../src/engines/assets/BoardSymbolPack.js';
 
 test('ways board brief is the loaded project, not cluster-hex gems', () => {
   const project = createGameProject({ id: 'morpheus', name: 'Morpheus' });
@@ -35,3 +42,25 @@ test('ways board brief is the loaded project, not cluster-hex gems', () => {
   assert.equal(slim.slots[0].hasArt, false);
   assert.equal(slim.slots[1].hasArt, true);
 });
+
+test('Morpheus board pack fills empty ways slots and leaves real art', () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const packDir = join(here, '../public/symbol-pack/morpheus');
+  for (const file of ['h1.png', 'h2.png', 'm1.png', 'm2.png', 'l1.png', 'l2.png', 'l3.png', 'wild.png', 'scatter.png']) {
+    assert.equal(existsSync(join(packDir, file)), true, file);
+  }
+  const project = createGameProject({ id: 'morpheus', name: 'Morpheus' });
+  project.theme.symbols = [
+    { id: 'H1', name: 'H1', src: '', special: [] },
+    { id: 'S', name: 'Gate of Sleep', src: '', special: ['scatter'] },
+    { id: 'W', name: 'W', src: 'keep-me.png', special: ['wild'] },
+  ];
+  const first = applyBoardSymbolPack(project);
+  assert.equal(first.filled, 2);
+  assert.equal(project.theme.symbols[0].src, MORPHEUS_BOARD_PACK.H1);
+  assert.equal(project.theme.symbols[1].src, MORPHEUS_BOARD_PACK['Gate of Sleep']);
+  assert.equal(project.theme.symbols[2].src, 'keep-me.png');
+  const second = applyBoardSymbolPack(project);
+  assert.equal(second.filled, 0);
+});
+

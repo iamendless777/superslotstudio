@@ -2,8 +2,9 @@
 /**
  * Seed a 6×4 ways project named Morpheus when the studio home has none.
  * Does not overwrite an existing games/morpheus project (real art stays).
+ * Empty symbol.src slots get the board pack so Preview is not letter-tiles.
  */
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -11,17 +12,26 @@ import { persistProjectDocument } from '../server/project-storage.mjs';
 import { resolveStudioHome } from '../server/studio-paths.mjs';
 import { createGameProject } from '../src/engines/schema.js';
 import { ensurePresentationDirector } from '../src/engines/presentation/PresentationDirector.js';
+import { applyBoardSymbolPack } from '../src/engines/assets/BoardSymbolPack.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const studioHome = resolveStudioHome(null, { cwd: resolve(root, '..') });
 const projectPath = join(studioHome, 'games', 'morpheus', 'project.json');
+const scatterName = 'Gate of Sleep';
+
+function fillPack(project, { overwrite = false } = {}) {
+  const result = applyBoardSymbolPack(project, { overwrite });
+  if (result.filled) console.log(`[seed] applied board pack to ${result.filled} empty slots`);
+  return result;
+}
 
 if (existsSync(projectPath)) {
+  const project = JSON.parse(readFileSync(projectPath, 'utf8'));
+  if (fillPack(project).filled) persistProjectDocument(projectPath, project);
   console.log(`[seed] keep existing ${projectPath}`);
   process.exit(0);
 }
 
-const scatterName = 'Gate of Sleep';
 const project = createGameProject({
   id: 'morpheus',
   name: 'Morpheus',
@@ -70,6 +80,7 @@ const project = createGameProject({
 ensurePresentationDirector(project);
 project.build ||= {};
 project.build.stakeEngine = { ...(project.build.stakeEngine || {}), gameId: 'morpheus' };
+fillPack(project, { overwrite: true });
 
 mkdirSync(dirname(projectPath), { recursive: true });
 persistProjectDocument(projectPath, project);

@@ -58,6 +58,7 @@ import {
   buildLiveBoardArtBrief,
   slimBoardArtBrief,
 } from '../../engines/assets/BoardArtBrief.js';
+import { applyBoardSymbolPack, boardSymbolPackFor } from '../../engines/assets/BoardSymbolPack.js';
 
 export class AtlasPanel {
   constructor(container, project, onChange, projectId = project.id) {
@@ -141,7 +142,10 @@ export class AtlasPanel {
               <p>${this.esc(boardBrief.motion)}</p>
               <small>${this.esc(boardBrief.note)}</small>
             </div>
-            <button type="button" class="btn-primary" id="atlasCopyBoardBrief">Copy board brief</button>
+            <div class="board-art-brief-actions">
+              <button type="button" class="btn-primary" id="atlasCopyBoardBrief">Copy board brief</button>
+              ${boardSymbolPackFor(this.project) ? '<button type="button" class="btn-secondary" id="atlasApplyBoardPack">Apply board pack</button>' : ''}
+            </div>
             <ol class="board-art-brief-slots">
               ${(boardBrief.slots || []).map((slot) => (
                 `<li data-status="${this.esc(slot.status)}"><strong>${this.esc(slot.label)}</strong> · ${this.esc(slot.role)} · ${this.esc(slot.status)}</li>`
@@ -421,6 +425,13 @@ export class AtlasPanel {
         this.visualMessage = { error: true, text: error?.message || 'Clipboard copy failed.' };
         this.render();
       });
+    });
+    this.container.querySelector('#atlasApplyBoardPack')?.addEventListener('click', () => {
+      const result = applyBoardSymbolPack(this.project);
+      this.visualMessage = result.filled
+        ? { text: `Board pack applied · ${result.filled} empty slots. Existing art was left alone.` }
+        : { text: 'Board pack: no empty slots. Real art stays.' };
+      this.commit();
     });
     this.container.querySelector('#visualReferenceUpload')?.addEventListener('change', event => this.handleReferenceUpload(event));
     this.container.querySelectorAll('.reference-approve').forEach(button => {
