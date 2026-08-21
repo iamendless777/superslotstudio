@@ -1,8 +1,8 @@
 {
-  "id": "enter-2026-08-21-studio-1",
+  "id": "enter-2026-08-21-factory-identity",
   "commands": [
-    { "mcp": "get_studio_state" },
     { "mcp": "inspect_studio" },
+    { "mcp": "get_studio_state" },
     { "mcp": "capture_studio_view" }
   ]
 }

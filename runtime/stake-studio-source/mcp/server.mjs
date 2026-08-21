@@ -87,6 +87,102 @@ function saveProject(id, project) {
   persistProjectDocument(projectPath(id), project);
 }
 
+
+const FACTORY_IDENTITY = Object.freeze({
+  product: 'Stake Studio',
+  role: 'factory',
+  mission: 'Industry-standard slot game generator. Ship Stake.com games in about 2 days.',
+  projectVsProduct: 'The open game is a project loaded so the factory can be seen working. Morpheus: Dream Fall is the first example. They are separate. Do not hide Cabinet / Config / nav / New / Load. Do not skin the studio as a player. If the slot is not visible, open the Preview panel.',
+});
+
+function compactPreviewForAgent(preview) {
+  if (!preview || typeof preview !== 'object') return preview;
+  const dream = preview.morpheusDreamfall;
+  const orch = preview.morpheusEffectOrchestration;
+  const choreo = preview.visualChoreography;
+  const effect = preview.visualEffect;
+  const playback = preview.playback;
+  return {
+    viewport: preview.viewport,
+    spinning: preview.spinning,
+    balance: preview.balance,
+    bet: preview.bet,
+    lastWin: preview.lastWin,
+    publishedReplay: preview.publishedReplay,
+    playback: playback ? {
+      events: playback.events,
+      elapsedMs: playback.elapsedMs,
+      mechanics: playback.mechanics,
+      lastTrace: Array.isArray(playback.trace)
+        ? playback.trace.slice(-6).map(event => ({ type: event.type, elapsedMs: event.elapsedMs, mode: event.mode }))
+        : (playback.lastTrace || []),
+    } : null,
+    visualEffect: effect ? {
+      status: effect.status,
+      playing: effect.playing,
+      recipeId: effect.recipeId || null,
+      motionAtlasCount: effect.motionAtlasCount,
+      symbolFlipbookCount: effect.symbolFlipbookCount,
+    } : null,
+    visualChoreography: choreo ? {
+      active: Array.isArray(choreo.active)
+        ? choreo.active.map(item => (typeof item === 'string' ? item : (item.kind || item.planId)))
+        : [],
+      last: choreo.last || (choreo.recent?.[0] ? {
+        planId: choreo.recent[0].planId,
+        kind: choreo.recent[0].kind,
+        status: choreo.recent[0].status,
+      } : null),
+    } : null,
+    morpheusDreamfall: dream ? {
+      status: dream.status,
+      reelRows: dream.reelRows,
+      hud: dream.hud ? {
+        visible: dream.hud.visible,
+        mode: dream.hud.mode,
+        chainHit: dream.hud.chainHit,
+        freeSpinsRemaining: dream.hud.freeSpinsRemaining,
+        runningWin: dream.hud.runningWin,
+        reelRows: dream.hud.reelRows,
+      } : null,
+      worldActive: Boolean(dream.world?.active),
+    } : null,
+    morpheusEffectOrchestration: orch ? {
+      routeId: orch.routeId,
+      status: orch.status,
+      motionMode: orch.motionMode,
+      nextEventIndex: orch.nextEventIndex,
+      productionReady: orch.coverage?.productionReady ?? orch.report?.productionReady ?? orch.productionReady ?? null,
+    } : null,
+  };
+}
+
+function compactStudioAgentState(payload, detail = 'compact') {
+  const state = payload.state && typeof payload.state === 'object' ? payload.state : {};
+  const compactState = detail === 'full' ? state : {
+    ...state,
+    preview: compactPreviewForAgent(state.preview),
+  };
+  return {
+    identity: FACTORY_IDENTITY,
+    live: payload.live,
+    lastSeenMsAgo: payload.lastSeenMsAgo,
+    chrome: {
+      activePanel: compactState.activePanel || null,
+      availablePanels: compactState.availablePanels || [],
+      neverHide: true,
+    },
+    openProject: compactState.projectId ? {
+      id: compactState.projectId,
+      name: compactState.project?.name || null,
+      role: 'loaded example project, not the product',
+    } : null,
+    state: compactState,
+    frame: payload.frame,
+    service: payload.service,
+  };
+}
+
 const delay = ms => new Promise(resolveDelay => setTimeout(resolveDelay, ms));
 
 async function bridgeJson(path, options = {}) {
@@ -321,7 +417,12 @@ function setProjectRtp(project, rtp) {
 const idProp = { id: { type: 'string', description: 'Project id (folder name under games/)' } };
 
 const TOOLS = [
-  { name: 'get_studio_state', description: 'Read the live StakeStudio UI state: active panel, open project, viewport, preview status, and connection health.',
+  { name: 'get_studio_state', description: 'Read live StakeStudio as a factory: identity, chrome, open project (example only), compact preview. Proof traces are omitted unless detail=full.',
+    inputSchema: { type: 'object', properties: {
+      detail: { type: 'string', enum: ['compact', 'full'], description: 'compact (default) keeps factory identity. full includes raw preview telemetry.' },
+    }, required: [] } },
+
+  { name: 'inspect_studio', description: 'Factory-first studio identity: product vs loaded project, chrome that must stay visible, and a compact live snapshot. Use this before reading game telemetry.',
     inputSchema: { type: 'object', properties: {}, required: [] } },
 
   { name: 'capture_studio_view', description: 'Capture and return a fresh PNG of the exact StakeStudio window the user is looking at. Requires the StakeStudio app to be open.',
@@ -682,20 +783,30 @@ const TOOLS = [
 ];
 
 async function callTool(name, a = {}) {
-  if (name === 'get_studio_state') {
+  if (name === 'get_studio_state' || name === 'inspect_studio') {
     const [health, state, frame] = await Promise.all([
       bridgeJson('/health'),
       bridgeJson('/state'),
       bridgeJson('/frame-meta'),
     ]);
     const lastSeen = Date.parse(state.receivedAt || state.publishedAt || 0);
-    return {
+    const payload = {
       live: Number.isFinite(lastSeen) && Date.now() - lastSeen < 10000,
       lastSeenMsAgo: Number.isFinite(lastSeen) ? Date.now() - lastSeen : null,
       state,
       frame,
       service: { url: BRIDGE_URL, studioHome: health.studioHome },
     };
+    const detail = name === 'inspect_studio' ? 'compact' : (a.detail === 'full' ? 'full' : 'compact');
+    const compact = compactStudioAgentState(payload, detail);
+    if (name === 'inspect_studio') {
+      try {
+        compact.bridge = await studioCommand('inspect_studio', {}, 8000);
+      } catch (error) {
+        compact.bridge = { unavailable: true, reason: String(error?.message || error) };
+      }
+    }
+    return compact;
   }
 
   if (name === 'capture_studio_view') {

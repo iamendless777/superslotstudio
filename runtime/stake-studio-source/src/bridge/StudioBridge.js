@@ -79,6 +79,69 @@ function blobToBase64(blob) {
   });
 }
 
+
+const STUDIO_PRODUCT = Object.freeze({
+  product: 'Stake Studio',
+  role: 'factory',
+  mission: 'Industry-standard slot game generator. Ship Stake.com games in about 2 days.',
+  projectVsProduct: 'The open game is a project loaded so the factory can be seen working. Morpheus: Dream Fall is the first example. They are separate. Do not hide Cabinet / Config / nav / New / Load. Do not skin the studio as a player. If the slot is not visible, open the Preview panel.',
+});
+
+function compactPreviewTelemetry(preview) {
+  if (!preview || typeof preview !== 'object') return preview;
+  const dream = preview.morpheusDreamfall;
+  const orch = preview.morpheusEffectOrchestration;
+  const choreo = preview.visualChoreography;
+  const effect = preview.visualEffect;
+  const playback = preview.playback;
+  return {
+    ...preview,
+    playback: playback ? {
+      events: playback.events,
+      elapsedMs: playback.elapsedMs,
+      mechanics: playback.mechanics,
+      lastTrace: Array.isArray(playback.trace)
+        ? playback.trace.slice(-6).map(event => ({ type: event.type, elapsedMs: event.elapsedMs, mode: event.mode }))
+        : [],
+    } : null,
+    visualEffect: effect ? {
+      status: effect.status,
+      playing: effect.playing,
+      recipeId: effect.recipeId || null,
+      motionAtlasCount: effect.motionAtlasCount,
+      symbolFlipbookCount: effect.symbolFlipbookCount,
+    } : null,
+    visualChoreography: choreo ? {
+      active: (choreo.active || []).map(item => item.kind || item.planId),
+      last: choreo.recent?.[0] ? {
+        planId: choreo.recent[0].planId,
+        kind: choreo.recent[0].kind,
+        status: choreo.recent[0].status,
+      } : null,
+    } : null,
+    morpheusDreamfall: dream ? {
+      status: dream.status,
+      reelRows: dream.reelRows,
+      hud: dream.hud ? {
+        visible: dream.hud.visible,
+        mode: dream.hud.mode,
+        chainHit: dream.hud.chainHit,
+        freeSpinsRemaining: dream.hud.freeSpinsRemaining,
+        runningWin: dream.hud.runningWin,
+        reelRows: dream.hud.reelRows,
+      } : null,
+      worldActive: Boolean(dream.world?.active),
+    } : null,
+    morpheusEffectOrchestration: orch ? {
+      routeId: orch.routeId,
+      status: orch.status,
+      motionMode: orch.motionMode,
+      nextEventIndex: orch.nextEventIndex,
+      productionReady: orch.coverage?.productionReady ?? orch.report?.productionReady ?? null,
+    } : null,
+  };
+}
+
 export class StudioBridge {
   constructor(studio) {
     this.studio = studio;
@@ -248,7 +311,8 @@ export class StudioBridge {
         mechanics: project.math?.bonusMechanics || [],
         unsaved: this.studio.unsaved,
       } : null,
-      preview: preview ? {
+      identity: STUDIO_PRODUCT,
+      preview: preview ? compactPreviewTelemetry({
         viewport: preview.viewport,
         spinning: preview.spinning,
         balance: preview.balance,
@@ -267,7 +331,7 @@ export class StudioBridge {
         visualChoreography: preview.getVisualChoreographyState?.() || null,
         morpheusDreamfall: preview.getMorpheusDreamfallPreviewState?.() || null,
         morpheusEffectOrchestration: preview.getMorpheusEffectProofState?.() || null,
-      } : null,
+      }) : null,
       visualLab: visual?.getState?.() || null,
       interactive: {
         canSave: Boolean(project),
@@ -1111,10 +1175,20 @@ export class StudioBridge {
       case 'inspect_studio': {
         const project = this.studio.project || {};
         const cabinet = project.theme?.cabinet || {};
+        const preview = this.studio.panels.preview;
         return {
-          activePanel: this.studio.activePanel || null,
-          projectId: this.studio.projectId || null,
-          name: project.name || null,
+          identity: STUDIO_PRODUCT,
+          chrome: {
+            activePanel: this.studio.activePanel || null,
+            availablePanels: [...VALID_PANELS],
+            neverHide: true,
+          },
+          openProject: this.studio.projectId ? {
+            id: this.studio.projectId,
+            name: project.name || null,
+            role: 'loaded example project, not the product',
+            unsaved: this.studio.unsaved === true,
+          } : null,
           cabinet: {
             width: cabinet.width || null,
             height: cabinet.height || null,
@@ -1130,6 +1204,11 @@ export class StudioBridge {
               visible: layer.visible !== false,
             })),
           },
+          preview: preview ? {
+            spinning: preview.spinning === true,
+            viewport: preview.viewport || null,
+            canSpin: this.studio.activePanel === 'preview',
+          } : null,
           symbols: (project.theme?.symbols || []).length,
           symbolsWithArt: (project.theme?.symbols || []).filter(symbol => symbol?.src).length,
         };
