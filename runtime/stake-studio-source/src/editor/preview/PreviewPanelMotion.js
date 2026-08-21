@@ -408,8 +408,8 @@ export class PreviewPanel extends BasePreviewPanel {
     if (/morpheus/i.test(`${this.project?.id || ''} ${this.project?.name || ''}`)) return 'dreamfall-grow';
     if (this.motionWinType() === 'cluster') return 'cluster-hex';
     const type = String(this.project?.math?.gameType || '').toLowerCase();
-    if (type === 'lines') return 'classic-nine';
-    return 'cluster-hex';
+    if (type === 'lines' || type === 'ways') return 'classic-nine';
+    return 'classic-nine';
   }
 
   motionTemplateLabel(template) {

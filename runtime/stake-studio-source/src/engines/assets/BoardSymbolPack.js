@@ -95,78 +95,13 @@ function upsertLayer(layers, predicate, layer, { overwrite }) {
   return true;
 }
 
-export function applyMorpheusWorldPack(project, { overwrite = false } = {}) {
-  if (!boardSymbolPackFor(project)) return { filled: 0, pack: null };
-  project.theme ||= {};
-  project.theme.cabinet ||= { layers: [], width: 1280, height: 800 };
-  const cabinet = project.theme.cabinet;
-  cabinet.layers ||= [];
-  cabinet.width = cabinet.width || 1280;
-  cabinet.height = cabinet.height || 800;
-  const pack = MORPHEUS_WORLD_PACK;
-  let filled = 0;
-  if (upsertLayer(
-    cabinet.layers,
-    (layer) => layer.assetPackRole === 'background',
-    {
-      id: 'morpheus-background',
-      name: 'Background',
-      type: 'image',
-      src: pack.background,
-      x: 0, y: 0, width: cabinet.width, height: cabinet.height,
-      opacity: 1, zIndex: 0, visible: true, locked: true,
-      effects: [], blendMode: 'normal', assetPackRole: 'background',
-    },
-    { overwrite },
-  )) filled += 1;
-  if (upsertLayer(
-    cabinet.layers,
-    (layer) => layer.assetPackRole === 'foreground' || layer.type === 'frame',
-    {
-      id: 'morpheus-cabinet-frame',
-      name: 'Reel frame',
-      type: 'frame',
-      src: pack.foreground,
-      x: 0, y: 0, width: cabinet.width, height: cabinet.height,
-      opacity: 1, zIndex: 20, visible: true, locked: false,
-      effects: [], blendMode: 'normal', assetPackRole: 'foreground',
-    },
-    { overwrite },
-  )) filled += 1;
-  if (upsertLayer(
-    cabinet.layers,
-    (layer) => layer.type === 'reel-area',
-    {
-      id: 'morpheus-reel-area',
-      name: 'Reels',
-      type: 'reel-area',
-      src: '',
-      ...pack.reelArea,
-      opacity: 1, zIndex: 2, visible: true, locked: false,
-      effects: [], blendMode: 'normal',
-    },
-    { overwrite },
-  )) filled += 1;
-  project.theme.character ||= { poses: {}, placement: { ...pack.characterPlacement } };
-  const character = project.theme.character;
-  character.visible = character.visible !== false;
-  character.zIndex = character.zIndex || 49;
-  character.placement = overwrite
-    ? { ...pack.characterPlacement }
-    : { ...pack.characterPlacement, ...(character.placement || {}) };
-  if (overwrite || !character.poses?.idle) {
-    character.poses ||= {};
-    character.poses.idle = pack.character;
-    filled += 1;
-  }
-  project.theme.submission ||= {};
-  if (overwrite || !project.theme.submission.background) {
-    project.theme.submission.background = pack.background;
-  }
-  if (overwrite || !project.theme.submission.foreground) {
-    project.theme.submission.foreground = pack.foreground;
-  }
-  return { filled, pack: MORPHEUS_BOARD_PACK_ID };
+export function applyMorpheusWorldPack() {
+  return {
+    filled: 0,
+    pack: null,
+    refused: true,
+    reason: 'Authored cabinet only. Do not inject the starter world pack.',
+  };
 }
 
 const STRIP_SPECIALS = Object.freeze([

@@ -67,26 +67,16 @@ test('Morpheus board pack fills empty ways slots and leaves real art', () => {
   assert.equal(second.filled, 0);
 });
 
-test('Morpheus world pack lays background, reel frame, and character', () => {
+test('Morpheus world pack refuses to inject a starter cabinet over authored art', () => {
   const here = dirname(fileURLToPath(import.meta.url));
   const packDir = join(here, '../public/symbol-pack/morpheus');
-  for (const file of ['background.jpg', 'cabinet-frame.png', 'character.png']) {
-    assert.equal(existsSync(join(packDir, file)), true, file);
-  }
+  assert.equal(existsSync(join(packDir, 'background.jpg')), false);
+  assert.equal(existsSync(join(packDir, 'cabinet-frame.png')), false);
+  assert.equal(existsSync(join(packDir, 'character.png')), false);
   const project = createGameProject({ id: 'morpheus', name: 'Morpheus' });
   const first = applyMorpheusWorldPack(project);
-  assert.ok(first.filled >= 3);
-  const roles = project.theme.cabinet.layers.map((layer) => layer.assetPackRole || layer.type);
-  assert.equal(roles.includes('background'), true);
-  assert.equal(roles.includes('foreground'), true);
-  assert.equal(roles.includes('reel-area'), true);
-  assert.equal(project.theme.character.poses.idle, MORPHEUS_WORLD_PACK.character);
-  const bg = project.theme.cabinet.layers.find((layer) => layer.assetPackRole === 'background');
-  const frame = project.theme.cabinet.layers.find((layer) => layer.assetPackRole === 'foreground');
-  assert.equal(bg.src, MORPHEUS_WORLD_PACK.background);
-  assert.equal(frame.src, MORPHEUS_WORLD_PACK.foreground);
-  const second = applyMorpheusWorldPack(project);
-  assert.equal(second.filled, 0);
+  assert.equal(first.filled, 0);
+  assert.equal(first.refused, true);
 });
 
 test('Morpheus specials fill Forge-mapped tiles without clobbering pays', () => {
