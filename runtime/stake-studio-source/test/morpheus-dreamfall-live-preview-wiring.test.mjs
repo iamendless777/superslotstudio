@@ -8,8 +8,9 @@ test('Morpheus live Preview uses the existing reel renderer with a project-gated
   const preview = await source('../src/editor/preview/PreviewPanel.js');
   assert.match(preview, /new MorpheusDreamfallPreviewDriver/);
   assert.match(preview, /reservedWorld && !reelArea \? createMorpheusDreamfallRenderProfile/);
-  assert.match(preview, /reservedWorld \? MORPHEUS_RESERVED_WORLD_ROWS : Math\.max\(\.\.\.rows\)/);
-  assert.match(preview, /reservedWorld \? MORPHEUS_RESERVED_WORLD_ROWS : Math\.max\(\.\.\.grownCounts\)/);
+  assert.match(preview, /dreamfallPitchRows/);
+  assert.match(preview, /reservedWorld \? this\.dreamfallPitchRows\(liveRows\) : Math\.max\(\.\.\.liveRows\)/);
+  assert.match(preview, /reservedWorld \? this\.dreamfallPitchRows\(grownCounts\) : Math\.max\(\.\.\.grownCounts\)/);
   assert.match(preview, /\(maxRows - reelRows\) \* cellH \/ \(reservedWorld \? 1 : 2\)/);
   assert.match(preview, /class="reel-cap"/);
   assert.match(preview, /data-visible="\$\{visible\}"/);

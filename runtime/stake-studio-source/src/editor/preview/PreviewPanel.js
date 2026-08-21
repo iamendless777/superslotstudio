@@ -213,6 +213,16 @@ export class PreviewPanel {
     return this.isMorpheusDreamfallProject() && this.morpheusDreamfallWorldState?.active === true;
   }
 
+  /** Pitch Dreamfall cells to the live grown max (4–8). Do not pre-squash a 4-row board into an 8-row well. */
+  dreamfallPitchRows(rowCounts = []) {
+    const visible = Math.max(
+      4,
+      Number(this.morpheusDreamfallPitchFloor) || 0,
+      ...[...rowCounts].map((value) => Number(value) || 0),
+    );
+    return Math.min(MORPHEUS_RESERVED_WORLD_ROWS, visible);
+  }
+
   isMorpheusNexusWorldActive() {
     return this.isMorpheusDreamfallProject() && (
       this.selectedMode === 'oneiric_nexus'
@@ -891,24 +901,31 @@ export class PreviewPanel {
   async animateMorpheusDreamfallExpansion(command, sourceEvent, immediate) {
     const payload = sourceEvent.payload;
     const reel = Number(payload.reel);
+    const pitch = this.dreamfallPitchRows(payload.reelHeightsAfter);
+    this.morpheusDreamfallPitchFloor = pitch;
     const before = createMorpheusReservedWorldLayout({
       worldHeight: this.reelGeometry.h,
       reelRows: payload.reelHeightsBefore,
+      maximumRows: pitch,
     }).reels[reel];
     const after = createMorpheusReservedWorldLayout({
       worldHeight: this.reelGeometry.h,
       reelRows: payload.reelHeightsAfter,
+      maximumRows: pitch,
     }).reels[reel];
-    this.featureReelRows.set(reel, Number(payload.rows));
     const mask = this.container.querySelector(`.reel-mask[data-reel="${reel}"]`);
     const cap = this.container.querySelector(`.reel-cap[data-reel="${reel}"]`);
     const shaft = this.container.querySelector(`.living-shaft[data-reel="${reel}"]`);
     if (!mask || immediate) {
+      this.featureReelRows.set(reel, Number(payload.rows));
       this.board = deserializeBoard(payload.boardAfter);
       this.paintBoard(this.board);
+      this.morpheusDreamfallPitchFloor = 0;
       this.updateFeatureMechanic(this.mechanicCopy({ type: 'expandReelHeight', ...payload }));
       return;
     }
+    this.syncReelLayout(payload.reelHeightsBefore);
+    this.featureReelRows.set(reel, Number(payload.rows));
     gsap.set(shaft, { top: before.mask.top, height: before.mask.height });
     shaft?.classList.add('is-growing', 'look-shaft-grow');
     cap?.classList.add('is-growing');
@@ -931,6 +948,7 @@ export class PreviewPanel {
     if (!immediate) await this.wait(120);
     this.board = deserializeBoard(payload.boardAfter);
     this.paintBoard(this.board);
+    this.morpheusDreamfallPitchFloor = 0;
     const newCell = this.cellAt(reel, 0);
     if (newCell) this.animateLandedCells([newCell]);
     shaft?.classList.remove('is-growing', 'look-shaft-grow');
@@ -1054,21 +1072,21 @@ export class PreviewPanel {
           ${this.isMorpheusDreamfallProject() ? '<button class="tool-btn" id="previewMorpheusDreamfall">Play Dreamfall Slice</button>' : ''}
           <button class="tool-btn preview-rules-button" id="previewRules" aria-haspopup="dialog">Game Info</button>
         </div>
-        ${performanceProfile.fresh ? `
-          <div class="preview-performance-strip ${performanceProfile.complete ? 'is-complete' : 'has-failures'}">
-            <strong>${performanceProfile.complete ? 'Performance gate passed' : 'Performance repair required'}</strong>
+        ${performanceProfile.fresh && !performanceProfile.complete ? `
+          <div class="preview-performance-strip has-failures">
+            <strong>Performance repair required</strong>
             <span>${performanceProfile.samples.map(sample => `${sample.viewport} ${sample.fps.toFixed(0)}fps / p95 ${sample.p95Ms.toFixed(1)}ms`).join(' · ')}</span>
             <span>Textures ${(performanceProfile.peakTextureBytes / 1024 / 1024).toFixed(1)}MB · embedded load ${(performanceProfile.embeddedAssetBytes / 1024 / 1024).toFixed(1)}MB · ${performanceProfile.fingerprint}</span>
           </div>` : performanceProfile.stale ? '<div class="preview-performance-strip has-failures"><strong>Performance evidence is stale</strong><span>Assets or choreography changed after the last profile.</span></div>' : ''}
-        ${replayMatrix.fresh ? `
-          <div class="preview-replay-strip ${replayMatrix.complete ? 'is-complete' : 'has-failures'}">
-            <strong>${replayMatrix.complete ? 'Replay matrix passed' : 'Replay repair required'}</strong>
+        ${replayMatrix.fresh && !replayMatrix.complete ? `
+          <div class="preview-replay-strip has-failures">
+            <strong>Replay repair required</strong>
             <span>${replayMatrix.passed}/${replayMatrix.total} cases · ${replayMatrix.presentationCases} critical journeys · ${replayMatrix.mathCases} seeded rounds</span>
             <span>${replayMatrix.fingerprint}</span>
           </div>` : replayMatrix.stale ? '<div class="preview-replay-strip has-failures"><strong>Replay evidence is stale</strong><span>Math or presentation behavior changed after the last rehearsal.</span></div>' : ''}
-        ${viewportLayout.fresh ? `
-          <div class="preview-layout-strip ${viewportLayout.complete ? 'is-complete' : 'has-failures'}">
-            <strong>${viewportLayout.complete ? 'Layout gate passed' : 'Layout repair required'}</strong>
+        ${viewportLayout.fresh && !viewportLayout.complete ? `
+          <div class="preview-layout-strip has-failures">
+            <strong>Layout repair required</strong>
             <span>${viewportLayout.samples.map(sample => { const minimum = sample.controlTargets.reduce((current, target) => !current || Math.min(target.width, target.height) < Math.min(current.width, current.height) ? target : current, null); return `${sample.viewport} controls ≥ ${minimum?.width.toFixed(0) || 0}×${minimum?.height.toFixed(0) || 0}px · symbols ${sample.minimumSymbolWidth.toFixed(0)}×${sample.minimumSymbolHeight.toFixed(0)}px`; }).join(' · ')}</span>
             <span>${viewportLayout.fingerprint}</span>
           </div>` : viewportLayout.stale ? '<div class="preview-layout-strip has-failures"><strong>Layout evidence is stale</strong><span>Visual layout inputs changed after the last audit.</span></div>' : ''}
@@ -1606,14 +1624,19 @@ export class PreviewPanel {
       h = profile.world.height;
     }
     const cellW = (w - gap * (reels - 1)) / reels;
-    const maxRows = reservedWorld ? MORPHEUS_RESERVED_WORLD_ROWS : Math.max(...rows);
+    const liveRows = Array.from({ length: reels }, (_, reel) => Math.max(
+      Number(this.board?.[reel]?.length) || 0,
+      Number(this.featureReelRows?.get(reel)) || 0,
+      Number(rows[reel] || rows[0]) || 1,
+    ));
+    const maxRows = reservedWorld ? this.dreamfallPitchRows(liveRows) : Math.max(...liveRows);
     const cellH = h / maxRows;
     const buffer = 2;
 
     let html = `<div class="reel-frame" data-dreamfall-world="${reservedWorld ? 'active' : 'inactive'}" data-nexus-world="${this.isMorpheusNexusWorldActive() ? 'active' : 'inactive'}" style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;z-index:50;border-radius:8px;overflow:${reservedWorld ? 'visible' : 'hidden'};background:${reservedWorld ? 'transparent' : 'rgba(0,0,0,0.5)'}"><div class="preview-dormant-grid" id="previewDormantGrid" aria-hidden="true"></div>`;
 
     for (let r = 0; r < reels; r++) {
-      const rRows = rows[r] || rows[0];
+      const rRows = liveRows[r] || liveRows[0];
       const maskH = rRows * cellH;
       const offsetY = (maxRows - rRows) * cellH / (reservedWorld ? 1 : 2);
       const stripCells = (reservedWorld ? maxRows : rRows) + buffer * 2;
@@ -4469,23 +4492,30 @@ export class PreviewPanel {
     beforeHeights[reel] = Math.min(8, previousRows);
     const afterHeights = [...beforeHeights];
     afterHeights[reel] = Math.min(8, rows);
-    this.featureReelRows.set(reel, afterHeights[reel]);
+    const pitch = this.dreamfallPitchRows(afterHeights);
+    this.morpheusDreamfallPitchFloor = pitch;
     this.updateFeatureMechanic(this.mechanicCopy({ type: 'expandReelHeight', reel, rows: afterHeights[reel] }));
     const cap = this.container.querySelector(`.reel-cap[data-reel="${reel}"]`);
     const shaft = this.container.querySelector(`.living-shaft[data-reel="${reel}"]`);
     if (!shaft || !this.reelGeometry?.h || this.turboMode) {
+      this.featureReelRows.set(reel, afterHeights[reel]);
       this.syncReelLayout();
+      this.morpheusDreamfallPitchFloor = 0;
       this.playSpecialLook({ type: 'expandReelHeight', reel, rows: afterHeights[reel] }, [], [[reel, 0]]);
       return;
     }
     const before = createMorpheusReservedWorldLayout({
       worldHeight: this.reelGeometry.h,
       reelRows: beforeHeights,
+      maximumRows: pitch,
     }).reels[reel];
     const after = createMorpheusReservedWorldLayout({
       worldHeight: this.reelGeometry.h,
       reelRows: afterHeights,
+      maximumRows: pitch,
     }).reels[reel];
+    this.syncReelLayout(beforeHeights);
+    this.featureReelRows.set(reel, afterHeights[reel]);
     gsap.set(shaft, { top: before.mask.top, height: before.mask.height });
     shaft.classList.add('is-growing', 'look-shaft-grow');
     cap?.classList.add('is-growing');
@@ -4497,6 +4527,7 @@ export class PreviewPanel {
       timeline.to(shaft, { top: after.mask.top, height: after.mask.height, duration, ease: 'power3.out' });
     });
     this.syncReelLayout();
+    this.morpheusDreamfallPitchFloor = 0;
     shaft.classList.remove('is-growing', 'look-shaft-grow');
     cap?.classList.remove('is-growing');
     this.container.querySelector('#previewStage')?.classList.remove('is-shaft-growing');
@@ -5255,7 +5286,7 @@ export class PreviewPanel {
       Math.max(tileCounts[reel], Number(this.featureReelRows.get(reel) || tileCounts[reel]) || tileCounts[reel])
     ));
     const reservedWorld = this.isMorpheusDreamfallWorldActive();
-    const maxRows = reservedWorld ? MORPHEUS_RESERVED_WORLD_ROWS : Math.max(...grownCounts);
+    const maxRows = reservedWorld ? this.dreamfallPitchRows(grownCounts) : Math.max(...grownCounts);
     const cellH = this.reelGeometry.h / maxRows;
     const { buffer, cellW } = this.reelGeometry;
     this.reelGeometry.maxRows = maxRows;

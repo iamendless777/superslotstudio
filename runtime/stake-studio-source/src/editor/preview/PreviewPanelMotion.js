@@ -94,9 +94,9 @@ export class PreviewPanel extends BasePreviewPanel {
     const label = document.createElement('label');
     label.className = 'preview-mode';
     label.innerHTML = `Motion
-      <select id="previewMotionTemplate">
+      <select id="previewMotionTemplate" style="min-width:9rem">
+        <option value="cluster-hex" selected>cascade</option>
         <option value="classic-nine">classic-nine</option>
-        <option value="cluster-hex" selected>cluster-hex</option>
         <option value="sticky-five">sticky-five</option>
         <option value="anticipation-five">anticipation-five</option>
         <option value="scatter-tease">2-scatter tease</option>
@@ -138,7 +138,6 @@ export class PreviewPanel extends BasePreviewPanel {
     status.id = 'previewMotionStatus';
     status.className = 'preview-mode';
     status.style.opacity = '0.85';
-    status.style.minWidth = '10rem';
     status.textContent = '';
 
     const debug = document.createElement('span');
@@ -160,13 +159,7 @@ export class PreviewPanel extends BasePreviewPanel {
 
     trigger.insertAdjacentElement('afterend', label);
     label.insertAdjacentElement('afterend', button);
-    button.insertAdjacentElement('afterend', liveTease);
-    liveTease.insertAdjacentElement('afterend', liveDreamfall);
-    liveDreamfall.insertAdjacentElement('afterend', liveNexus);
-    liveNexus.insertAdjacentElement('afterend', copyArt);
-    copyArt.insertAdjacentElement('afterend', status);
-    status.insertAdjacentElement('afterend', debug);
-    debug.insertAdjacentElement('afterend', art);
+    button.insertAdjacentElement('afterend', status);
 
     button.addEventListener('click', () => {
       void this.playMotionStylePreview();
@@ -236,6 +229,7 @@ export class PreviewPanel extends BasePreviewPanel {
       this.motionTemplateIndex = templates;
       const preferred = this.preferredMotionTemplate();
       const current = select.dataset.userPicked ? (select.value || preferred) : preferred;
+      templates.sort((a, b) => (a.id === preferred ? -1 : b.id === preferred ? 1 : 0));
       select.replaceChildren();
       for (const template of templates) {
         const option = document.createElement('option');
@@ -248,6 +242,8 @@ export class PreviewPanel extends BasePreviewPanel {
         const fallback = [...select.options].find((option) => option.value === preferred);
         (fallback || select.options[0]).selected = true;
       }
+      if ([...select.options].some((option) => option.value === current)) select.value = current;
+      else if ([...select.options].some((option) => option.value === preferred)) select.value = preferred;
       if (!select.dataset.artBound) {
         select.dataset.artBound = '1';
         select.addEventListener('change', () => {
@@ -434,8 +430,8 @@ export class PreviewPanel extends BasePreviewPanel {
     }
     if (template?.id === 'dreamfall-grow') return 'Dreamfall grow';
     if (template?.id === 'nexus-grid') return 'Nexus grid';
-    if (template?.kind === 'tumble' && this.motionWinType() !== 'cluster') {
-      return 'cascade · ways';
+    if (template?.id === 'cluster-hex' || (template?.kind === 'tumble' && this.motionWinType() !== 'cluster')) {
+      return 'cascade';
     }
     return template?.kind ? `${template.id} · ${template.kind}` : (template?.id || '');
   }
