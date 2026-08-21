@@ -10,7 +10,7 @@ export const MORPHEUS_DREAMFALL_CABINET_PROFILE = Object.freeze({
     renderProfile: 'morpheus-dreamfall-render-profile-v1',
   }),
   asset: Object.freeze({
-    src: '/assets/morpheus-dreamfall-scene-matte-v1.png',
+    src: '',
     width: 1280,
     height: 800,
     role: 'feature-cabinet-scene',
@@ -19,7 +19,7 @@ export const MORPHEUS_DREAMFALL_CABINET_PROFILE = Object.freeze({
   safeOpening: Object.freeze({ x: 405, y: 10, width: 485, height: 615 }),
   reelBay: Object.freeze({ x: 413, y: 16, width: 470, height: 600 }),
   hudBoundaryY: 624,
-  replacesBaseForeground: true,
+  replacesBaseForeground: false,
   growth: Object.freeze({
     concept: 'per-reel-upward',
     minimumRows: 4,
@@ -30,7 +30,7 @@ export const MORPHEUS_DREAMFALL_CABINET_PROFILE = Object.freeze({
     trigger: 'random-non-maxed-reel-on-positive-win',
   }),
   layers: Object.freeze({
-    scene: 'matte-plate',
+    scene: 'authored-cabinet',
     glow: 'motion-graphic',
     shafts: 'css-per-reel',
     symbols: 'reel-mask',

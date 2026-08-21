@@ -26,6 +26,7 @@ import {
 } from './engines/quality/SafeRepairOrchestrator.js';
 import { StudioBridge } from './bridge/StudioBridge.js?orchestration=20260815-32';
 import { ensurePresentationDirector } from './engines/presentation/PresentationDirector.js';
+import { stripGeneratedOverlayArt } from './editor/composition/CabinetComposition.js';
 import { ensureVisualEffects } from './engines/animation/VisualEffectRecipes.js';
 import { GAME_BLUEPRINTS, applyGameBlueprint, getBlueprint } from './engines/blueprints/GameBlueprintEngine.js';
 import {
@@ -702,6 +703,7 @@ class StakeStudio {
   replaceProject(project, id) {
     const destination = this.project && this.activePanel ? this.activePanel : 'cabinet';
     this.project = project;
+    stripGeneratedOverlayArt(this.project);
     ensurePresentationDirector(this.project);
     ensureVisualEffects(this.project);
     ensureProductionWorkflow(this.project);

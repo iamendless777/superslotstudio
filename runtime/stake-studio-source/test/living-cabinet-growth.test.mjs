@@ -31,7 +31,7 @@ test('Dreamfall growth is chance: 48 is the cap, never a guaranteed fill', () =>
   assert.equal(growth.guaranteedMax, false);
   assert.equal(growth.trigger, 'random-non-maxed-reel-on-positive-win');
   assert.equal(MORPHEUS_DREAMFALL_CABINET_PROFILE.layers.glow, 'motion-graphic');
-  assert.equal(MORPHEUS_DREAMFALL_CABINET_PROFILE.layers.scene, 'matte-plate');
+  assert.equal(MORPHEUS_DREAMFALL_CABINET_PROFILE.layers.scene, 'authored-cabinet');
   assert.equal(MORPHEUS_DREAMFALL_CABINET_PROFILE.asset.zIndex, 38);
 });
 
@@ -78,8 +78,8 @@ test('math grows one random non-maxed reel per win and will not force 48 tiles',
 test('Oneiric Nexus is a unique 6×4 sanctum and does not grow', () => {
   assert.equal(MORPHEUS_NEXUS_CABINET_PROFILE.growth, false);
   assert.deepEqual(MORPHEUS_NEXUS_CABINET_PROFILE.grid, { reels: 6, rows: 4, persistent: true });
-  assert.notEqual(MORPHEUS_NEXUS_CABINET_PROFILE.asset.src, MORPHEUS_DREAMFALL_CABINET_PROFILE.asset.src);
-  assert.equal(existsSync(new URL('../public/assets/morpheus-nexus-scene-matte-v1.png', import.meta.url)), true);
+  assert.notEqual(MORPHEUS_NEXUS_CABINET_PROFILE.id, MORPHEUS_DREAMFALL_CABINET_PROFILE.id);
+  assert.equal(existsSync(new URL('../public/assets/morpheus-nexus-scene-matte-v1.png', import.meta.url)), false);
   assert.equal(resolveMorpheusNexusCabinetProfile({
     projectId: 'morpheus_dreamfall',
     nexusActive: true,
@@ -94,7 +94,7 @@ test('Oneiric Nexus is a unique 6×4 sanctum and does not grow', () => {
   }, { projectId: 'morpheus_dreamfall', worldActive: false, nexusActive: true });
   assert.equal(composition.nexusOverlay.visible, true);
   assert.equal(composition.featureOverlay.visible, false);
-  assert.match(composition.nexusOverlay.src, /morpheus-nexus-scene-matte/);
+  assert.equal(composition.nexusOverlay.src, '');
 });
 
 test('Play Motion Dreamfall grow rehearses a jagged chance bonus, not 48 tiles', () => {
@@ -154,8 +154,8 @@ test('Cabinet editor lists both Dreamfall and Nexus scene plates', () => {
   const nexus = layers.find((layer) => layer.compositionBinding === 'feature:nexus');
   assert.equal(dreamfall.visible, true);
   assert.equal(nexus.visible, true);
-  assert.match(dreamfall.src, /morpheus-dreamfall-scene-matte/);
-  assert.match(nexus.src, /morpheus-nexus-scene-matte/);
+  assert.equal(dreamfall.src, '');
+  assert.equal(nexus.src, '');
 });
 
 test('live SPIN enters the 6×4 well and lifts a random reel instead of jumping to 48', () => {

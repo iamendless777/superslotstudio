@@ -10,7 +10,7 @@ export const MORPHEUS_NEXUS_CABINET_PROFILE = Object.freeze({
     modeIds: Object.freeze(['oneiric_nexus']),
   }),
   asset: Object.freeze({
-    src: '/assets/morpheus-nexus-scene-matte-v1.png',
+    src: '',
     width: 1280,
     height: 800,
     role: 'feature-cabinet-scene',
@@ -19,7 +19,7 @@ export const MORPHEUS_NEXUS_CABINET_PROFILE = Object.freeze({
   safeOpening: Object.freeze({ x: 400, y: 110, width: 496, height: 330 }),
   reelBay: Object.freeze({ x: 413, y: 120, width: 470, height: 300 }),
   hudBoundaryY: 624,
-  replacesBaseForeground: true,
+  replacesBaseForeground: false,
   growth: false,
   grid: Object.freeze({ reels: 6, rows: 4, persistent: true }),
 });

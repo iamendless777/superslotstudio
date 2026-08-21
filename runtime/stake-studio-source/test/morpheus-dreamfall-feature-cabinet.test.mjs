@@ -24,8 +24,8 @@ test('Dreamfall owns a tall safe-opening cabinet without changing Base', () => {
   assert.ok(profile.safeOpening.x + profile.safeOpening.width >= profile.reelBay.x + profile.reelBay.width);
   assert.ok(profile.safeOpening.y + profile.safeOpening.height >= profile.reelBay.y + profile.reelBay.height);
   assert.ok(profile.reelBay.y + profile.reelBay.height < profile.hudBoundaryY);
-  assert.equal(existsSync(new URL('../public/assets/morpheus-dreamfall-scene-matte-v1.png', import.meta.url)), true);
-  assert.equal(existsSync(new URL('../public/assets/morpheus-nexus-scene-matte-v1.png', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../public/assets/morpheus-dreamfall-scene-matte-v1.png', import.meta.url)), false);
+  assert.equal(existsSync(new URL('../public/assets/morpheus-nexus-scene-matte-v1.png', import.meta.url)), false);
   assert.equal(profile.layers.glow, 'motion-graphic');
   assert.equal(profile.growth.maximumCells, 48);
   assert.equal(profile.growth.guaranteedMax, false);

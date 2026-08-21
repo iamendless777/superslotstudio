@@ -90,7 +90,30 @@ function resolveOverlayPlate(authored, fallback, { enabled, hasAuthoredWorld }) 
   if (hasAuthoredWorld) {
     return { ...fallback, ...(authored || {}), src: '', replacesBaseForeground: false };
   }
-  return { ...fallback, ...(authored || {}) };
+  return { ...fallback, ...(authored || {}), src: '', replacesBaseForeground: false };
+}
+
+const GENERATED_OVERLAY_MARKERS = [
+  'morpheus-dreamfall-scene-matte',
+  'morpheus-nexus-scene-matte',
+  'morpheus-dreamfall-shaft-pillars',
+];
+
+export function stripGeneratedOverlayArt(project) {
+  if (!project?.theme) return project;
+  const overlays = project.theme.featureOverlays || {};
+  for (const key of ['dreamfall', 'nexus']) {
+    const overlay = overlays[key];
+    if (!overlay) continue;
+    if (!GENERATED_OVERLAY_MARKERS.some(marker => String(overlay.src || '').includes(marker))) continue;
+    overlay.src = '';
+    overlay.replacesBaseForeground = false;
+  }
+  for (const layer of project.theme.cabinet?.layers || []) {
+    if (!GENERATED_OVERLAY_MARKERS.some(marker => String(layer.src || '').includes(marker))) continue;
+    layer.src = '';
+  }
+  return project;
 }
 
 function activeSpineAsset(project) {

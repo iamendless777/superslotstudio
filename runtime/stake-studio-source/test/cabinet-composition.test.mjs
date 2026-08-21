@@ -6,6 +6,7 @@ import {
   LEGACY_PAGE_COMPOSITION_MODE,
   listEditableCompositionLayers,
   resolvePlayerComposition,
+  stripGeneratedOverlayArt,
   updateCompositionLayer,
   updatePlayerControlArt,
 } from '../src/editor/composition/CabinetComposition.js';
@@ -31,7 +32,8 @@ test('legacy Morpheus composition resolves without migrating the project', () =>
 
   const dreamfall = resolvePlayerComposition(value, { projectId: 'morpheus_dreamfall', worldActive: true });
   assert.equal(dreamfall.featureOverlay.visible, true);
-  assert.match(dreamfall.featureOverlay.src, /morpheus-dreamfall-scene-matte/);
+  assert.equal(dreamfall.featureOverlay.src, '');
+  assert.equal(dreamfall.featureOverlay.replacesBaseForeground, false);
 });
 
 test('existing non-Morpheus projects retain working compatibility control art', () => {
@@ -109,4 +111,18 @@ test('authored temple cabinet is the game — do not swap in a scene-matte well'
   assert.equal(dreamfall.featureOverlay.src, '');
   assert.equal(dreamfall.featureOverlay.replacesBaseForeground, false);
   assert.equal(dreamfall.cabinet.layers.find(layer => layer.type === 'reel-area').width, 640);
+});
+
+test('loading a project strips generated well plates off the authored cabinet', () => {
+  const value = project();
+  value.theme.featureOverlays = {
+    dreamfall: { src: '/assets/morpheus-dreamfall-scene-matte-v1.png', replacesBaseForeground: true },
+  };
+  value.theme.cabinet.layers.push({
+    id: 'shaft', type: 'image', src: '/assets/morpheus-dreamfall-shaft-pillars-v1.png', visible: true,
+  });
+  stripGeneratedOverlayArt(value);
+  assert.equal(value.theme.featureOverlays.dreamfall.src, '');
+  assert.equal(value.theme.featureOverlays.dreamfall.replacesBaseForeground, false);
+  assert.equal(value.theme.cabinet.layers.at(-1).src, '');
 });
