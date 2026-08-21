@@ -156,9 +156,7 @@ function pollAgentInbox() {
       }
       const outbox = { id: inbox.id, at: new Date().toISOString(), results };
       writeFileSync(outboxPath, `${JSON.stringify(outbox, null, 2)}\n`);
-      git(['add', '--', 'agent/outbox.json']);
-      const commit = git(['commit', '-m', `agent-outbox ${inbox.id}`, '--', 'agent/outbox.json']);
-      if (commit.status === 0) git(['push', 'origin', `HEAD:${branch}`], { timeout: 20000 });
+      // Do not commit/push outbox onto the game branch. That is what made every pull diverge.
     } catch (error) {
       console.warn('[stake-studio] agent inbox', error.message || error);
     }
