@@ -1,5 +1,11 @@
 # Super Slot Studio
 
+Standing identity: [`AGENTS.md`](AGENTS.md).
+
+- **TAG: STUDIO** — this repo is Stake Studio, the factory that ships Stake.com slots.
+- **TAG: GAME** — the open project in the running studio is the game being made right now. Games change. Do not hard-code a game name here.
+
+
 [![CI](https://github.com/realitybeast/superslotstudio/actions/workflows/ci.yml/badge.svg)](https://github.com/realitybeast/superslotstudio/actions/workflows/ci.yml)
 
 Dependency-free Stake Engine domain foundation. The current implementation owns

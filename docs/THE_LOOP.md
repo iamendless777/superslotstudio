@@ -1,6 +1,11 @@
 # The loop
 
-Stake Studio is the factory. You, the AI, and Stake’s SDKs work the **same project**.
+Standing identity: `AGENTS.md`.
+
+- **TAG: STUDIO** — Stake Studio is the factory.
+- **TAG: GAME** — the open project is the game being made right now. Read its name from the studio. Do not bring a game name from memory.
+
+You, the AI, and Stake’s SDKs work that **open project** through the factory.
 
 ```
 Cabinet / Config / Strips / Atlas

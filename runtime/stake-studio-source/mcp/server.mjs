@@ -92,7 +92,7 @@ const FACTORY_IDENTITY = Object.freeze({
   product: 'Stake Studio',
   role: 'factory',
   mission: 'Industry-standard slot game generator. Ship Stake.com games in about 2 days.',
-  projectVsProduct: 'The open game is a project loaded so the factory can be seen working. Morpheus: Dream Fall is the first example. They are separate. Do not hide Cabinet / Config / nav / New / Load. Do not skin the studio as a player. If the slot is not visible, open the Preview panel.',
+  projectVsProduct: 'The open project is the game being made in the factory right now. Games change. The studio does not. Read the open project name from the studio. Do not hide Cabinet / Config / nav / New / Load. Do not skin the studio as a player. If the slot is not visible, open the Preview panel.',
 });
 
 function compactPreviewForAgent(preview) {

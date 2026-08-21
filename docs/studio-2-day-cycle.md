@@ -1,5 +1,7 @@
 # 2-day game production cycle
 
+Standing identity: `AGENTS.md`. **TAG: STUDIO** is the factory. **TAG: GAME** is whichever project is open. This cycle repeats for many games.
+
 Goal: ship a new Stake Engine game every ~2 days by never reinventing motion,
 recovery, or contracts. Only the recipe and art change.
 

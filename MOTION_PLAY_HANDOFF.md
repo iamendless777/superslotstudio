@@ -5,13 +5,15 @@
 **Repo:** https://github.com/iamendless777/superslotstudio  
 **Local path:** `~/Developer/superslotstudio`
 
+Standing identity: `AGENTS.md`. This file is **dated motion notes**. Confirm the open project in the live studio before following game-specific steps below.
+
 ## Two jobs. Never mix.
 
-**Game work** = Morpheus, inside the studio. Cabinet, Atlas, Config, Strips, Preview, Play. The project is the game. If the studio can do it, do it there.
+**TAG: GAME** — work the project that is open in the studio. Cabinet, Atlas, Config, Strips, Preview, Play. If the studio can do it, do it there.
 
-**Studio work** = only when a game task hits a missing or broken studio capability. Fix that capability. Then go back to the game.
+**TAG: STUDIO** — only when a game task hits a missing or broken factory capability. Fix that capability. Then go back to the open game.
 
-**One studio. One project.** 127.0.0.1:3001 is Morpheus. Never seed a second `games/morpheus`. Never boot ivory starter-pack art as the game. If the art on screen is not the temple, you are in the wrong file — stop and delete it.
+**One studio. One open project.** `127.0.0.1:3001` is the studio window. The header chip is the current game. Never seed a second copy of the open game. Never boot starter-pack art over the loaded project.
 
 Agent studio: `127.0.0.1:3001` (`npm run dev:agent`). Human studio: `3000`. GitHub syncs both. Do not hide chrome. Do not skin the studio as the slot. Do not invent a second cabinet.
 
@@ -32,14 +34,16 @@ This is the single handoff for a new chat. Read this before touching reel spin o
 
 ## Start here
 
-The human's studio is **127.0.0.1:3001**. Game work happens in that window. Studio source lives on this branch. Push, they pull, they refresh 3001.
+The human's studio is **127.0.0.1:3001**. Game work happens in that window, on whatever project is open. Studio source lives on this branch. Push, they pull, they refresh 3001.
 
-Do not hide Cabinet / Config / nav. Do not skin the studio as a Morpheus player. That already happened — do not do it again.
+Do not hide Cabinet / Config / nav. Do not skin the studio as a player. That already happened — do not do it again.
 ---
 
 ## Current truth (2026-08-20)
 
-Work is **live-play pixels** on Morpheus (Waylanders Forge clone, new art). Play Motion is the rehearsal harness. Live SPIN is the product.
+Dated notes for the project that was open that day. **Confirm `openProject` in the live studio first.** If a different game is loaded, do not apply these steps to it.
+
+Work is **live-play pixels** on the open project. Play Motion is the rehearsal harness. Live SPIN is the product.
 
 **2-scatter, 3-scatter, 4-scatter, and 5-scatter teasers are video-confirmed.** Waiting-reel gaps ~**1390ms**. Live SPIN with two early scatters uses the same schedule. Portable `game-app.js` now accrues the same waiting-reel hold (not last-reel-only). Do not reopen that mechanic unless pixels regress.
 
@@ -121,7 +125,7 @@ These were tried, looked worse, and were reverted. Do not revive them.
 | Fake extra scatters in the blur strip | User: “no need to make fake anything.” Landing tiles are the real board. |
 | Last-reel-only hold as the product tease | Misses 3/4/5/6. Only QA `getReelStopSchedule(..., true)` keeps this. |
 | Half-hold on middle reels, full on last | Wrong model. Every waiting reel is the same beat. |
-| Hide studio chrome / skin Preview as a slot player | Product is Stake Studio. Morpheus is a project. Open the Preview panel; do not delete the editor. |
+| Hide studio chrome / skin Preview as a slot player | TAG: STUDIO is the factory. TAG: GAME is the open project. Open the Preview panel; do not delete the editor. |
 | Overlay TOTAL WIN / mode banner on every spin | Ugly. Mode lives in the bonus menu. |
 | Door highlight on the character rig | Was meant for the background portal; unreadable. |
 
@@ -461,14 +465,14 @@ Do not run two studio processes against the same human. Do not commit 50MB art i
 
 Continue **Stake Studio** from `integrate/studio-motion` (pull first). Read `MOTION_PLAY_HANDOFF.md`. GitHub is source of truth — pull, commit, push. Do not ask for patch files.
 
-**Studio is the product. Morpheus is a project.** Serve the studio with chrome. Never hide the editor to demo the slot.
+**TAG: STUDIO is the product. TAG: GAME is the open project.** Serve the studio with chrome. Never hide the editor to demo the slot.
 
-1. `git pull origin integrate/studio-motion`. Refresh the studio you are serving (in Grok Build that is the live preview).
-2. **2/3/4/5-scatter Play Motion and live 2-scatter are video-confirmed.** Portable frontend uses the same waiting-reel hold. Do not reopen unless pixels regress.
-3. Hold length stays **1200ms**. Do not change unless asked.
-4. Do not revive GSAP travel, fake scatters, last-reel-only, or an HTML overlay grid. Do not bake glow into the scene plates. Do not hide studio nav.
-5. **Video-confirm Dreamfall grow + Nexus sanctum in the studio Preview.** Use **Live Dreamfall** (5 gates → 6×4 well → chance shaft lift, empty cave, then the new tile lands) and **Live Nexus** (6 gates → unique 6×4 sanctum, no growth). 48 is the cap. Merge to `main` only after that video pass.
-6. Art: Atlas → **Copy board brief**. **Apply board pack** fills empty Morpheus slots (not cluster-hex). Glow stays a motion-graphic layer.
+1. `git pull origin integrate/studio-motion`. Refresh the studio window.
+2. Read `inspect_studio`. Work the named open project. Do not bring a game name from memory.
+3. **2/3/4/5-scatter Play Motion and live 2-scatter are video-confirmed on the project that was open 2026-08-20.** Portable frontend uses the same waiting-reel hold. Do not reopen unless pixels regress. Skip this list if a different game is loaded.
+4. Hold length stays **1200ms**. Do not change unless asked.
+5. Do not revive GSAP travel, fake scatters, last-reel-only, or an HTML overlay grid. Do not bake glow into the scene plates. Do not hide studio nav.
+6. Feature video (Dreamfall grow / Nexus sanctum) and Atlas board-pack steps belong to that dated project. Confirm it is still the open project before doing them.
 
 ---
 
