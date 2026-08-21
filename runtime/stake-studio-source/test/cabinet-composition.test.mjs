@@ -100,6 +100,7 @@ test('Preview and Cabinet consume the shared composition contract', () => {
   assert.match(cabinet, /data-control-art/);
   assert.match(cabinet, /renderReelGhost/);
   assert.match(cabinet, /cabinet-reel-ghost/);
+  assert.match(cabinet, /Empty linked overlays must not cover the authored cabinet/);
 });
 
 test('authored temple cabinet is the game — do not swap in a scene-matte well', () => {

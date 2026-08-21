@@ -313,6 +313,12 @@ export class CabinetEditor {
         </div>`;
       }
 
+      // Empty linked overlays must not cover the authored cabinet.
+      if (layer.compositionBinding || layer.type === 'overlay' || layer.type === 'ui') {
+        if (layer.id !== this.selectedLayer) return '';
+        return `<div class="stage-layer" data-layer-id="${layer.id}" style="${style};background:transparent;border:1px dashed rgba(243,230,193,.35)"></div>`;
+      }
+
       const colors = {
         'reel-area': 'rgba(0,100,255,0.15)',
         'character': 'rgba(255,100,0,0.15)',
