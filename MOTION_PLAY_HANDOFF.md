@@ -2,14 +2,25 @@
 
 **Date:** 2026-08-20  
 **Branch:** `integrate/studio-motion`  
-**HEAD:** see latest commit on this branch — *Enhancer doors + FR strips + Game Info.*  
 **Repo:** https://github.com/iamendless777/superslotstudio  
-**Local path:** `~/Developer/superslotstudio`  
-**Goal:** Ship many Stake.com games quickly (target ~2 days each). Motion + templates stay reliable so the bottleneck is **art**, not fighting the studio.
+**Local path:** `~/Developer/superslotstudio`
 
-**Stake Studio is the product. Morpheus is a project inside it.** If the human cannot see the slot, open the Preview **panel**. Never hide Cabinet / Config / nav / New / Load to “just show the game.” Never skin the studio as a Morpheus player. That is the opposite of the goal and it has already happened — do not do it again.
+## Two jobs. Never mix.
 
-**The loop:** Cabinet reel-area **is** the game window. Preview and the compiled Stake frontend use that rectangle. Math Publisher runs Stake’s math-sdk. Frontend Compiler emits the static RGS shell. Build → Export Stake Release is what gets uploaded for review. See `docs/THE_LOOP.md`.
+**Game work** = Morpheus, inside the studio. Cabinet, Atlas, Config, Strips, Preview, Play. The project is the game. If the studio can do it, do it there.
+
+**Studio work** = only when a game task hits a missing or broken studio capability. Fix that capability. Then go back to the game.
+
+Agent studio: `127.0.0.1:3001` (`npm run dev:agent`). Human studio: `3000`. GitHub syncs both. Do not hide chrome. Do not skin the studio as the slot. Do not invent a second cabinet.
+
+```bash
+cd ~/Developer/superslotstudio
+git checkout integrate/studio-motion
+git pull origin integrate/studio-motion
+npm run dev:agent
+```
+
+**The loop:** Cabinet reel-area **is** the game window. Preview plays it. Math Publisher = Stake math-sdk. Frontend Compiler = static RGS shell. Build → Export is the Stake review upload.
 
 This is the single handoff for a new chat. Read this before touching reel spin or scatter tease.
 
@@ -19,23 +30,9 @@ This is the single handoff for a new chat. Read this before touching reel spin o
 
 ## Start here
 
-**In Grok Build:** serve Stake Studio in the live preview (full chrome, Morpheus loaded). That pane is the only studio the human can see. Pull `integrate/studio-motion`, edit, refresh the preview. Never hide the editor.
+The human's studio is **127.0.0.1:3001**. Game work happens in that window. Studio source lives on this branch. Push, they pull, they refresh 3001.
 
-**On a machine with two terminals** (agent lane vs human lane — do not mix processes):
-
-```bash
-# Agent studio
-cd ~/Developer/superslotstudio
-git checkout integrate/studio-motion
-git pull origin integrate/studio-motion
-npm run dev:agent
-
-# Other terminal: git only
-cd ~/Developer/superslotstudio
-git pull origin integrate/studio-motion
-```
-
-After motion/CSS/JS changes, refresh the studio you are actually serving. Vite live-reload is not enough for spin-track CSS.
+Do not hide Cabinet / Config / nav. Do not skin the studio as a Morpheus player. That already happened — do not do it again.
 ---
 
 ## Current truth (2026-08-20)
