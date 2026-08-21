@@ -11,6 +11,8 @@
 
 **Studio work** = only when a game task hits a missing or broken studio capability. Fix that capability. Then go back to the game.
 
+**One studio. One project.** 127.0.0.1:3001 is Morpheus. Never seed a second `games/morpheus`. Never boot ivory starter-pack art as the game. If the art on screen is not the temple, you are in the wrong file — stop and delete it.
+
 Agent studio: `127.0.0.1:3001` (`npm run dev:agent`). Human studio: `3000`. GitHub syncs both. Do not hide chrome. Do not skin the studio as the slot. Do not invent a second cabinet.
 
 ```bash
