@@ -11,6 +11,7 @@ import {
   finishFactoryRun,
   beginFactoryRepairAttempt,
   finishFactoryRepairAttempt,
+  factoryRequiresLocalMathLock,
   getCreativeFactoryGate,
   getFactoryProfile,
   inferSoundscapeProfile,
@@ -39,6 +40,9 @@ test('factory profiles are an explicit cost ladder and only release selects prod
   assert.equal(getFactoryProfile('release').mathProfile, 'production');
   assert.equal(Object.values(FACTORY_PROFILES).filter(profile => profile.mathProfile === 'production').length, 1);
   assert.equal(getFactoryProfile('unknown').id, 'prototype');
+  assert.equal(factoryRequiresLocalMathLock('prototype'), false);
+  assert.equal(factoryRequiresLocalMathLock('review'), true);
+  assert.equal(factoryRequiresLocalMathLock('release'), true);
 });
 
 test('smoke math is a deterministic single-shard job while expensive work stays release-only', () => {

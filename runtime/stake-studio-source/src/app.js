@@ -39,6 +39,7 @@ import {
   getCreativeFactoryGate,
   getFactoryWorkflowGate,
   getFactoryProfile,
+  factoryRequiresLocalMathLock,
   pauseFactoryRun,
   prepareFactoryVisualCheckpoint,
   prepareFactoryProject,
@@ -1187,14 +1188,17 @@ class StakeStudio {
       const preflightRounds = 50000;
       const preflightStatus = getMathCalibrationStatus(this.project);
       const reusePreflight = preflightStatus.complete && Number(preflightStatus.calibration?.rounds || 0) >= preflightRounds;
+      if (Number(this.project.math?.wincap) > 0 && Number(this.project.math?.wincapRtp) > 0) {
+        this.project.math.maxWinCalibrationPolicy = 'separate-criterion-v1';
+      }
+      if (!factoryRequiresLocalMathLock(profile.id)) {
+        setFactoryStage(report, 'math', 'pending', 'Prototype uses official smoke books after visual, audio and frontend. It does not demand a 50k-round Autopilot lock.');
+      } else {
       setFactoryStage(report, 'math', 'running', reusePreflight
         ? 'Reusing a fresh local Math Autopilot preflight before visual production.'
         : 'Math Autopilot is checking every wager mode against its normal-return target.');
       this.renderBuildPanel(main);
       await new Promise(resolve => setTimeout(resolve, 0));
-      if (Number(this.project.math?.wincap) > 0 && Number(this.project.math?.wincapRtp) > 0) {
-        this.project.math.maxWinCalibrationPolicy = 'separate-criterion-v1';
-      }
       let preflight;
       try {
         preflight = reusePreflight ? preflightStatus.calibration : calibratePrototypeMath(this.project, {
@@ -1226,6 +1230,7 @@ class StakeStudio {
       };
       setFactoryStage(report, 'math', 'pending', 'Local preflight passed. Official publisher waits until visual, audio and frontend complete.');
       await this.bridge.saveProject(reusePreflight ? 'factory-math-preflight-reused' : 'factory-math-preflight-complete');
+      }
       setFactoryStage(report, 'visual', 'running', 'Checking the continuity-safe visual production plan and complete assigned pack.');
 
       const visualCheckpoint = prepareFactoryVisualCheckpoint(this.project, profile.id);
@@ -1266,17 +1271,32 @@ class StakeStudio {
       const { root, projectId, ...frontend } = frontendResult;
       this.project.build.frontend = frontend;
       setFactoryStage(report, 'frontend', 'completed', `${frontend.files.length} files · ${Number(frontend.totalBytes).toLocaleString()} bytes · all five platform capabilities installed.`);
-      setFactoryStage(report, 'math', 'running', 'Math Autopilot is calibrating every wager mode locally before the official publisher starts.');
+      setFactoryStage(report, 'math', 'running', factoryRequiresLocalMathLock(profile.id)
+        ? 'Math Autopilot is calibrating every wager mode locally before the official publisher starts.'
+        : `Starting the ${profile.mathProfile} official publisher. Prototype does not demand a local Autopilot lock.`);
       await this.bridge.saveProject('factory-frontend-ready');
       this.renderBuildPanel(main);
       await new Promise(resolve => setTimeout(resolve, 0));
 
-      const calibration = calibratePrototypeMath(this.project, {
-        rounds: 25000,
-        seed: 0x51a7e,
-        maxPasses: 3,
-        tolerance: 0.005,
-      });
+      if (factoryRequiresLocalMathLock(profile.id)) {
+      let calibration;
+      try {
+        calibration = calibratePrototypeMath(this.project, {
+          rounds: 25000,
+          seed: 0x51a7e,
+          maxPasses: 3,
+          tolerance: 0.005,
+        });
+      } catch (error) {
+        pauseFactoryRun(report, 'math', error.message, {
+          action: 'Local Math Autopilot',
+          panel: 'build',
+          blockers: [error.message],
+        });
+        await this.bridge.saveProject('factory-awaiting-math');
+        this.renderBuildPanel(main);
+        return report;
+      }
       report.mathCalibration = {
         format: calibration.format,
         fingerprint: calibration.fingerprint,
@@ -1291,6 +1311,7 @@ class StakeStudio {
       };
       setFactoryStage(report, 'math', 'running', `${calibration.modes.length}/${calibration.modes.length} wager modes locally aligned across ${calibration.rounds.toLocaleString()} deterministic rounds each; starting the ${profile.mathProfile} official publisher.`);
       await this.bridge.saveProject('factory-math-calibrated');
+      }
 
       const buildEngine = new BuildEngine(this.project);
       const response = await fetch(`/__stake_studio/projects/${encodeURIComponent(this.projectId)}/math-publisher/start`, {

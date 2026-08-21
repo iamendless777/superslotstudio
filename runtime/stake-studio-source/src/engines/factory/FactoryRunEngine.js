@@ -45,6 +45,11 @@ export const FACTORY_PROFILES = Object.freeze({
 export const FACTORY_STAGE_ORDER = BLUEPRINT_FACTORY_STAGE_ORDER;
 export const FACTORY_REPAIR_LIMITS = Object.freeze({ prototype: 1, review: 2, release: 2 });
 
+/** Prototype ships a playable proof with smoke books. Review and release still require a local Autopilot lock. */
+export function factoryRequiresLocalMathLock(profileId) {
+  return getFactoryProfile(profileId).id !== 'prototype';
+}
+
 const now = () => new Date().toISOString();
 const hasSource = value => Boolean(value && typeof value === 'object' && value.src);
 
