@@ -95,8 +95,8 @@ export class PreviewPanel extends BasePreviewPanel {
     label.className = 'preview-mode';
     label.innerHTML = `Motion
       <select id="previewMotionTemplate">
-        <option value="classic-nine" selected>classic-nine</option>
-        <option value="cluster-hex">cluster-hex</option>
+        <option value="classic-nine">classic-nine</option>
+        <option value="cluster-hex" selected>cluster-hex</option>
         <option value="sticky-five">sticky-five</option>
         <option value="anticipation-five">anticipation-five</option>
         <option value="scatter-tease">2-scatter tease</option>
@@ -405,11 +405,26 @@ export class PreviewPanel extends BasePreviewPanel {
   }
 
   preferredMotionTemplate() {
-    if (/morpheus/i.test(`${this.project?.id || ''} ${this.project?.name || ''}`)) return 'dreamfall-grow';
     if (this.motionWinType() === 'cluster') return 'cluster-hex';
+    const reels = this.board?.length || this.project?.math?.grid?.reels || 0;
+    const rows = this.board?.[0]?.length || this.project?.math?.grid?.rows?.[0] || 0;
+    // Morpheus / 6×4 ways: Play Motion must cascade, not classic-nine spin.
+    if (reels >= 6 && rows >= 4) return 'cluster-hex';
+    if (/morpheus/i.test(`${this.project?.id || ''} ${this.project?.name || ''}`)) return 'cluster-hex';
     const type = String(this.project?.math?.gameType || '').toLowerCase();
     if (type === 'lines' || type === 'ways') return 'classic-nine';
     return 'classic-nine';
+  }
+
+  shouldRehearseTumble(templateId, sheet) {
+    if (templateId === 'dreamfall-grow' || templateId === 'nexus-grid') return false;
+    if (String(templateId || '').startsWith('scatter-tease')) return false;
+    if (templateId === 'sticky-five' || templateId === 'anticipation-five') return false;
+    if (cueSheetHasTumble(sheet)) return true;
+    if (this.motionWinType() === 'cluster') return true;
+    const reels = this.board?.length || this.project?.math?.grid?.reels || 0;
+    const rows = this.board?.[0]?.length || this.project?.math?.grid?.rows?.[0] || 0;
+    return reels >= 6 && rows >= 4;
   }
 
   motionTemplateLabel(template) {
@@ -522,7 +537,6 @@ export class PreviewPanel extends BasePreviewPanel {
   async playMotionAsTumble(sheet) {
     if (typeof this.playStakeTumble !== 'function') return false;
     if (!Array.isArray(this.board) || !this.board.length) return false;
-    if (!cueSheetHasTumble(sheet)) return false;
 
     const original = cloneBoard(this.board);
     this.motionSourceBoard = original;
@@ -1053,7 +1067,10 @@ export class PreviewPanel extends BasePreviewPanel {
         return;
       }
       const sheet = await loadMotionFixture(templateId);
-      if (await this.playMotionAsTumble(sheet)) return;
+      if (this.shouldRehearseTumble(templateId, sheet)) {
+        const tumbleSheet = cueSheetHasTumble(sheet) ? sheet : await loadMotionFixture('cluster-hex');
+        if (await this.playMotionAsTumble(tumbleSheet)) return;
+      }
       if (await this.playMotionAsReelRehearsal(sheet)) return;
 
       this.motionPlayback = await playMotionTemplate(templateId, {
