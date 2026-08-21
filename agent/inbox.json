@@ -1,7 +1,7 @@
 {
-  "id": "mcp-boot-1",
+  "id": "inspect-1",
   "commands": [
     { "mcp": "get_studio_state" },
-    { "mcp": "inspect_studio" }
+    { "command": "inspect_studio" }
   ]
 }
