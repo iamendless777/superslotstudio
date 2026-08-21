@@ -24,7 +24,7 @@ import {
   applySafeRepairs,
   finalizeSafeRepairRun,
 } from './engines/quality/SafeRepairOrchestrator.js';
-import { StudioBridge } from './bridge/StudioBridge.js?orchestration=20260821-factory-identity-2';
+import { StudioBridge } from './bridge/StudioBridge.js?orchestration=20260821-factory-identity-3';
 import { ensurePresentationDirector } from './engines/presentation/PresentationDirector.js';
 import { stripGeneratedOverlayArt } from './editor/composition/CabinetComposition.js';
 import { ensureVisualEffects } from './engines/animation/VisualEffectRecipes.js';
