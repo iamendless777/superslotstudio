@@ -1,7 +1,8 @@
 {
-  "id": "inspect-1",
+  "id": "enter-2026-08-21-studio-1",
   "commands": [
     { "mcp": "get_studio_state" },
-    { "command": "inspect_studio" }
+    { "mcp": "inspect_studio" },
+    { "mcp": "capture_studio_view" }
   ]
 }
