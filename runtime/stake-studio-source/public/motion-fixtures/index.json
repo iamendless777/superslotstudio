@@ -2,21 +2,21 @@
   "catalogVersion": 2,
   "templates": [
     {
-      "id": "classic-nine",
-      "styleId": "classic-lines",
-      "kind": "reel",
-      "totalDurationMs": 1980,
-      "title": "Classic Nine",
-      "missingArt": 7,
-      "readyToCommission": true
-    },
-    {
       "id": "cluster-hex",
       "styleId": "cluster-snap",
       "kind": "tumble",
       "totalDurationMs": 2576,
       "title": "Cluster Hex",
       "missingArt": 6,
+      "readyToCommission": true
+    },
+    {
+      "id": "classic-nine",
+      "styleId": "classic-lines",
+      "kind": "reel",
+      "totalDurationMs": 1980,
+      "title": "Classic Nine",
+      "missingArt": 7,
       "readyToCommission": true
     },
     {

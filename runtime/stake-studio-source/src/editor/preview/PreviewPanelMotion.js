@@ -582,6 +582,7 @@ export class PreviewPanel extends BasePreviewPanel {
       retargetMode: winType,
       minCluster: 3,
       minWays: 3,
+      maxDepth: 2,
     });
     if (!events.length) {
       this.restoreMotionBoard();
@@ -1068,7 +1069,9 @@ export class PreviewPanel extends BasePreviewPanel {
       }
       const sheet = await loadMotionFixture(templateId);
       if (this.shouldRehearseTumble(templateId, sheet)) {
-        const tumbleSheet = cueSheetHasTumble(sheet) ? sheet : await loadMotionFixture('cluster-hex');
+        const tumbleSheet = cueSheetHasTumble(sheet)
+          ? sheet
+          : { templateId: 'cluster-hex', cues: [{ cue: 'symbol.pop', startMs: 0, durationMs: 260, stepKind: 'remove', depth: 0, cells: [] }] };
         if (await this.playMotionAsTumble(tumbleSheet)) return;
       }
       if (await this.playMotionAsReelRehearsal(sheet)) return;
