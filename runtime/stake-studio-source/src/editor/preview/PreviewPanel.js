@@ -1610,7 +1610,7 @@ export class PreviewPanel {
     const cellH = h / maxRows;
     const buffer = 2;
 
-    let html = `<div class="reel-frame" data-dreamfall-world="${reservedWorld ? 'active' : 'inactive'}" data-nexus-world="${this.isMorpheusNexusWorldActive() ? 'active' : 'inactive'}" style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;z-index:50;border-radius:8px;overflow:${reservedWorld ? 'visible' : 'hidden'};background:${reservedWorld ? 'transparent' : 'rgba(0,0,0,0.5)"}"><div class="preview-dormant-grid" id="previewDormantGrid" aria-hidden="true"></div>`;
+    let html = `<div class="reel-frame" data-dreamfall-world="${reservedWorld ? 'active' : 'inactive'}" data-nexus-world="${this.isMorpheusNexusWorldActive() ? 'active' : 'inactive'}" style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;z-index:50;border-radius:8px;overflow:${reservedWorld ? 'visible' : 'hidden'};background:${reservedWorld ? 'transparent' : 'rgba(0,0,0,0.5)'}"><div class="preview-dormant-grid" id="previewDormantGrid" aria-hidden="true"></div>`;
 
     for (let r = 0; r < reels; r++) {
       const rRows = rows[r] || rows[0];
