@@ -13,10 +13,11 @@
 import { writeFileSync, mkdirSync, existsSync, readdirSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { resolveStudioHome } from '../server/studio-paths.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const STUDIO = join(HERE, '..');
-const HOME = resolve(process.env.STAKE_STUDIO_HOME || join(STUDIO, '..'));
+const HOME = resolveStudioHome();
 const GAMES = join(HOME, 'games');
 const BRIDGE_URL = (process.env.STAKE_STUDIO_URL
   || (process.env.STAKE_STUDIO_AGENT === '1' || process.env.PORT === '3001'
@@ -1018,7 +1019,7 @@ async function callTool(name, a = {}) {
   }
 
   if (name === 'list_projects') {
-    return { projects: listProjects(), gamesDir: GAMES };
+    return { projects: listProjects(), gamesDir: GAMES, studioHome: HOME };
   }
 
   if (name === 'create_project') {

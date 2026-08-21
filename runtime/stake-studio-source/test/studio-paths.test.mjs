@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -25,4 +25,10 @@ test('an explicit StakeStudio home remains authoritative', () => {
   assert.equal(resolveStudioHome('/tmp/explicit-studio-home', {
     cwd: '/tmp/ignored', environment: {}, homeDirectory: '/tmp/ignored-home',
   }), '/tmp/explicit-studio-home');
+});
+
+test('MCP file tools share resolveStudioHome with the live studio', () => {
+  const source = readFileSync(new URL('../mcp/server.mjs', import.meta.url), 'utf8');
+  assert.match(source, /resolveStudioHome\(\)/);
+  assert.doesNotMatch(source, /STAKE_STUDIO_HOME \|\| join\(STUDIO/);
 });

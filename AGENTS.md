@@ -13,7 +13,7 @@ Games change. The studio does not. Do not carry a game name from memory into the
 - Job: produce Stake.com slot games in about 2 days.
 - It stays. New games are made *in* it. They are not it.
 - Chrome is the factory: Cabinet, Game Config, Reel Strips, Simulate, Preview, Audio, Atlas, FX Lab, Spine, Quality, Build, New Game, Save, Load.
-- You build the studio that builds the games. You do not build a game the way you build a studio.
+- Math publish, frontend compile, and validate use the **same studio home** as the live window (`resolveStudioHome`). If file tools say there are no projects while a game is on screen, the helper is looking in the wrong folder — that is a studio bug, not a missing game.
 
 ## TAG: GAME
 
