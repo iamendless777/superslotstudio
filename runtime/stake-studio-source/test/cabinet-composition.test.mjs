@@ -96,4 +96,17 @@ test('Preview and Cabinet consume the shared composition contract', () => {
   assert.match(cabinet, /listEditableCompositionLayers/);
   assert.match(cabinet, /updateCompositionLayer/);
   assert.match(cabinet, /data-control-art/);
+  assert.match(cabinet, /renderReelGhost/);
+  assert.match(cabinet, /cabinet-reel-ghost/);
+});
+
+test('authored temple cabinet is the game — do not swap in a scene-matte well', () => {
+  const value = project();
+  value.theme.cabinet.layers.push({
+    id: 'temple', type: 'image', src: '/assets/temple.png', x: 0, y: 0, width: 1280, height: 800, visible: true, zIndex: 1,
+  });
+  const dreamfall = resolvePlayerComposition(value, { projectId: 'morpheus', worldActive: true });
+  assert.equal(dreamfall.featureOverlay.src, '');
+  assert.equal(dreamfall.featureOverlay.replacesBaseForeground, false);
+  assert.equal(dreamfall.cabinet.layers.find(layer => layer.type === 'reel-area').width, 640);
 });

@@ -324,6 +324,30 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .stage-layer { cursor: move; user-select: none; }
 .stage-layer.selected { outline: 2px solid var(--accent) !important; }
 
+.cabinet-reel-area { overflow: hidden; background: rgba(4, 8, 18, .28); }
+.cabinet-reel-ghost { position: absolute; inset: 0; pointer-events: none; }
+.cabinet-reel-ghost-col { position: absolute; top: 0; display: flex; flex-direction: column; }
+.cabinet-reel-ghost-cell {
+  box-sizing: border-box;
+  border: 1px solid rgba(243, 230, 193, .22);
+  background: rgba(10, 16, 36, .45);
+}
+.cabinet-reel-ghost-cell.is-grow {
+  background: rgba(10, 16, 36, .12);
+  border-style: dashed;
+  border-color: rgba(196, 163, 90, .28);
+}
+.cabinet-reel-ghost-cell img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.cabinet-reel-ghost-label {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  font-size: 11px;
+  letter-spacing: .04em;
+  color: rgba(243, 230, 193, .82);
+  text-shadow: 0 1px 6px #000;
+}
+
 /* ---- CONFIG PANEL ---- */
 .config-panel { display: flex; height: calc(100vh - 48px); }
 

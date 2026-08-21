@@ -30,7 +30,7 @@ Map each name once inside the runtime. Do not re-plan timing per game in the UI.
 3. Add a thin adapter:
    `playCueSheet(cueSheet)` → for each cue, `VisualEffectRuntime.play(cue.cue, cue)`.
 4. Wire FlagshipWorkflow / StudioProfile to call `planFromBlueprint` when a game
-   recipe is selected, then feed `cueSheet` to the preview player.
+   recipe is selected, then feed `cueSheet` to the studio Preview panel.
 5. Replace ad-hoc per-game animation graphs with style profile selection.
 6. Push `agent/recover-game-source` when HTTP/SSH size limits are fixed (optional backup).
 

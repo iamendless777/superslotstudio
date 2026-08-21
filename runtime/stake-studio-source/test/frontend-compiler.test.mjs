@@ -521,7 +521,7 @@ test('compiled frontend preserves authored cabinet foreground and environment as
   assert.match(appSource, /config\.cabinetLayers/);
   assert.match(appSource, /config\.environmentAssets/);
   assert.match(appSource, /authoredWorldLayers/);
-  assert.match(appSource, /dreamfallWorldActive \? dreamfallProfile\?\.world : config\.reelArea/);
+  assert.match(appSource, /config\.reelArea \|\| \(dreamfallWorldActive \? dreamfallProfile\?\.world : null\)/);
 });
 
 test('compiled frontend consumes the same authored composition fields as Preview', () => {

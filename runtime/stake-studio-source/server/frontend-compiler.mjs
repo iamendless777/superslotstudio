@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readProjectDocument } from './project-storage.mjs';
 import {
   FULL_CANVAS_CABINET_MODE,
+  isMorpheusProject,
   resolvePlayerComposition,
 } from '../src/editor/composition/CabinetComposition.js';
 import { createPlayerInformationManifest } from '../src/engines/quality/PlayerInformationQA.js';
@@ -205,18 +206,19 @@ export function createFrontendConfig(project) {
   }));
   const betModes = playerInformation.modes;
   const gameId = project.build?.stakeEngine?.gameId || safeId(project.name);
+  const morpheusGame = isMorpheusProject(project, gameId);
   const morpheusExpectedModeIds = Object.keys(MORPHEUS_MODE_REGISTRY);
   const morpheusSelectableModeIds = Object.values(MORPHEUS_MODE_REGISTRY)
     .filter(mode => mode.entryPolicy === 'selectable' && Number(mode.costMultiplier) > 0)
     .map(mode => mode.id);
   const configuredModeIds = betModes.map(mode => mode.name);
-  const governedModes = gameId === 'morpheus_dreamfall'
+  const governedModes = morpheusGame
     ? (project.math?.governedModes || createMorpheusGovernedModesManifest())
     : null;
-  const morpheusProjectContract = gameId === 'morpheus_dreamfall'
+  const morpheusProjectContract = morpheusGame
     ? auditMorpheusProjectContract({ ...project, math: { ...project.math, governedModes } })
     : null;
-  const morpheusProductionIssues = gameId === 'morpheus_dreamfall' ? [
+  const morpheusProductionIssues = morpheusGame ? [
     ...(Number(project.math?.wincap) === MORPHEUS_MAX_WIN_MULTIPLIER
       ? [] : [`Saved production wincap is ${Number(project.math?.wincap) || 0}x; approved contract requires ${MORPHEUS_MAX_WIN_MULTIPLIER}x.`]),
     ...(JSON.stringify(configuredModeIds) === JSON.stringify(morpheusSelectableModeIds)
@@ -285,16 +287,17 @@ export function createFrontendConfig(project) {
     betModes,
     governedModes,
     featureArchitecture: project.math?.featureArchitecture || null,
-    renderProfiles: gameId === 'morpheus_dreamfall' ? {
+    renderProfiles: morpheusGame ? {
       morpheusDreamfall: {
         ...MORPHEUS_DREAMFALL_RENDER_PROFILE,
         format: MORPHEUS_DREAMFALL_RENDER_PROFILE_FORMAT,
+        world: reelArea || MORPHEUS_DREAMFALL_RENDER_PROFILE.world,
         activation: {
           modeIds: ['dreamfall'],
           mechanicIds: ['dreamfallReelGrowth', 'expandingReels'],
           eventTypes: ['expandReelHeight'],
         },
-        cabinet: composition.featureOverlay ? {
+        cabinet: composition.featureOverlay?.src ? {
           ...MORPHEUS_DREAMFALL_CABINET_PROFILE,
           activation: { ...MORPHEUS_DREAMFALL_CABINET_PROFILE.activation },
           id: composition.featureOverlay.id || MORPHEUS_DREAMFALL_CABINET_PROFILE.id,
@@ -309,26 +312,26 @@ export function createFrontendConfig(project) {
             zIndex: composition.featureOverlay.zIndex ?? 38,
             blendMode: composition.featureOverlay.blendMode || 'normal',
           },
-          safeOpening: { ...(composition.featureOverlay.safeOpening || MORPHEUS_DREAMFALL_CABINET_PROFILE.safeOpening) },
-          reelBay: { ...(composition.featureOverlay.reelBay || MORPHEUS_DREAMFALL_CABINET_PROFILE.reelBay) },
+          safeOpening: { ...(composition.featureOverlay.safeOpening || reelArea || MORPHEUS_DREAMFALL_CABINET_PROFILE.safeOpening) },
+          reelBay: { ...(reelArea || composition.featureOverlay.reelBay || MORPHEUS_DREAMFALL_CABINET_PROFILE.reelBay) },
           hudBoundaryY: composition.featureOverlay.hudBoundaryY ?? MORPHEUS_DREAMFALL_CABINET_PROFILE.hudBoundaryY,
-          replacesBaseForeground: composition.featureOverlay.replacesBaseForeground !== false,
+          replacesBaseForeground: composition.featureOverlay.replacesBaseForeground === true,
         } : null,
       },
       morpheusNexus: {
         format: 'morpheus-nexus-cabinet-profile-v1',
         activation: { modeIds: ['oneiric_nexus'] },
-        cabinet: composition.nexusOverlay ? {
+        cabinet: composition.nexusOverlay?.src ? {
           ...MORPHEUS_NEXUS_CABINET_PROFILE,
           asset: {
             ...MORPHEUS_NEXUS_CABINET_PROFILE.asset,
             src: composition.nexusOverlay.src,
             zIndex: composition.nexusOverlay.zIndex ?? 38,
           },
-        } : MORPHEUS_NEXUS_CABINET_PROFILE,
+        } : null,
       },
     } : {},
-    authoritativeRuntime: gameId === 'morpheus_dreamfall' ? {
+    authoritativeRuntime: morpheusGame ? {
       enabled: true,
       format: 'morpheus-portable-authoritative-runtime-v1',
       contractFingerprint: MORPHEUS_CONTRACT_FINGERPRINT,
@@ -898,7 +901,7 @@ export async function compileFrontendProject({ studioHome, projectId }) {
       },
       generatedAt: new Date().toISOString(),
     };
-    if (id === 'morpheus_dreamfall') recordMorpheusAssetOrchestrationEvidence(project);
+    if (isMorpheusProject(project, id)) recordMorpheusAssetOrchestrationEvidence(project);
     writeAtomic(projectPath, `${JSON.stringify(project, null, 2)}\n`);
     return { projectId: id, root: destination, ...project.build.frontend };
   } catch (error) {

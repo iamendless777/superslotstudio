@@ -26,7 +26,7 @@ Output: draft books + review JSON. Still non-approved.
 
 1. Produce symbol art to match `artBrief`; set each `artKey`.
 2. Drop assets into the renderer pack keyed by `artKey`.
-3. Play `MotionTimeline.effects` in the preview player (same timeline the studio planned).
+3. Play the timeline in the studio **Preview panel** (same timeline the studio planned). That panel lives inside Stake Studio — do not extract a standalone player.
 4. Tune only **style profile timings** if the feel is wrong — do not fork per-game animation code.
 
 Output: art-complete blueprint + playable local preview.

@@ -482,7 +482,7 @@ function renderBoard(board) {
   if (ui.dreamfallCabinet) ui.dreamfallCabinet.hidden = !dreamfallWorldActive;
   if (ui.nexusCabinet) ui.nexusCabinet.hidden = !nexusWorldActive;
   ui.board.dataset.renderProfile = dreamfallWorldActive ? String(dreamfallProfile?.format || '') : 'base';
-  const geometry = dreamfallWorldActive ? dreamfallProfile?.world : config.reelArea;
+  const geometry = config.reelArea || (dreamfallWorldActive ? dreamfallProfile?.world : null);
   const cabinetWidth = Math.max(1, Number(config.cabinetSize?.width) || 1280);
   const cabinetHeight = Math.max(1, Number(config.cabinetSize?.height) || 800);
   ui.board.style.left = `${Number(geometry?.x || 0) / cabinetWidth * 100}%`;

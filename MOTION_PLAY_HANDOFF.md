@@ -7,39 +7,35 @@
 **Local path:** `~/Developer/superslotstudio`  
 **Goal:** Ship many Stake.com games quickly (target ~2 days each). Motion + templates stay reliable so the bottleneck is **art**, not fighting the studio.
 
+**Stake Studio is the product. Morpheus is a project inside it.** If the human cannot see the slot, open the Preview **panel**. Never hide Cabinet / Config / nav / New / Load to “just show the game.” Never skin the studio as a Morpheus player. That is the opposite of the goal and it has already happened — do not do it again.
+
+**The loop:** Cabinet reel-area **is** the game window. Preview and the compiled Stake frontend use that rectangle. Math Publisher runs Stake’s math-sdk. Frontend Compiler emits the static RGS shell. Build → Export Stake Release is what gets uploaded for review. See `docs/THE_LOOP.md`.
+
 This is the single handoff for a new chat. Read this before touching reel spin or scatter tease.
 
 **GitHub is source of truth.** Do not ask the human to apply patch files. Pull `integrate/studio-motion`, edit, commit, push.
 
 ---
 
-## Start here — 3001 (agent lane, live reload)
+## Start here
+
+**In Grok Build:** serve Stake Studio in the live preview (full chrome, Morpheus loaded). That pane is the only studio the human can see. Pull `integrate/studio-motion`, edit, refresh the preview. Never hide the editor.
+
+**On a machine with two terminals** (agent lane vs human lane — do not mix processes):
 
 ```bash
-# Terminal 1 — leave this running
+# Agent studio
 cd ~/Developer/superslotstudio
 git checkout integrate/studio-motion
 git pull origin integrate/studio-motion
 npm run dev:agent
-# → http://127.0.0.1:3001/
-#    rebuilds planner, writes motion fixtures, starts studio with live reload
 
-# Terminal 2 — git / commands only
-cd ~/Developer/superslotstudio
-```
-
-Open Preview on **3001**, load Morpheus, hard-refresh after every `git pull`.
-
-Port split: **3000** = ChatGPT/human lane (`npm run dev`). **3001** = agent lane (`npm run dev:agent`). Do not mix them.
-
-After pulling motion/CSS/JS changes: **hard refresh**. Vite live-reload is not enough for spin-track CSS.
-
-```bash
+# Other terminal: git only
 cd ~/Developer/superslotstudio
 git pull origin integrate/studio-motion
-# then hard-refresh the 3001 tab
 ```
 
+After motion/CSS/JS changes, refresh the studio you are actually serving. Vite live-reload is not enough for spin-track CSS.
 ---
 
 ## Current truth (2026-08-20)
@@ -82,7 +78,7 @@ Live Preview can plant two early scatters with **Live 2-scatter** (`MathEngine.a
 
 2-scatter seed → waiting flags `[false, false, true, true, true, true]`. Waiting stop gaps ~**1390ms** (1200 hold + stagger). Unit test: “waiting reels share one hold for every scatter threshold.”
 
-### Play Motion dropdown (3001)
+### Play Motion dropdown
 
 | Option | Path | Status |
 |--------|------|--------|
@@ -126,6 +122,7 @@ These were tried, looked worse, and were reverted. Do not revive them.
 | Fake extra scatters in the blur strip | User: “no need to make fake anything.” Landing tiles are the real board. |
 | Last-reel-only hold as the product tease | Misses 3/4/5/6. Only QA `getReelStopSchedule(..., true)` keeps this. |
 | Half-hold on middle reels, full on last | Wrong model. Every waiting reel is the same beat. |
+| Hide studio chrome / skin Preview as a slot player | Product is Stake Studio. Morpheus is a project. Open the Preview panel; do not delete the editor. |
 | Overlay TOTAL WIN / mode banner on every spin | Ugly. Mode lives in the bonus menu. |
 | Door highlight on the character rig | Was meant for the background portal; unreadable. |
 
@@ -456,19 +453,21 @@ Never map during Play Motion / cue rehearsal:
 
 `executePresentation` for Play Motion stays a **no-op** unless a future flag explicitly enables director recipes.
 
-Do not mix 3000 and 3001. Do not commit 50MB art in a motion PR.
+Do not run two studio processes against the same human. Do not commit 50MB art in a motion PR.
 
 ---
 
 ## 10. Next session (paste this into the new chat)
 
-Continue Stake Studio from `integrate/studio-motion` (pull first). Read `MOTION_PLAY_HANDOFF.md`. GitHub is source of truth — pull, commit, push. Do not ask for patch files.
+Continue **Stake Studio** from `integrate/studio-motion` (pull first). Read `MOTION_PLAY_HANDOFF.md`. GitHub is source of truth — pull, commit, push. Do not ask for patch files.
 
-1. `git pull origin integrate/studio-motion`. Hard-refresh 3001.
+**Studio is the product. Morpheus is a project.** Serve the studio with chrome. Never hide the editor to demo the slot.
+
+1. `git pull origin integrate/studio-motion`. Refresh the studio you are serving (in Grok Build that is the live preview).
 2. **2/3/4/5-scatter Play Motion and live 2-scatter are video-confirmed.** Portable frontend uses the same waiting-reel hold. Do not reopen unless pixels regress.
 3. Hold length stays **1200ms**. Do not change unless asked.
-4. Do not revive GSAP travel, fake scatters, last-reel-only, or an HTML overlay grid. Do not bake glow into the scene plates.
-5. **Video-confirm Dreamfall grow + Nexus sanctum.** Use **Live Dreamfall** (5 gates → 6×4 well → chance shaft lift, empty cave, then the new tile lands) and **Live Nexus** (6 gates → unique 6×4 sanctum, no growth). 48 is the cap. Merge to `main` only after that video pass.
+4. Do not revive GSAP travel, fake scatters, last-reel-only, or an HTML overlay grid. Do not bake glow into the scene plates. Do not hide studio nav.
+5. **Video-confirm Dreamfall grow + Nexus sanctum in the studio Preview.** Use **Live Dreamfall** (5 gates → 6×4 well → chance shaft lift, empty cave, then the new tile lands) and **Live Nexus** (6 gates → unique 6×4 sanctum, no growth). 48 is the cap. Merge to `main` only after that video pass.
 6. Art: Atlas → **Copy board brief**. **Apply board pack** fills empty Morpheus slots (not cluster-hex). Glow stays a motion-graphic layer.
 
 ---
@@ -518,4 +517,4 @@ b47d871 Hold leftover reels after two scatters, last reel longest.   ← superse
 
 ## 13. One-line summary for the next agent
 
-**Board, HUD, cabinet, and character share the ivory/gold/cyan pack. Next: hold-length feel (`anticipationHoldMs`) — human call. Same Stake CSS tracks + playStakeTumble. Do not invent a second animator.**
+**Stake Studio is the product. Morpheus is a project inside it. Next: video-confirm Dreamfall grow + Nexus in studio Preview (Live Dreamfall / Live Nexus). Never hide the editor. Hold 1200ms. Same Stake CSS tracks + playStakeTumble. Do not invent a second animator.**

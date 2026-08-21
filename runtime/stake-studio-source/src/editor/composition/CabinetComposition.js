@@ -10,6 +10,15 @@ const MORPHEUS_PROJECT_ID = 'morpheus_dreamfall';
 export const FULL_CANVAS_CABINET_MODE = 'full-canvas-cabinet-v1';
 export const LEGACY_PAGE_COMPOSITION_MODE = 'legacy-page-composition-v1';
 
+export function isMorpheusProject(project = {}, projectId = '') {
+  const id = String(projectId || project.build?.stakeEngine?.gameId || project.id || '');
+  const name = String(project.name || '');
+  return id === MORPHEUS_PROJECT_ID
+    || id === 'morpheus'
+    || /^morpheus(_dreamfall)?$/i.test(id)
+    || /^morpheus\s*:\s*dreamfall$/i.test(name);
+}
+
 const MORPHEUS_CONTROL_ART = Object.freeze({
   menu: '/assets/morpheus-control-menu-v1.png',
   bonus: '/assets/morpheus-control-bonus-v1.png',
@@ -71,6 +80,19 @@ const geometry = (value = {}, fallback = {}) => ({
   height: Math.max(1, number(value.height, fallback.height ?? 1)),
 });
 
+function authoredCabinetWorld(cabinet = {}) {
+  return (cabinet.layers || []).some(layer => layer?.type !== 'reel-area' && layer?.src && layer.visible !== false);
+}
+
+function resolveOverlayPlate(authored, fallback, { enabled, hasAuthoredWorld }) {
+  if (!enabled) return authored || null;
+  if (authored?.src) return authored;
+  if (hasAuthoredWorld) {
+    return { ...fallback, ...(authored || {}), src: '', replacesBaseForeground: false };
+  }
+  return { ...fallback, ...(authored || {}) };
+}
+
 function activeSpineAsset(project) {
   const activeName = project.animation?.runtime?.activeSpineAsset
     || Object.values(project.animation?.stateAnimations || {}).find(state => state?.asset)?.asset;
@@ -100,13 +122,18 @@ export function resolvePlayerComposition(project, { worldActive = false, nexusAc
   const characterPlacement = { ...(character.placement || {}), ...(spineAsset?.placement || {}) };
   const playerInterface = project.theme?.playerInterface || {};
   const projectId = explicitProjectId || project.gameId || project.slug || '';
-  const isMorpheus = projectId === MORPHEUS_PROJECT_ID || /^morpheus\s*:\s*dreamfall$/i.test(project.name || '');
+  const isMorpheus = isMorpheusProject(project, projectId);
   const mode = resolveCompositionMode(project, { isMorpheus });
   const defaultArt = MORPHEUS_CONTROL_ART;
-  const authoredFeature = project.theme?.featureOverlays?.dreamfall;
-  const authoredNexus = project.theme?.featureOverlays?.nexus;
-  const dreamfall = authoredFeature || (isMorpheus ? MORPHEUS_FEATURE_OVERLAY : null);
-  const nexus = authoredNexus || (isMorpheus ? MORPHEUS_NEXUS_OVERLAY : null);
+  const hasAuthoredWorld = authoredCabinetWorld(cabinet);
+  const dreamfall = resolveOverlayPlate(project.theme?.featureOverlays?.dreamfall, MORPHEUS_FEATURE_OVERLAY, {
+    enabled: isMorpheus,
+    hasAuthoredWorld,
+  });
+  const nexus = resolveOverlayPlate(project.theme?.featureOverlays?.nexus, MORPHEUS_NEXUS_OVERLAY, {
+    enabled: isMorpheus,
+    hasAuthoredWorld,
+  });
 
   return {
     format: 'stake-studio-player-composition-v1',
@@ -134,13 +161,13 @@ export function resolvePlayerComposition(project, { worldActive = false, nexusAc
       ...dreamfall,
       ...geometry(dreamfall, MORPHEUS_FEATURE_OVERLAY),
       visible: dreamfall.visible !== false && worldActive && !nexusActive,
-      authored: Boolean(authoredFeature),
+      authored: Boolean(project.theme?.featureOverlays?.dreamfall?.src),
     } : null,
     nexusOverlay: nexus ? {
       ...nexus,
       ...geometry(nexus, MORPHEUS_NEXUS_OVERLAY),
       visible: nexus.visible !== false && nexusActive,
-      authored: Boolean(authoredNexus),
+      authored: Boolean(project.theme?.featureOverlays?.nexus?.src),
     } : null,
   };
 }

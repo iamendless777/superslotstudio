@@ -88,7 +88,7 @@ import {
   createTileConnectionPlan,
   createTumblePlan,
 } from '../../engines/presentation/visual-excellence/index.js';
-import { resolvePlayerComposition } from '../composition/CabinetComposition.js';
+import { isMorpheusProject, resolvePlayerComposition } from '../composition/CabinetComposition.js';
 import {
   MorpheusEffectOrchestrationPreviewDriver,
 } from '../../engines/presentation/morpheus/MorpheusEffectOrchestrationPreviewDriver.js?orchestration=20260813-5';
@@ -206,7 +206,7 @@ export class PreviewPanel {
   }
 
   isMorpheusDreamfallProject() {
-    return this.projectId === MORPHEUS_DREAMFALL_PROJECT_ID;
+    return isMorpheusProject(this.project, this.projectId);
   }
 
   isMorpheusDreamfallWorldActive() {
@@ -1590,7 +1590,9 @@ export class PreviewPanel {
 
     const { reels, rows } = math.grid;
     const reservedWorld = this.isMorpheusDreamfallWorldActive();
-    const profile = reservedWorld ? createMorpheusDreamfallRenderProfile({
+    // Authored Cabinet reel-area is the game window. Only fall back to the
+    // reserved well when this project has no reel-area layer to honor.
+    const profile = reservedWorld && !reelArea ? createMorpheusDreamfallRenderProfile({
       viewportWidth: cab.width,
       viewportHeight: cab.height,
       stageWidth: cab.width,
@@ -1604,14 +1606,11 @@ export class PreviewPanel {
       h = profile.world.height;
     }
     const cellW = (w - gap * (reels - 1)) / reels;
-    // Dreamfall's 470x600 reel world is an authored feature state inside the
-    // unchanged 1280x800 cabinet plane. Keep its square 75px cells in every
-    // composition mode instead of stretching the growing board to the base bay.
     const maxRows = reservedWorld ? MORPHEUS_RESERVED_WORLD_ROWS : Math.max(...rows);
     const cellH = h / maxRows;
     const buffer = 2;
 
-    let html = `<div class="reel-frame" data-dreamfall-world="${reservedWorld ? 'active' : 'inactive'}" data-nexus-world="${this.isMorpheusNexusWorldActive() ? 'active' : 'inactive'}" style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;z-index:50;border-radius:8px;overflow:${reservedWorld ? 'visible' : 'hidden'};background:rgba(0,0,0,0.5)"><div class="preview-dormant-grid" id="previewDormantGrid" aria-hidden="true"></div>`;
+    let html = `<div class="reel-frame" data-dreamfall-world="${reservedWorld ? 'active' : 'inactive'}" data-nexus-world="${this.isMorpheusNexusWorldActive() ? 'active' : 'inactive'}" style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;z-index:50;border-radius:8px;overflow:${reservedWorld ? 'visible' : 'hidden'};background:${reservedWorld ? 'transparent' : 'rgba(0,0,0,0.5)"}"><div class="preview-dormant-grid" id="previewDormantGrid" aria-hidden="true"></div>`;
 
     for (let r = 0; r < reels; r++) {
       const rRows = rows[r] || rows[0];

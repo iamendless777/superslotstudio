@@ -7,9 +7,9 @@ const source = path => readFile(new URL(path, import.meta.url), 'utf8');
 test('Morpheus live Preview uses the existing reel renderer with a project-gated reserved world branch', async () => {
   const preview = await source('../src/editor/preview/PreviewPanel.js');
   assert.match(preview, /new MorpheusDreamfallPreviewDriver/);
-  assert.match(preview, /const profile = reservedWorld \? createMorpheusDreamfallRenderProfile/);
+  assert.match(preview, /reservedWorld && !reelArea \? createMorpheusDreamfallRenderProfile/);
   assert.match(preview, /reservedWorld \? MORPHEUS_RESERVED_WORLD_ROWS : Math\.max\(\.\.\.rows\)/);
-  assert.match(preview, /reservedWorld \? MORPHEUS_RESERVED_WORLD_ROWS : Math\.max\(\.\.\.counts\)/);
+  assert.match(preview, /reservedWorld \? MORPHEUS_RESERVED_WORLD_ROWS : Math\.max\(\.\.\.grownCounts\)/);
   assert.match(preview, /\(maxRows - reelRows\) \* cellH \/ \(reservedWorld \? 1 : 2\)/);
   assert.match(preview, /class="reel-cap"/);
   assert.match(preview, /data-visible="\$\{visible\}"/);

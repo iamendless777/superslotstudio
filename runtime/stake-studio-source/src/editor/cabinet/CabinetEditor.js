@@ -300,6 +300,13 @@ export class CabinetEditor {
         layer.id === this.selectedLayer ? 'outline:2px solid #00d4ff' : '',
       ].join(';');
 
+      if (layer.type === 'reel-area') {
+        return `<div class="stage-layer cabinet-reel-area" data-layer-id="${layer.id}" style="${style}">
+          ${layer.src ? `<img class="cabinet-reel-area-plate" src="${layer.src}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">` : ''}
+          ${this.renderReelGhost(layer)}
+        </div>`;
+      }
+
       if (layer.src) {
         return `<div class="stage-layer" data-layer-id="${layer.id}" style="${style}">
           <img src="${layer.src}" style="width:100%;height:100%;object-fit:contain;pointer-events:none;">
@@ -353,6 +360,33 @@ export class CabinetEditor {
         this.dragging = null;
       }
     });
+  }
+
+  renderReelGhost(layer) {
+    const grid = this.project.math?.grid || { reels: 6, rows: [4, 4, 4, 4, 4, 4] };
+    const reels = Math.max(1, Number(grid.reels) || 6);
+    const baseRows = Array.isArray(grid.rows)
+      ? grid.rows.map(value => Math.max(1, Number(value) || 1))
+      : Array.from({ length: reels }, () => Math.max(1, Number(grid.rows) || 4));
+    const liveMax = Math.max(...baseRows);
+    const growMax = /morpheus/i.test(`${this.project.id || ''} ${this.project.name || ''}`) ? 8 : liveMax;
+    const gap = 4;
+    const cellW = (Number(layer.width) - gap * (reels - 1)) / reels;
+    const cellH = Number(layer.height) / growMax;
+    const symbols = (this.project.theme?.symbols || []).filter(symbol => symbol?.src);
+    let html = `<div class="cabinet-reel-ghost" aria-hidden="true">`;
+    for (let reel = 0; reel < reels; reel += 1) {
+      const live = baseRows[reel] || baseRows[0] || liveMax;
+      html += `<div class="cabinet-reel-ghost-col" style="left:${reel * (cellW + gap)}px;width:${cellW}px;height:100%">`;
+      for (let row = 0; row < growMax; row += 1) {
+        const active = (growMax - row) <= live;
+        const symbol = active && symbols.length ? symbols[(reel + row) % symbols.length] : null;
+        html += `<div class="cabinet-reel-ghost-cell${active ? ' is-live' : ' is-grow'}" style="height:${cellH}px">${symbol?.src ? `<img src="${symbol.src}" alt="">` : ''}</div>`;
+      }
+      html += `</div>`;
+    }
+    html += `<span class="cabinet-reel-ghost-label">${layer.name || 'Reels'} · ${reels}×${liveMax}${growMax > liveMax ? ` · grows to ${growMax}` : ''}</span></div>`;
+    return html;
   }
 
   applyPreset(preset) {

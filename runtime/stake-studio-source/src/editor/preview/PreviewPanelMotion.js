@@ -405,6 +405,7 @@ export class PreviewPanel extends BasePreviewPanel {
   }
 
   preferredMotionTemplate() {
+    if (/morpheus/i.test(`${this.project?.id || ''} ${this.project?.name || ''}`)) return 'dreamfall-grow';
     if (this.motionWinType() === 'cluster') return 'cluster-hex';
     const type = String(this.project?.math?.gameType || '').toLowerCase();
     if (type === 'lines') return 'classic-nine';

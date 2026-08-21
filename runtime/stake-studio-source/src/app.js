@@ -64,7 +64,7 @@ import {
   STUDIO_PROFILE_DEFAULTS,
 } from './engines/factory/StudioProfile.js';
 
-if (location.hostname === 'localhost') {
+if (location.hostname === 'localhost' && window.top === window.self) {
   const canonicalUrl = new URL(location.href);
   canonicalUrl.hostname = '127.0.0.1';
   location.replace(canonicalUrl.href);
@@ -104,7 +104,7 @@ class StakeStudio {
     this.bridge.start();
     const params = new URLSearchParams(location.search);
     const requested = String(params.get('project') || '').trim();
-    const bootPanel = String(params.get('panel') || '').trim();
+    const bootPanel = String(params.get('panel') || '').trim() || 'preview';
     const lastProjectId = requested || localStorage.getItem('stakeStudioLastProjectId');
     if (!lastProjectId) {
       try {
@@ -125,7 +125,7 @@ class StakeStudio {
     }
     try {
       await this.bridge.loadProject(lastProjectId, requested ? 'open-query-project' : 'restore-last-project');
-      if (bootPanel) this.activatePanel(bootPanel);
+      this.activatePanel(bootPanel || 'preview');
     } catch {
       localStorage.removeItem('stakeStudioLastProjectId');
       this.showWelcome();
@@ -988,7 +988,8 @@ class StakeStudio {
           </div>
 
           <div class="build-card">
-            <h3>Export</h3>
+            <h3>Export for Stake Engine review</h3>
+            <p>Upload both halves in the Stake Engine dashboard: <strong>Math</strong> (books / LUT / index from the official math-sdk publisher) and <strong>Frontend</strong> (compiled static shell). Then submit that pair for review. Cabinet layers, Preview motion, and this zip are the same game.</p>
             <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
               <button class="btn-secondary" id="btnGenSDK">Export math-sdk Game Folder (.zip)</button>
               <button class="btn-secondary" id="btnGenGDD">Export Game Design Document</button>
