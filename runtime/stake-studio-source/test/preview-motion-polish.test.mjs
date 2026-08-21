@@ -86,6 +86,10 @@ test('Preview executes authoritative Visual Excellence phases for connections an
   assert.match(tumble, /phase\('enter'\)/);
   assert.match(tumble, /phase\('fall'\)/);
   assert.match(tumble, /phase\('settle'\)/);
+  assert.match(tumble, /is-tumble-recognized/);
+  assert.match(tumble, /is-tumble-reacting/);
+  assert.match(tumble, /is-tumble-clearing/);
+  assert.match(tumble, /is-tumble-landing/);
   assert.match(control, /visualChoreographyStart/);
   assert.match(control, /visualChoreographyPhase/);
   assert.match(control, /createChoreographyAcknowledgement/);

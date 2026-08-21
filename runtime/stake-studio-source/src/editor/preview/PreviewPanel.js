@@ -4847,6 +4847,7 @@ export class PreviewPanel {
     const phase = id => plan.phases.find(item => item.id === id)?.durationMs || 0;
 
     frame.appendChild(layer);
+    layer.style.overflow = 'visible';
     frame.classList.add('is-tumbling');
     frame.dataset.visualPlan = plan.id;
     this.suspendSettledSymbolMotion();
@@ -4875,13 +4876,34 @@ export class PreviewPanel {
       const fallPhase = plan.phases.find(item => item.id === 'fall');
       const settlePhase = plan.phases.find(item => item.id === 'settle');
       if (plan.motionEnabled) {
+        timeline.call(() => {
+          explodingCells.forEach((cell) => cell.classList.add('is-tumble-recognized'));
+        }, [], (recognitionPhase?.startMs || 0) / 1000);
+        timeline.call(() => {
+          explodingCells.forEach((cell) => {
+            cell.classList.remove('is-tumble-recognized');
+            cell.classList.add('is-tumble-reacting');
+          });
+        }, [], (reactionPhase?.startMs || 0) / 1000);
+        timeline.call(() => {
+          explodingCells.forEach((cell) => {
+            cell.classList.remove('is-tumble-reacting');
+            cell.classList.add('is-tumble-clearing');
+          });
+        }, [], (clearPhase?.startMs || 0) / 1000);
         if (explodingCells.length) {
           timeline.to(explodingCells, {
             opacity: 0,
+            scale: 1.12,
             duration: Math.max(0.001, ((phase('reaction') || 0) + (phase('clear') || 0)) / 1000),
             ease: 'power2.in',
           }, (reactionPhase?.startMs || 0) / 1000);
         }
+        timeline.to(incomingCells, {
+          opacity: 1,
+          duration: Math.max(0.001, phase('enter') / 1000),
+          ease: 'power1.out',
+        }, (enterPhase?.startMs || 0) / 1000);
         timeline.to(survivorMotions.concat(incomingCells), {
           top: (_, target) => Number(target.dataset.targetTop),
           opacity: 1,
@@ -4890,6 +4912,14 @@ export class PreviewPanel {
           stagger: Math.max(0, (fallPhase?.cues?.[1]?.relativeAtMs || 0) / 1000),
           ease: 'power2.in',
         }, (fallPhase?.startMs || 0) / 1000);
+        timeline.call(() => {
+          landingCells.forEach((cell) => cell.classList.add('is-tumble-landing'));
+        }, [], (settlePhase?.startMs || 0) / 1000);
+        timeline.to(landingCells, {
+          scale: 1,
+          duration: Math.max(0.001, phase('settle') / 1000),
+          ease: 'power2.out',
+        }, (settlePhase?.startMs || 0) / 1000);
       } else {
         timeline.set(explodingCells, { scale: 1, opacity: 0, rotation: 0 }, (clearPhase?.startMs || 0) / 1000);
         timeline.set(survivorMotions.concat(incomingCells), {
