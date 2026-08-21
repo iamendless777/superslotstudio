@@ -1343,56 +1343,74 @@ async function callTool(name, a = {}) {
   }
 }
 
-// ---------- MCP stdio transport ----------
+// ---------- MCP transport ----------
 
 function send(msg) { process.stdout.write(JSON.stringify(msg) + '\n'); }
 
-let buf = '';
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', chunk => {
-  buf += chunk;
-  let nl;
-  while ((nl = buf.indexOf('\n')) !== -1) {
-    const line = buf.slice(0, nl).trim();
-    buf = buf.slice(nl + 1);
-    if (line) handle(line);
-  }
-});
-
-async function handle(line) {
-  let req;
-  try { req = JSON.parse(line); } catch { return; }
-  const { id, method, params } = req;
-
+export async function handleMcpMessage(req) {
+  const { id, method, params } = req || {};
   try {
     if (method === 'initialize') {
-      return send({ jsonrpc: '2.0', id, result: {
-        protocolVersion: '2024-11-05',
-        capabilities: { tools: {} },
-        serverInfo: { name: 'stakestudio', version: '1.0.0' },
-      } });
+      return {
+        jsonrpc: '2.0',
+        id,
+        result: {
+          protocolVersion: '2024-11-05',
+          capabilities: { tools: {} },
+          serverInfo: { name: 'stakestudio', version: '1.0.0' },
+        },
+      };
     }
-    if (method === 'notifications/initialized') return;
+    if (method === 'notifications/initialized' || method === 'notifications/cancelled') return null;
     if (method === 'tools/list') {
-      return send({ jsonrpc: '2.0', id, result: { tools: TOOLS } });
+      return { jsonrpc: '2.0', id, result: { tools: TOOLS } };
     }
     if (method === 'tools/call') {
       const result = await callTool(params?.name, params?.arguments || {});
       const isError = !!(result && result.error);
-      return send({ jsonrpc: '2.0', id, result: {
-        content: result?._content || [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        isError,
-      } });
+      return {
+        jsonrpc: '2.0',
+        id,
+        result: {
+          content: result?._content || [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          isError,
+        },
+      };
     }
     if (id !== undefined) {
-      send({ jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } });
+      return { jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } };
     }
   } catch (err) {
     if (id !== undefined) {
-      send({ jsonrpc: '2.0', id, result: {
-        content: [{ type: 'text', text: JSON.stringify({ error: String(err?.message || err) }, null, 2) }],
-        isError: true,
-      } });
+      return {
+        jsonrpc: '2.0',
+        id,
+        result: {
+          content: [{ type: 'text', text: JSON.stringify({ error: String(err?.message || err) }, null, 2) }],
+          isError: true,
+        },
+      };
     }
   }
+  return null;
+}
+
+const isStdioMain = resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1] || '');
+if (isStdioMain) {
+  let buf = '';
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', chunk => {
+    buf += chunk;
+    let nl;
+    while ((nl = buf.indexOf('\n')) !== -1) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line) continue;
+      Promise.resolve()
+        .then(() => JSON.parse(line))
+        .then(handleMcpMessage)
+        .then((reply) => { if (reply) send(reply); })
+        .catch(() => {});
+    }
+  });
 }

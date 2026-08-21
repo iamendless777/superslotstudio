@@ -1329,6 +1329,28 @@ export function stakeStudioBridge(options = {}) {
       }
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url || '/', 'http://127.0.0.1');
+        const isMcp = url.pathname === '/mcp' || url.pathname === '/__stake_studio/mcp';
+        if (isMcp) {
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type, MCP-Session-Id, Last-Event-ID, Accept');
+          res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+          if (req.method === 'OPTIONS') {
+            res.statusCode = 204;
+            res.end();
+            return;
+          }
+          if (req.method !== 'POST') {
+            return sendJson(res, 405, { error: 'MCP expects POST JSON-RPC (initialize, tools/list, tools/call).' });
+          }
+          try {
+            const { handleMcpMessage } = await import('../mcp/server.mjs');
+            const body = await readBody(req);
+            const reply = await handleMcpMessage(body) || { jsonrpc: '2.0', id: body?.id ?? null, result: {} };
+            return sendJson(res, 200, reply);
+          } catch (error) {
+            return sendJson(res, 500, { jsonrpc: '2.0', error: { code: -32603, message: String(error?.message || error) } });
+          }
+        }
         if (!url.pathname.startsWith('/__stake_studio/')) return next();
 
         try {
