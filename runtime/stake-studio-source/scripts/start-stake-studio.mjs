@@ -74,16 +74,38 @@ function watchMotionPlanner() {
   }
 }
 
+function compactAgentResult(value) {
+  if (!value || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(compactAgentResult);
+  const next = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (key === 'dataUrl' && typeof item === 'string') {
+      next.dataUrl = `[omitted ${item.length} chars]`;
+      continue;
+    }
+    next[key] = compactAgentResult(item);
+  }
+  return next;
+}
+
 function pollAgentInbox() {
   if (process.env.STAKE_STUDIO_AGENT !== '1' && process.env.STAKE_STUDIO_AGENT !== 'true') return;
   const inboxRef = 'agent/inbox.json';
   const outboxPath = join(repoRoot, 'agent/outbox.json');
+  const mcpToCommand = {
+    select_studio_panel: args => ({ command: 'select_panel', arguments: args }),
+    capture_studio_view: () => ({ command: 'capture_view', arguments: {} }),
+    spin_preview: args => ({ command: 'spin_preview', arguments: args }),
+    open_project_in_studio: args => ({ command: 'open_project', arguments: args }),
+    inspect_studio: () => ({ command: 'inspect_studio', arguments: {} }),
+  };
   let lastId = '';
   const git = (args, extra = {}) => spawnSync('git', args, {
     cwd: repoRoot,
     encoding: 'utf8',
     timeout: extra.timeout || 15000,
   });
+  const wait = ms => new Promise(resolveWait => setTimeout(resolveWait, ms));
   const tick = async () => {
     try {
       const branch = (git(['rev-parse', '--abbrev-ref', 'HEAD']).stdout || '').trim() || 'integrate/studio-motion';
@@ -95,18 +117,42 @@ function pollAgentInbox() {
       lastId = inbox.id;
       const items = Array.isArray(inbox.commands) && inbox.commands.length
         ? inbox.commands
-        : [{ command: inbox.command, arguments: inbox.arguments || {} }];
+        : [{ mcp: inbox.mcp, command: inbox.command, arguments: inbox.arguments || {} }];
       const results = [];
       for (const item of items) {
-        if (!item?.command) continue;
+        if (item?.mcp === 'get_studio_state') {
+          const response = await fetch(`http://127.0.0.1:${port}/__stake_studio/state`);
+          results.push({ mcp: 'get_studio_state', ok: response.ok, result: compactAgentResult(await response.json().catch(() => ({}))) });
+          console.log(`[stake-studio] agent inbox ${inbox.id}: get_studio_state`);
+          continue;
+        }
+        const mapped = item?.mcp && mcpToCommand[item.mcp]
+          ? mcpToCommand[item.mcp](item.arguments || {})
+          : { command: item.command, arguments: item.arguments || {} };
+        if (!mapped.command) continue;
         const queued = await fetch(`http://127.0.0.1:${port}/__stake_studio/commands`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ command: item.command, arguments: item.arguments || {} }),
+          body: JSON.stringify({ command: mapped.command, arguments: mapped.arguments || {} }),
         });
         const body = await queued.json().catch(() => ({}));
-        results.push({ command: item.command, queued: queued.ok, id: body.id || null });
-        console.log(`[stake-studio] agent inbox ${inbox.id}: ${item.command}`);
+        let result = null;
+        const deadline = Date.now() + 20000;
+        while (body.id && Date.now() < deadline) {
+          await wait(250);
+          const pending = await fetch(`http://127.0.0.1:${port}/__stake_studio/command-results/${body.id}`);
+          if (pending.status === 404) continue;
+          result = compactAgentResult(await pending.json().catch(() => ({})));
+          break;
+        }
+        results.push({
+          mcp: item.mcp || null,
+          command: mapped.command,
+          queued: queued.ok,
+          id: body.id || null,
+          result,
+        });
+        console.log(`[stake-studio] agent inbox ${inbox.id}: ${item.mcp || mapped.command}`);
       }
       const outbox = { id: inbox.id, at: new Date().toISOString(), results };
       writeFileSync(outboxPath, `${JSON.stringify(outbox, null, 2)}\n`);
@@ -119,7 +165,7 @@ function pollAgentInbox() {
   };
   setTimeout(tick, 2500);
   setInterval(tick, 5000);
-  console.log('[stake-studio] agent inbox polling origin agent/inbox.json every 5s');
+  console.log('[stake-studio] agent inbox polling origin agent/inbox.json every 5s · MCP tools mapped');
 }
 
 if (liveReload) compileDomain();

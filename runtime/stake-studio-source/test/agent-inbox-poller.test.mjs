@@ -8,6 +8,9 @@ test('agent lane polls git inbox and can inspect the live studio', () => {
   assert.match(starter, /function pollAgentInbox/);
   assert.match(starter, /STAKE_STUDIO_AGENT/);
   assert.match(starter, /agent\/inbox\.json/);
+  assert.match(starter, /mcpToCommand/);
+  assert.match(starter, /get_studio_state/);
+  assert.match(starter, /command-results/);
   assert.match(bridge, /case 'inspect_studio'/);
   assert.match(bridge, /activePanel: this\.studio\.activePanel/);
 });

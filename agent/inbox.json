@@ -1,7 +1,7 @@
 {
-  "id": "inside-3001-1",
+  "id": "mcp-boot-1",
   "commands": [
-    { "command": "select_panel", "arguments": { "panel": "cabinet" } },
-    { "command": "inspect_studio" }
+    { "mcp": "get_studio_state" },
+    { "mcp": "inspect_studio" }
   ]
 }

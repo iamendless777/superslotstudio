@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "stake-studio": {
+      "command": "node",
+      "args": ["runtime/stake-studio-source/mcp/server.mjs"],
+      "env": {
+        "STAKE_STUDIO_URL": "http://127.0.0.1:3001",
+        "STAKE_STUDIO_AGENT": "1"
+      }
+    }
+  }
+}
