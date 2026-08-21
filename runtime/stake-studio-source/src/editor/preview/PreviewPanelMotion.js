@@ -95,8 +95,8 @@ export class PreviewPanel extends BasePreviewPanel {
     label.className = 'preview-mode';
     label.innerHTML = `Motion
       <select id="previewMotionTemplate">
-        <option value="classic-nine">classic-nine</option>
-        <option value="cluster-hex" selected>cluster-hex</option>
+        <option value="classic-nine" selected>classic-nine</option>
+        <option value="cluster-hex">cluster-hex</option>
         <option value="sticky-five">sticky-five</option>
         <option value="anticipation-five">anticipation-five</option>
         <option value="scatter-tease">2-scatter tease</option>

@@ -26,14 +26,12 @@ test('legacy Morpheus composition resolves without migrating the project', () =>
   assert.equal(base.character.placement.x, 872);
   assert.equal(base.mode, FULL_CANVAS_CABINET_MODE);
   assert.match(base.hud.art.menu, /morpheus-control-menu/);
-  assert.equal(base.featureOverlay.visible, false);
+  assert.equal(base.featureOverlay, null);
   assert.equal(value.theme.playerInterface, undefined);
   assert.equal(value.theme.featureOverlays, undefined);
 
   const dreamfall = resolvePlayerComposition(value, { projectId: 'morpheus_dreamfall', worldActive: true });
-  assert.equal(dreamfall.featureOverlay.visible, true);
-  assert.equal(dreamfall.featureOverlay.src, '');
-  assert.equal(dreamfall.featureOverlay.replacesBaseForeground, false);
+  assert.equal(dreamfall.featureOverlay, null);
 });
 
 test('existing non-Morpheus projects retain working compatibility control art', () => {
@@ -109,12 +107,11 @@ test('authored temple cabinet is the game — do not swap in a scene-matte well'
     id: 'temple', type: 'image', src: '/assets/temple.png', x: 0, y: 0, width: 1280, height: 800, visible: true, zIndex: 1,
   });
   const dreamfall = resolvePlayerComposition(value, { projectId: 'morpheus', worldActive: true });
-  assert.equal(dreamfall.featureOverlay.src, '');
-  assert.equal(dreamfall.featureOverlay.replacesBaseForeground, false);
+  assert.equal(dreamfall.featureOverlay, null);
   assert.equal(dreamfall.cabinet.layers.find(layer => layer.type === 'reel-area').width, 640);
 });
 
-test('loading a project strips generated well plates off the authored cabinet', () => {
+test('loading a project deletes generated well plates off the authored cabinet', () => {
   const value = project();
   value.theme.featureOverlays = {
     dreamfall: { src: '/assets/morpheus-dreamfall-scene-matte-v1.png', replacesBaseForeground: true },
@@ -123,7 +120,6 @@ test('loading a project strips generated well plates off the authored cabinet', 
     id: 'shaft', type: 'image', src: '/assets/morpheus-dreamfall-shaft-pillars-v1.png', visible: true,
   });
   stripGeneratedOverlayArt(value);
-  assert.equal(value.theme.featureOverlays.dreamfall.src, '');
-  assert.equal(value.theme.featureOverlays.dreamfall.replacesBaseForeground, false);
-  assert.equal(value.theme.cabinet.layers.at(-1).src, '');
+  assert.equal(value.theme.featureOverlays.dreamfall, undefined);
+  assert.equal(value.theme.cabinet.layers.some(layer => String(layer.src || '').includes('shaft-pillars')), false);
 });

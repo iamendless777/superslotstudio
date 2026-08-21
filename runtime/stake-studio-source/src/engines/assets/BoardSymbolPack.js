@@ -66,21 +66,13 @@ export function boardSymbolPackFor(project) {
   return null;
 }
 
-export function applyBoardSymbolPack(project, { overwrite = false } = {}) {
-  const pack = boardSymbolPackFor(project);
-  if (!pack || !Array.isArray(project?.theme?.symbols)) {
-    return { filled: 0, pack: null };
-  }
-  let filled = 0;
-  for (const symbol of project.theme.symbols) {
-    if (!symbol) continue;
-    const src = pack[symbol.id] || pack[symbol.name];
-    if (!src) continue;
-    if (!overwrite && symbol.src) continue;
-    symbol.src = src;
-    filled += 1;
-  }
-  return { filled, pack: MORPHEUS_BOARD_PACK_ID };
+export function applyBoardSymbolPack() {
+  return {
+    filled: 0,
+    pack: null,
+    refused: true,
+    reason: 'Do not fill an authored game with starter tiles.',
+  };
 }
 
 function upsertLayer(layers, predicate, layer, { overwrite }) {

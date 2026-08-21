@@ -92,9 +92,8 @@ test('Oneiric Nexus is a unique 6×4 sanctum and does not grow', () => {
     name: 'MORPHEUS: DREAMFALL',
     theme: { cabinet: { width: 1280, height: 800, layers: [] } },
   }, { projectId: 'morpheus_dreamfall', worldActive: false, nexusActive: true });
-  assert.equal(composition.nexusOverlay.visible, true);
-  assert.equal(composition.featureOverlay.visible, false);
-  assert.equal(composition.nexusOverlay.src, '');
+  assert.equal(composition.nexusOverlay, null);
+  assert.equal(composition.featureOverlay, null);
 });
 
 test('Play Motion Dreamfall grow rehearses a jagged chance bonus, not 48 tiles', () => {
@@ -145,17 +144,13 @@ test('living cabinet layers keep glow as motion graphics in front of a matte pla
   assert.doesNotMatch(app(), /dreamfallCabinet\.hidden = !dreamfallWorldActive \|\| fullCanvasComposition/);
 });
 
-test('Cabinet editor lists both Dreamfall and Nexus scene plates', () => {
+test('Cabinet editor does not invent empty Dreamfall or Nexus plates', () => {
   const layers = listEditableCompositionLayers({
     name: 'MORPHEUS: DREAMFALL',
     theme: { cabinet: { width: 1280, height: 800, layers: [] } },
   });
-  const dreamfall = layers.find((layer) => layer.compositionBinding === 'feature:dreamfall');
-  const nexus = layers.find((layer) => layer.compositionBinding === 'feature:nexus');
-  assert.equal(dreamfall.visible, true);
-  assert.equal(nexus.visible, true);
-  assert.equal(dreamfall.src, '');
-  assert.equal(nexus.src, '');
+  assert.equal(layers.some((layer) => layer.compositionBinding === 'feature:dreamfall'), false);
+  assert.equal(layers.some((layer) => layer.compositionBinding === 'feature:nexus'), false);
 });
 
 test('live SPIN enters the 6×4 well and lifts a random reel instead of jumping to 48', () => {

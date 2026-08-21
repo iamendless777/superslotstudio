@@ -84,13 +84,9 @@ function authoredCabinetWorld(cabinet = {}) {
   return (cabinet.layers || []).some(layer => layer?.type !== 'reel-area' && layer?.src && layer.visible !== false);
 }
 
-function resolveOverlayPlate(authored, fallback, { enabled, hasAuthoredWorld }) {
-  if (!enabled) return authored || null;
-  if (authored?.src) return authored;
-  if (hasAuthoredWorld) {
-    return { ...fallback, ...(authored || {}), src: '', replacesBaseForeground: false };
-  }
-  return { ...fallback, ...(authored || {}), src: '', replacesBaseForeground: false };
+function resolveOverlayPlate(authored) {
+  if (!authored?.src) return null;
+  return { ...authored, replacesBaseForeground: authored.replacesBaseForeground === true };
 }
 
 const GENERATED_OVERLAY_MARKERS = [
@@ -101,17 +97,20 @@ const GENERATED_OVERLAY_MARKERS = [
 
 export function stripGeneratedOverlayArt(project) {
   if (!project?.theme) return project;
-  const overlays = project.theme.featureOverlays || {};
-  for (const key of ['dreamfall', 'nexus']) {
-    const overlay = overlays[key];
-    if (!overlay) continue;
-    if (!GENERATED_OVERLAY_MARKERS.some(marker => String(overlay.src || '').includes(marker))) continue;
-    overlay.src = '';
-    overlay.replacesBaseForeground = false;
+  const overlays = project.theme.featureOverlays;
+  if (overlays) {
+    for (const key of ['dreamfall', 'nexus']) {
+      const overlay = overlays[key];
+      if (!overlay) continue;
+      const generated = !overlay.src
+        || GENERATED_OVERLAY_MARKERS.some(marker => String(overlay.src).includes(marker));
+      if (generated) delete overlays[key];
+    }
   }
-  for (const layer of project.theme.cabinet?.layers || []) {
-    if (!GENERATED_OVERLAY_MARKERS.some(marker => String(layer.src || '').includes(marker))) continue;
-    layer.src = '';
+  if (project.theme.cabinet?.layers) {
+    project.theme.cabinet.layers = project.theme.cabinet.layers.filter((layer) => (
+      !GENERATED_OVERLAY_MARKERS.some(marker => String(layer.src || '').includes(marker))
+    ));
   }
   return project;
 }
@@ -149,14 +148,8 @@ export function resolvePlayerComposition(project, { worldActive = false, nexusAc
   const mode = resolveCompositionMode(project, { isMorpheus });
   const defaultArt = MORPHEUS_CONTROL_ART;
   const hasAuthoredWorld = authoredCabinetWorld(cabinet);
-  const dreamfall = resolveOverlayPlate(project.theme?.featureOverlays?.dreamfall, MORPHEUS_FEATURE_OVERLAY, {
-    enabled: isMorpheus,
-    hasAuthoredWorld,
-  });
-  const nexus = resolveOverlayPlate(project.theme?.featureOverlays?.nexus, MORPHEUS_NEXUS_OVERLAY, {
-    enabled: isMorpheus,
-    hasAuthoredWorld,
-  });
+  const dreamfall = resolveOverlayPlate(project.theme?.featureOverlays?.dreamfall);
+  const nexus = resolveOverlayPlate(project.theme?.featureOverlays?.nexus);
 
   return {
     format: 'stake-studio-player-composition-v1',
@@ -217,19 +210,19 @@ export function listEditableCompositionLayers(project) {
     opacity: 1, zIndex: composition.hud.zIndex, visible: composition.hud.visible,
     blendMode: 'normal', locked: false, compositionBinding: 'hud', controlArt: composition.hud.art,
   });
-  if (composition.featureOverlay) layers.push({
+  if (composition.featureOverlay?.src) layers.push({
     id: 'composition:feature:dreamfall', name: composition.featureOverlay.name || 'Dreamfall Feature Overlay',
-    type: 'overlay', src: composition.featureOverlay.src || '', ...geometry(composition.featureOverlay),
+    type: 'overlay', src: composition.featureOverlay.src, ...geometry(composition.featureOverlay),
     opacity: number(composition.featureOverlay.opacity, 1), zIndex: number(composition.featureOverlay.zIndex, 38),
     visible: true, blendMode: composition.featureOverlay.blendMode || 'normal',
-    locked: false, compositionBinding: 'feature:dreamfall', replacesBaseForeground: composition.featureOverlay.replacesBaseForeground !== false,
+    locked: false, compositionBinding: 'feature:dreamfall', replacesBaseForeground: composition.featureOverlay.replacesBaseForeground === true,
   });
-  if (nexusComposition.nexusOverlay) layers.push({
+  if (nexusComposition.nexusOverlay?.src) layers.push({
     id: 'composition:feature:nexus', name: nexusComposition.nexusOverlay.name || 'Oneiric Nexus Overlay',
     type: 'overlay', src: nexusComposition.nexusOverlay.src || '', ...geometry(nexusComposition.nexusOverlay),
     opacity: number(nexusComposition.nexusOverlay.opacity, 1), zIndex: number(nexusComposition.nexusOverlay.zIndex, 38),
     visible: true, blendMode: nexusComposition.nexusOverlay.blendMode || 'normal',
-    locked: false, compositionBinding: 'feature:nexus', replacesBaseForeground: nexusComposition.nexusOverlay.replacesBaseForeground !== false,
+    locked: false, compositionBinding: 'feature:nexus', replacesBaseForeground: nexusComposition.nexusOverlay.replacesBaseForeground === true,
   });
   return layers;
 }

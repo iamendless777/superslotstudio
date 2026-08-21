@@ -46,12 +46,10 @@ test('ways board brief is the loaded project, not cluster-hex gems', () => {
   assert.equal(slim.slots[1].hasArt, true);
 });
 
-test('Morpheus board pack fills empty ways slots and leaves real art', () => {
+test('Morpheus board pack refuses to stamp starter tiles onto an authored game', () => {
   const here = dirname(fileURLToPath(import.meta.url));
   const packDir = join(here, '../public/symbol-pack/morpheus');
-  for (const file of ['h1.png', 'h2.png', 'm1.png', 'm2.png', 'l1.png', 'l2.png', 'l3.png', 'wild.png', 'scatter.png']) {
-    assert.equal(existsSync(join(packDir, file)), true, file);
-  }
+  assert.equal(existsSync(packDir), false);
   const project = createGameProject({ id: 'morpheus', name: 'Morpheus' });
   project.theme.symbols = [
     { id: 'H1', name: 'H1', src: '', special: [] },
@@ -59,12 +57,9 @@ test('Morpheus board pack fills empty ways slots and leaves real art', () => {
     { id: 'W', name: 'W', src: 'keep-me.png', special: ['wild'] },
   ];
   const first = applyBoardSymbolPack(project);
-  assert.equal(first.filled, 2);
-  assert.equal(project.theme.symbols[0].src, MORPHEUS_BOARD_PACK.H1);
-  assert.equal(project.theme.symbols[1].src, MORPHEUS_BOARD_PACK['Gate of Sleep']);
+  assert.equal(first.filled, 0);
+  assert.equal(first.refused, true);
   assert.equal(project.theme.symbols[2].src, 'keep-me.png');
-  const second = applyBoardSymbolPack(project);
-  assert.equal(second.filled, 0);
 });
 
 test('Morpheus world pack refuses to inject a starter cabinet over authored art', () => {
@@ -80,11 +75,6 @@ test('Morpheus world pack refuses to inject a starter cabinet over authored art'
 });
 
 test('Morpheus specials fill Forge-mapped tiles without clobbering pays', () => {
-  const here = dirname(fileURLToPath(import.meta.url));
-  const packDir = join(here, '../public/symbol-pack/morpheus');
-  for (const file of ['veil-wild.png', 'lucid-wild.png', 'dream-rift.png', 'golden-rift.png', 'echo-split.png', 'dawn-purge.png', 'oneiric-star.png', 'mystery-veil.png', 'max-morpheus.png']) {
-    assert.equal(existsSync(join(packDir, file)), true, file);
-  }
   const project = createGameProject({ id: 'morpheus', name: 'Morpheus' });
   project.theme.symbols = [
     { id: 'H1', name: 'H1', src: 'keep-h1.png', special: [] },
@@ -92,7 +82,7 @@ test('Morpheus specials fill Forge-mapped tiles without clobbering pays', () => 
   const first = ensureMorpheusSpecials(project);
   assert.equal(first.added, 9);
   assert.equal(project.theme.symbols[0].src, 'keep-h1.png');
-  assert.equal(project.theme.symbols.find((symbol) => symbol.id === 'VEIL_WILD').src, MORPHEUS_BOARD_PACK.VEIL_WILD);
+  assert.equal(project.theme.symbols.find((symbol) => symbol.id === 'VEIL_WILD').src, '');
   const second = ensureMorpheusSpecials(project);
   assert.equal(second.added, 0);
 });
