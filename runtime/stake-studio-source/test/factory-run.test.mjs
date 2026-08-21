@@ -174,6 +174,20 @@ test('factory checkpoints are resumable without becoming false completions', () 
   assert.equal(report.awaiting, null);
 });
 
+test('math Autopilot blockers pause math instead of failing package', () => {
+  const report = createFactoryRunReport('prototype', { track: 'flagship' });
+  pauseFactoryRun(report, 'math', 'base remains 23.072 RTP points from its normal-return target after 11 calibration probes.', {
+    action: 'Local Math Autopilot',
+    panel: 'build',
+    blockers: ['base remains 23.072 RTP points from its normal-return target after 11 calibration probes.'],
+  });
+  assert.equal(report.status, 'awaiting-input');
+  assert.equal(report.resumeStage, 'math');
+  assert.equal(report.stages.math.status, 'awaiting');
+  assert.equal(report.stages.package.status, 'pending');
+  assert.equal(report.awaiting.panel, 'build');
+});
+
 test('factory visual checkpoint starts the free sequential Codex handoff', () => {
   const project = createGameProject({ name: 'Factory Visual Relay' });
   project.production.creative = {

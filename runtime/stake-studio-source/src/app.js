@@ -1187,12 +1187,32 @@ class StakeStudio {
       const preflightRounds = 50000;
       const preflightStatus = getMathCalibrationStatus(this.project);
       const reusePreflight = preflightStatus.complete && Number(preflightStatus.calibration?.rounds || 0) >= preflightRounds;
-      const preflight = reusePreflight ? preflightStatus.calibration : calibratePrototypeMath(this.project, {
-        rounds: preflightRounds,
-        seed: 0x51a7e,
-        maxPasses: 3,
-        tolerance: 0.005,
-      });
+      setFactoryStage(report, 'math', 'running', reusePreflight
+        ? 'Reusing a fresh local Math Autopilot preflight before visual production.'
+        : 'Math Autopilot is checking every wager mode against its normal-return target.');
+      this.renderBuildPanel(main);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      if (Number(this.project.math?.wincap) > 0 && Number(this.project.math?.wincapRtp) > 0) {
+        this.project.math.maxWinCalibrationPolicy = 'separate-criterion-v1';
+      }
+      let preflight;
+      try {
+        preflight = reusePreflight ? preflightStatus.calibration : calibratePrototypeMath(this.project, {
+          rounds: preflightRounds,
+          seed: 0x51a7e,
+          maxPasses: 3,
+          tolerance: 0.005,
+        });
+      } catch (error) {
+        pauseFactoryRun(report, 'math', error.message, {
+          action: 'Local Math Autopilot',
+          panel: 'build',
+          blockers: [error.message],
+        });
+        await this.bridge.saveProject('factory-awaiting-math');
+        this.renderBuildPanel(main);
+        return report;
+      }
       report.mathPreflight = {
         fingerprint: preflight.fingerprint,
         rounds: preflight.rounds,
@@ -1204,6 +1224,7 @@ class StakeStudio {
           aligned: mode.aligned,
         })),
       };
+      setFactoryStage(report, 'math', 'pending', 'Local preflight passed. Official publisher waits until visual, audio and frontend complete.');
       await this.bridge.saveProject(reusePreflight ? 'factory-math-preflight-reused' : 'factory-math-preflight-complete');
       setFactoryStage(report, 'visual', 'running', 'Checking the continuity-safe visual production plan and complete assigned pack.');
 
@@ -1369,7 +1390,8 @@ class StakeStudio {
 
   async failFactoryRun(error, main) {
     const report = this.factoryRunReport || createFactoryRunReport(this.factoryRunProfile, { track: getProductionTrack(this.project) });
-    const activeStage = (report.stageOrder || FACTORY_STAGE_ORDER).find(stage => report.stages?.[stage]?.status === 'running') || 'package';
+    const activeStage = (report.stageOrder || FACTORY_STAGE_ORDER).find(stage => report.stages?.[stage]?.status === 'running')
+      || ((error.message || '').includes('RTP') || (error.message || '').includes('calibration') ? 'math' : 'package');
     setFactoryStage(report, activeStage, 'failed', error.message);
     finishFactoryRun(report, { failed: error.message, blockers: [error.message] });
     this.factoryRunReport = report;
