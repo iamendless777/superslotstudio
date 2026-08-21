@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -64,15 +64,21 @@ export async function probeStudioHealth(url, { fetchImpl = fetch, timeoutMs = 80
   }
 }
 
-/** Find the running Stake Studio app. Models plug into that window. They do not own ports. */
+/** Find the running Stake Studio app via its lockfile, then any live window. Models plug in. They do not own ports. */
 export async function resolveStudioUrl(options = {}) {
   const environment = options.environment || process.env;
-  const live = [];
+  const studioHome = resolveStudioHome(options.studioHome, options);
+  const liveFile = join(studioHome, '.stake-studio-runtime', 'live.json');
+  if (existsSync(liveFile)) {
+    try {
+      const record = JSON.parse(readFileSync(liveFile, 'utf8'));
+      const live = await probeStudioHealth(record.url, options);
+      if (live) return live.url;
+    } catch { /* stale lock; fall through */ }
+  }
   for (const url of studioUrlCandidates({ environment })) {
     const found = await probeStudioHealth(url, options);
-    if (found && !live.includes(found.url)) live.push(found.url);
+    if (found) return found.url;
   }
-  if (live.includes('http://127.0.0.1:3000')) return 'http://127.0.0.1:3000';
-  if (live.length) return live[0];
   return normalizeStudioUrl(environment.STAKE_STUDIO_URL) || 'http://127.0.0.1:3000';
 }

@@ -5,17 +5,34 @@ import { fileURLToPath } from 'node:url';
 import { createServer, loadEnv } from 'vite';
 
 import { stakeStudioBridge } from '../server/bridge-plugin.mjs';
+import { resolveStudioHome } from '../server/studio-paths.mjs';
+import {
+  chooseListenPort,
+  clearLiveApp,
+  existingLiveApp,
+  openStudioWindow,
+  writeLiveApp,
+} from '../server/studio-live-app.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = resolve(root, '../..');
 const env = loadEnv('development', root, '');
-
-// One Stake Studio app. Default port 3000. Models plug in through MCP.
-// They do not get their own port or a second copy of the factory.
-const port = Number(process.env.PORT || process.env.STAKE_STUDIO_PORT || 3000);
+const studioHome = resolveStudioHome();
 const host = process.env.HOST || process.env.STAKE_STUDIO_HOST || '127.0.0.1';
 const liveReload = process.env.STAKE_STUDIO_LIVE_RELOAD !== '0'
   && process.env.STAKE_STUDIO_LIVE_RELOAD !== 'false';
+
+const already = await existingLiveApp(studioHome);
+if (already) {
+  openStudioWindow(already.url);
+  console.log('[stake-studio] already open. Models plug into this window.');
+  process.exit(0);
+}
+
+const port = await chooseListenPort({
+  requested: process.env.PORT || process.env.STAKE_STUDIO_PORT,
+  host,
+});
 
 function compileDomain() {
   const tsc = resolve(repoRoot, 'node_modules/typescript/bin/tsc');
@@ -204,21 +221,28 @@ try {
 } catch (error) {
   const busy = error?.code === 'EADDRINUSE' || /already in use|EADDRINUSE/i.test(String(error?.message || error));
   if (busy) {
-    console.error(`[stake-studio] already running at http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}/`);
-    console.error('[stake-studio] open that window. Do not start a second copy for another model.');
+    const live = await existingLiveApp(studioHome);
+    if (live) {
+      openStudioWindow(live.url);
+      console.log('[stake-studio] already open. Models plug into this window.');
+      process.exit(0);
+    }
+    console.error('[stake-studio] a leftover copy is blocking the app. Close extra studio windows and start once.');
     process.exit(1);
   }
   throw error;
 }
-server.printUrls();
+const publicHost = host === '0.0.0.0' ? '127.0.0.1' : host;
+const publicUrl = `http://${publicHost}:${port}`;
+writeLiveApp(studioHome, { url: publicUrl, pid: process.pid });
+openStudioWindow(publicUrl);
 watchMotionPlanner();
 pollAgentInbox();
-console.log(
-  `[stake-studio] port=${port} host=${host} liveReload=${liveReload ? 'on' : 'off'}  open http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}/`,
-);
+console.log('[stake-studio] running. Models can plug in.');
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.once(signal, async () => {
+    clearLiveApp(studioHome);
     await server.close();
     process.exit(0);
   });

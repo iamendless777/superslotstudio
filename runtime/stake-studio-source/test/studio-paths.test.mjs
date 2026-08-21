@@ -61,10 +61,25 @@ test('MCP attaches to the live studio app instead of a model-owned port', async 
   assert.equal(await resolveStudioUrl({ environment: {}, fetchImpl: only3001 }), 'http://127.0.0.1:3001');
 });
 
-test('when two copies are running, MCP attaches to the app on 3000', async () => {
-  const fetchImpl = async () => ({ ok: true, json: async () => ({ ok: true }) });
+test('MCP attaches to the lockfile app, not a model-owned port', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'studio-live-'));
+  const studioHome = join(root, 'Game Studio Home');
+  mkdirSync(join(studioHome, '.stake-studio-runtime'), { recursive: true });
+  writeFileSync(join(studioHome, '.stake-studio-runtime', 'live.json'), JSON.stringify({
+    product: 'Stake Studio',
+    url: 'http://127.0.0.1:5555',
+    pid: 1,
+  }));
+  const fetchImpl = async (url) => {
+    if (String(url).startsWith('http://127.0.0.1:5555/')) {
+      return { ok: true, json: async () => ({ ok: true }) };
+    }
+    throw new Error('offline');
+  };
   assert.equal(await resolveStudioUrl({
-    environment: { STAKE_STUDIO_URL: 'http://127.0.0.1:3001' },
+    studioHome,
+    environment: {},
     fetchImpl,
-  }), 'http://127.0.0.1:3000');
+    homeDirectory: root,
+  }), 'http://127.0.0.1:5555');
 });

@@ -26,13 +26,13 @@ Games change. The studio does not. Do not carry a game name from memory into the
 
 ## TAG: ENTER
 
-Stake Studio is an app. Open it once. Then plug a model in (Grok, ChatGPT, Claude, Gemini — same door).
+Stake Studio is an app. Open it. Plug a model in. Same door for Grok, ChatGPT, Claude, Gemini.
 
 1. Studio source: `~/Developer/superslotstudio`, branch `integrate/studio-motion`.
 2. `git pull origin integrate/studio-motion`
-3. Start the app once (leave it running): `npm run dev`
-4. Open the window it prints. Default is `http://127.0.0.1:3000/`. If that address is already up, use it — do not start a second copy.
-5. MCP finds that live window. It does not get its own port.
+3. Open the app once: `npm start`
+4. A window opens. That is the factory. Do not start a second copy.
+5. MCP finds that window from the app lockfile. It does not get its own studio.
 6. Ask the studio who it is, in this order:
    - `inspect_studio`
    - `get_studio_state` (compact; `detail=full` only if asked)

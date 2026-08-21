@@ -213,7 +213,7 @@ Planner templates are still: classic-nine, cluster-hex, sticky-five, anticipatio
 | `cueSheetToTumbleEvents.js` | Cue sheet → `tumbleBoard` payloads |
 | `public/motion-fixtures/*.json` | Rehearsal sheets, including `scatter-tease.json` + `-3/-4/-5` |
 | `CUE_BRIDGE` | `win.pulse` / `board.shake` must **not** fire wincap / setWin |
-| `npm run dev` | one Stake Studio app on port 3000. MCP finds it. |
+| `npm start` | open the Stake Studio app. MCP finds it. |
 
 ### Authoritative tumble API
 
