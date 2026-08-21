@@ -124,5 +124,7 @@ test('live preview bridge allows complete ten-spin feature playback', async () =
   assert.match(bridge, /FEATURE_SPIN_PRESENTATION_BUDGET_MS = 12000/);
   assert.match(bridge, /MAX_PREVIEW_SPIN_TIMEOUT_MS = 150000/);
   assert.match(bridge, /freeSpins \* FEATURE_SPIN_PRESENTATION_BUDGET_MS/);
-  assert.match(mcp, /studioCommand\('spin_preview', \{\}, 160000\)/);
+  assert.match(bridge, /playLiveForcedScatter\(forcedScatters, liveLabel, \{ switchToBase: forcedScatters >= 5 \}\)/);
+  assert.match(mcp, /forceScatterCount/);
+  assert.match(mcp, /studioCommand\('spin_preview', \{\s*\.\.\.\(forceScatterCount > 0 \? \{ forceScatterCount \} : \{\}\),\s*\}, 160000\)/);
 });

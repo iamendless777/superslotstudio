@@ -451,9 +451,10 @@ const TOOLS = [
   { name: 'audition_morpheus_effect_audio_pack', description: 'Audition the installed Morpheus Mystery, Star, Dreamfall, and MAX specialty cues in causal order through the live Audio Director.',
     inputSchema: { type: 'object', properties: {}, required: [] } },
 
-  { name: 'spin_preview', description: 'Run one spin in the live Preview, wait for animation completion, and return the result. A fresh shared frame is captured afterward.',
+  { name: 'spin_preview', description: 'Run one spin in the live Preview, wait for animation completion, and return the result. A fresh shared frame is captured afterward. forceScatterCount plants Gate of Sleep symbols on a paid resolveRound — the same path as the Preview Live buttons (2 = live 2-scatter, 5 = Live Dreamfall, 6 = Live Nexus).',
     inputSchema: { type: 'object', properties: {
       mode: { type: 'string', description: 'Optional configured mode to select immediately before the spin.' },
+      forceScatterCount: { type: 'integer', minimum: 0, maximum: 6, description: 'Plant this many Gate of Sleep symbols on a paid Preview spin. 2 = live 2-scatter tease. 5 = Live Dreamfall (Mine Shaft Tumble). 6 = Live Nexus (Soul Forge).' },
     }, required: [] } },
 
   { name: 'play_published_reviewer_replay', description: 'Play one provenance-bound final-LUT reviewer book through the live Preview without changing its balance. Uses verified production books, not the local design simulator, and captures a fresh shared frame.',
@@ -885,7 +886,10 @@ async function callTool(name, a = {}) {
 
   if (name === 'spin_preview') {
     if (a.mode) await studioCommand('set_preview_mode', { mode: a.mode }, 20000);
-    const result = await studioCommand('spin_preview', {}, 160000);
+    const forceScatterCount = Math.max(0, Math.min(6, Math.floor(Number(a.forceScatterCount) || 0)));
+    const result = await studioCommand('spin_preview', {
+      ...(forceScatterCount > 0 ? { forceScatterCount } : {}),
+    }, 160000);
     return sharedFrameContent({ command: 'spin_preview', result });
   }
 

@@ -336,6 +336,7 @@ Studio Preview remains **pixel** authority — one tumble, one spin-track.
 - [x] Live SPIN enters the 6×4 well, then lifts **shaft only** so tiles stay put and the new cell is empty cave. Dormant wells sit above the grown cap. **Live Dreamfall** plants 5 gates; **Live Nexus** plants 6.
 - [ ] Swap in final commissioned art over the starter pack; keep motion. Glow stays a motion-graphic layer — do not bake it into the scene plate.
 - [ ] Video-confirm Dreamfall grow (jagged skyline, empty cells show cave) and Nexus sanctum. Use **Live Dreamfall** / **Live Nexus**, not only Play Motion. Live SPIN must start 6×4 and grow by chance — not jump to 48.
+      Agent trigger: `spin_preview` with `forceScatterCount: 5` (Dreamfall) or `6` (Nexus). That is the same paid path as the Preview Live buttons. Do not use Play Motion `dreamfall-grow` / `nexus-grid` as the P2 proof.
 
 ### P3 — Cleanup
 

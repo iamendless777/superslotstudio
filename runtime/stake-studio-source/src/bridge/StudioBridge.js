@@ -1859,7 +1859,17 @@ export class StudioBridge {
         if (!this.studio.project) throw new Error('Open or create a project first.');
         if (this.studio.activePanel !== 'preview' || !this.studio.panels.preview) this.studio.activatePanel('preview');
         const preview = this.studio.panels.preview;
-        preview.spin();
+        const forcedScatters = Math.max(0, Math.min(6, Math.floor(Number(args.forceScatterCount) || 0)));
+        // Live Dreamfall (5) and Live Nexus (6) are Preview buttons, not Play Motion.
+        // They plant gates on a paid resolveRound from base so the well starts 6×4.
+        if (forcedScatters > 0 && typeof preview.playLiveForcedScatter === 'function') {
+          const liveLabel = forcedScatters >= 6 ? 'Live Nexus'
+            : forcedScatters === 5 ? 'Live Dreamfall'
+            : `Live ${forcedScatters}-scatter`;
+          preview.playLiveForcedScatter(forcedScatters, liveLabel, { switchToBase: forcedScatters >= 5 });
+        } else {
+          preview.spin(forcedScatters > 0 ? { forceScatterCount: forcedScatters } : {});
+        }
         const resolvedRound = preview.spinResult?.round;
         const freeSpins = Math.max(0, Number(resolvedRound?.freeSpinsPlayed) || 0);
         const completionWindowMs = Math.min(
@@ -1882,8 +1892,18 @@ export class StudioBridge {
         }
         await this.publishState('preview-spin-complete');
         await this.captureView('preview-spin-complete');
+        const dreamfall = preview.getMorpheusDreamfallPreviewState?.() || null;
+        const paidBoard = round?.spins?.[0]?.board || preview.spinResult?.board || null;
+        const scatterNames = new Set(this.studio.project?.math?.specialSymbols?.scatter || ['GATE_OF_SLEEP']);
+        const plantedScatterCount = Array.isArray(paidBoard)
+          ? paidBoard.reduce((sum, reel) => sum + (reel || []).filter(cell => scatterNames.has(cell?.name || cell)).length, 0)
+          : 0;
         return {
           mode: preview.selectedMode,
+          forceScatterCount: forcedScatters || null,
+          plantedScatterCount,
+          feature: dreamfall?.hud?.mode || null,
+          reelRows: dreamfall?.reelRows || (preview.board || []).map(reel => reel?.length || 0),
           wager: round?.wager || preview.bet,
           totalWin: preview.spinResult?.totalWin || 0,
           freeSpins: round?.freeSpinsPlayed || 0,

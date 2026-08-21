@@ -176,6 +176,8 @@ test('live SPIN enters the 6×4 well and lifts a random reel instead of jumping 
   assert.match(motionSource, /id = 'previewLiveNexus'/);
   assert.match(motionSource, /playLiveForcedScatter\(5, 'Live Dreamfall'/);
   assert.match(motionSource, /playLiveForcedScatter\(6, 'Live Nexus'/);
+  const bridge = readFileSync(new URL('../src/bridge/StudioBridge.js', import.meta.url), 'utf8');
+  assert.match(bridge, /playLiveForcedScatter\(forcedScatters, liveLabel, \{ switchToBase: forcedScatters >= 5 \}\)/);
 
   const portable = app();
   assert.match(portable, /if \(\(dreamfallWorldActive \|\| nexusWorldActive\) && Array\.isArray\(currentBoard\)/);
