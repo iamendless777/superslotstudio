@@ -34,6 +34,9 @@ import {
   MORPHEUS_DREAMFALL_CABINET_PROFILE,
 } from '../src/engines/presentation/morpheus/MorpheusDreamfallCabinetProfile.js';
 import {
+  MORPHEUS_NEXUS_CABINET_PROFILE,
+} from '../src/engines/presentation/morpheus/MorpheusNexusCabinetProfile.js';
+import {
   MORPHEUS_CONTRACT_FINGERPRINT,
   MORPHEUS_EVENT_SCHEMA_VERSION,
   MORPHEUS_MAX_WIN_MULTIPLIER,
@@ -303,7 +306,7 @@ export function createFrontendConfig(project) {
             width: composition.featureOverlay.width,
             height: composition.featureOverlay.height,
             opacity: composition.featureOverlay.opacity ?? 1,
-            zIndex: composition.featureOverlay.zIndex ?? 59,
+            zIndex: composition.featureOverlay.zIndex ?? 38,
             blendMode: composition.featureOverlay.blendMode || 'normal',
           },
           safeOpening: { ...(composition.featureOverlay.safeOpening || MORPHEUS_DREAMFALL_CABINET_PROFILE.safeOpening) },
@@ -311,6 +314,18 @@ export function createFrontendConfig(project) {
           hudBoundaryY: composition.featureOverlay.hudBoundaryY ?? MORPHEUS_DREAMFALL_CABINET_PROFILE.hudBoundaryY,
           replacesBaseForeground: composition.featureOverlay.replacesBaseForeground !== false,
         } : null,
+      },
+      morpheusNexus: {
+        format: 'morpheus-nexus-cabinet-profile-v1',
+        activation: { modeIds: ['oneiric_nexus'] },
+        cabinet: composition.nexusOverlay ? {
+          ...MORPHEUS_NEXUS_CABINET_PROFILE,
+          asset: {
+            ...MORPHEUS_NEXUS_CABINET_PROFILE.asset,
+            src: composition.nexusOverlay.src,
+            zIndex: composition.nexusOverlay.zIndex ?? 38,
+          },
+        } : MORPHEUS_NEXUS_CABINET_PROFILE,
       },
     } : {},
     authoritativeRuntime: gameId === 'morpheus_dreamfall' ? {
@@ -576,8 +591,16 @@ export function stageFrontendAssets(frontendConfig, staged, written, projectCont
     frontendConfig.renderProfiles.morpheusDreamfall.cabinet.asset.src = store(
       frontendConfig.renderProfiles.morpheusDreamfall.cabinet.asset.src,
       'cabinet',
-      'cabinet.morpheus-dreamfall-shaft-pillars-v1',
-      'feature-cabinet-foreground',
+      'cabinet.morpheus-dreamfall-scene-matte-v1',
+      'feature-cabinet-scene',
+    );
+  }
+  if (frontendConfig.renderProfiles?.morpheusNexus?.cabinet?.asset?.src) {
+    frontendConfig.renderProfiles.morpheusNexus.cabinet.asset.src = store(
+      frontendConfig.renderProfiles.morpheusNexus.cabinet.asset.src,
+      'cabinet',
+      'cabinet.morpheus-nexus-scene-matte-v1',
+      'feature-cabinet-scene',
     );
   }
   for (const [id, asset] of Object.entries(frontendConfig.environmentAssets || {})) {

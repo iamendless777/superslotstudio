@@ -95,6 +95,8 @@ Live Preview can plant two early scatters with **Live 2-scatter** (`MathEngine.a
 | **4-scatter tease** | seed 4; leftover wait for 5+ | **video-confirmed 2026-08-20** |
 | **5-scatter tease** | seed 5; last reel waits for 6 | **video-confirmed 2026-08-20** |
 | **Live 2-scatter** | paid SPIN; `forceScatterCount: 2` through `resolveRound` | **same schedule confirmed 2026-08-20** |
+| **Dreamfall grow** | starts 6×4, grows reels `[0,2,5,2,3,0]` — jagged, never fills 48 | studio-only rehearsal |
+| **Nexus grid** | unique 6×4 sanctum + plate stamps, no growth | studio-only rehearsal |
 
 `populateMotionTemplates` **merges** studio-only scatter-tease 2/3/4/5 after planner `cues --all` rewrites `index.json`. Do not add scatter-tease to `src/studio/templates.ts` unless you also update `studio-motion-fixture.test.ts`.
 
@@ -171,10 +173,13 @@ Forge is the *feel* reference. Morpheus `MorpheusGameContract.js` is the *rules*
 1. Special tiles (Veil/Lucid/Rift/Split/Purge/Star/Mystery/Max) — paying board is done. Pack is on the reels. **Strips now land the Forge specials (Max stays off the strip).**
 2. Selectable mode menu: Base, Enhancer, Trickster, Veil Ascent, Lucid Blessing. Dreamfall/Nexus/Nightmare stay gated. **Done.**
 3. Feature chrome: Veil symbol bar, Lucid family multis, Dreamfall reel growth, Nexus/Trickster position grid. **Done in Preview and portable.**
-4. Restyle the old photoreal Dreamfall shaft overlay. **Done.**
-5. Hold-length feel (`anticipationHoldMs`) — human call.
+4. Restyle the old photoreal Dreamfall shaft overlay. **Done.** Layered living cabinet (matte scene plate z 38 + CSS glow z 45 + shafts + tiles z 50) **Done.**
+5. Hold-length feel (`anticipationHoldMs`) — human likes **1200ms**. Do not change unless asked.
+6. Dreamfall growth is **chance**, not a 48-tile destination. Starts 6×4. Each positive win grows **one random non-maxed reel** +1, cap 8 rows / 48 cells. Play Motion `dreamfall-grow` rehearses a jagged bonus (`6·4·6·5·4·5` = 30 cells). Oneiric Nexus is a unique 6×4 sanctum (no growth). **Done.**
+7. Type-specific special looks (veil expand, lucid badge, rift slam, echo split, dawn purge, star morph, mystery flip, max takeover, shaft grow, plate stamp). **Done.**
 
 Do not invent a 2000x “F U Spins” buy. Do not revive GSAP travel / fake scatters / last-reel-only / HTML overlay grid.
+
 
 
 ---
@@ -326,13 +331,17 @@ Studio Preview remains **pixel** authority — one tumble, one spin-track.
 - [x] HUD / spin / mode-card chrome uses the same ivory–gold–cyan language. Old photoreal atlas + generation sources deleted.
 - [x] Slop pass: spin plate is concentric rings (no double arrow). Wild is a sleeping-eye seal (no letter). Hourglass and coins have finished frames (no skulls).
 - [x] Dream Enhancer uses 3× scatter-board selection so it is not a reskin of Base. Free-spin buys use FR strips. Game Info uses Morpheus special copy.
-- [ ] If 1.2s/waiting-reel feels short or long, change **one** number: `anticipationHoldMs`. Do not special-case the last reel.
-- [ ] Swap in final commissioned art over the starter pack; keep motion.
+- [x] Hold length stays **1200ms** (`anticipationHoldMs`). Human likes it. Do not change unless asked.
+- [x] Dreamfall living cabinet: matte colosseum plate behind reels, CSS glow as a motion layer, per-reel stone shafts that lift. Growth is chance (one random non-maxed reel per win). 48 cells is the cap, not a guaranteed fill.
+- [x] Oneiric Nexus unique 6×4 sanctum (no growth) + Play Motion `nexus-grid`.
+- [x] Type-specific special looks. Play Motion `dreamfall-grow` / `nexus-grid`.
+- [ ] Swap in final commissioned art over the starter pack; keep motion. Glow stays a motion-graphic layer — do not bake it into the scene plate.
+- [ ] Video-confirm Dreamfall grow (jagged skyline, empty cells show cave) and Nexus sanctum.
 
 ### P3 — Cleanup
 
-- [ ] Optional: merge `integrate/studio-motion` → `main` after remaining P2 video pass.
-- [x] Large binary assets: keep out of motion-only PRs.
+- [ ] Optional: merge `integrate/studio-motion` → `main` after remaining P2 video pass. **Do not merge until Dreamfall grow / Nexus sanctum are video-confirmed.**
+- [x] Large binary assets: keep out of motion-only PRs. Scene-matte plates for Dreamfall/Nexus are cabinet art, not motion-only.
 
 ---
 

@@ -24,7 +24,13 @@ test('Dreamfall owns a tall safe-opening cabinet without changing Base', () => {
   assert.ok(profile.safeOpening.x + profile.safeOpening.width >= profile.reelBay.x + profile.reelBay.width);
   assert.ok(profile.safeOpening.y + profile.safeOpening.height >= profile.reelBay.y + profile.reelBay.height);
   assert.ok(profile.reelBay.y + profile.reelBay.height < profile.hudBoundaryY);
-  assert.equal(existsSync(new URL('../public/assets/morpheus-dreamfall-shaft-pillars-v1.png', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../public/assets/morpheus-dreamfall-scene-matte-v1.png', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../public/assets/morpheus-nexus-scene-matte-v1.png', import.meta.url)), true);
+  assert.equal(profile.layers.glow, 'motion-graphic');
+  assert.equal(profile.growth.maximumCells, 48);
+  assert.equal(profile.growth.guaranteedMax, false);
+  assert.equal(profile.growth.minimumRows, 4);
+  assert.equal(profile.growth.maximumRows, 8);
 });
 
 test('feature cabinet refuses accidental activation outside its typed project/profile', () => {

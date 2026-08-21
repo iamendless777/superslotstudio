@@ -84,6 +84,7 @@ let featureState = {
   veilBar: { family: '', current: 0, threshold: 4 },
 };
 let dreamfallWorldActive = false;
+let nexusWorldActive = false;
 let modalSequence = 0;
 let visualPlanSequence = 0;
 let settledSymbolMotionSuspensionDepth = 0;
@@ -455,7 +456,6 @@ function renderBoard(board) {
   ui.board.style.setProperty('--reels', String(board.length));
   const dreamfallProfile = config.renderProfiles?.morpheusDreamfall;
   const maximumRows = Number(dreamfallProfile?.maximumRows) || 8;
-  const fullCanvasComposition = config.compositionMode === 'full-canvas-cabinet-v1';
   const currentMaximumRows = Math.max(...board.map(reel => Array.isArray(reel) ? reel.length : 0), 1);
   const visualRowCapacity = dreamfallWorldActive
     ? maximumRows
@@ -465,7 +465,10 @@ function renderBoard(board) {
     : currentMaximumRows;
   ui.board.classList.toggle('is-dreamfall-world', dreamfallWorldActive);
   ui.shell?.classList.toggle('is-dreamfall-world', dreamfallWorldActive);
-  if (ui.dreamfallCabinet) ui.dreamfallCabinet.hidden = !dreamfallWorldActive || fullCanvasComposition;
+  ui.board.classList.toggle('is-nexus-world', nexusWorldActive);
+  ui.shell?.classList.toggle('is-nexus-world', nexusWorldActive);
+  if (ui.dreamfallCabinet) ui.dreamfallCabinet.hidden = !dreamfallWorldActive;
+  if (ui.nexusCabinet) ui.nexusCabinet.hidden = !nexusWorldActive;
   ui.board.dataset.renderProfile = dreamfallWorldActive ? String(dreamfallProfile?.format || '') : 'base';
   const geometry = dreamfallWorldActive ? dreamfallProfile?.world : config.reelArea;
   const cabinetWidth = Math.max(1, Number(config.cabinetSize?.width) || 1280);
@@ -511,6 +514,23 @@ function renderBoard(board) {
       }
     }
     ui.board.append(dormantGrid);
+    const shafts = node('div', 'dreamfall-living-shafts');
+    for (let reel = 0; reel < board.length; reel++) {
+      const activeRows = Array.isArray(board[reel]) ? board[reel].length : 4;
+      const shaft = node('div', 'living-shaft');
+      shaft.dataset.reel = String(reel);
+      shaft.dataset.rows = String(activeRows);
+      shaft.style.left = `${reel / board.length * 100}%`;
+      shaft.style.width = `${100 / board.length}%`;
+      shaft.style.height = `${Math.max(1, activeRows) / visualRowCapacity * 100}%`;
+      shaft.append(node('i', 'shaft-rail shaft-rail-left'), node('i', 'shaft-rail shaft-rail-right'));
+      const cap = node('div', 'reel-cap');
+      cap.dataset.reel = String(reel);
+      cap.append(node('i', 'shaft-cap-stone'), node('i', 'shaft-cap-glow'));
+      shaft.append(cap);
+      shafts.append(shaft);
+    }
+    ui.board.append(shafts);
   }
   syncMechanicMarkers();
   applyOneiricTargetSelection();
@@ -1269,7 +1289,11 @@ async function applyEvent(event, { instant = false } = {}) {
         setMusic('baseMusic');
       }
       dreamfallWorldActive = false;
-      ui.board.classList.remove('is-dreamfall-world');
+      nexusWorldActive = false;
+      ui.board.classList.remove('is-dreamfall-world', 'is-nexus-world');
+      ui.shell?.classList.remove('is-dreamfall-world', 'is-nexus-world');
+      if (ui.dreamfallCabinet) ui.dreamfallCabinet.hidden = true;
+      if (ui.nexusCabinet) ui.nexusCabinet.hidden = true;
       ui.board.dataset.renderProfile = 'base';
       if (currentWin > 0) flash(`${currentWin.toFixed(2)}×`);
       await recoverWinPresentation({ instant });
@@ -1350,6 +1374,10 @@ async function applyEvent(event, { instant = false } = {}) {
       break;
     case 'modeGridStart':
       positionGridMode = event.mode || 'oneiric_nexus';
+      if (positionGridMode === 'oneiric_nexus') {
+        nexusWorldActive = true;
+        renderBoard(currentBoard);
+      }
       for (const cell of event.cells || []) {
         const position = Array.isArray(cell.position) ? cell.position : [cell.position?.reel, cell.position?.row];
         positionMultipliers.set(`${Number(position[0])}:${Number(position[1])}`, Number(cell.value) || 1);
@@ -1428,6 +1456,10 @@ async function applyEvent(event, { instant = false } = {}) {
         }
         setFeatureAchievement(`REEL ${Number(event.reel) + 1} · ${event.rows || 4} ROWS`);
         showStatus(`Dreamfall · ${featureState.achievement}`);
+        ui.board?.querySelector(`.living-shaft[data-reel="${Number(event.reel)}"]`)?.classList.add('is-growing');
+        window.setTimeout(() => {
+          ui.board?.querySelector(`.living-shaft[data-reel="${Number(event.reel)}"]`)?.classList.remove('is-growing');
+        }, 700);
       }
       break;
     case 'tumbleChainProgress':
@@ -1895,9 +1927,25 @@ function buildShell() {
     ui.dreamfallCabinet.hidden = true;
     ui.dreamfallCabinet.dataset.cabinetProfile = dreamfallCabinet.format;
     const asset = dreamfallCabinet.asset || {};
-    ui.dreamfallCabinet.style.cssText = `left:${Number(asset.x || 0) / cabinetWidth * 100}%;top:${Number(asset.y || 0) / cabinetHeight * 100}%;width:${Number(asset.width || cabinetWidth) / cabinetWidth * 100}%;height:${Number(asset.height || cabinetHeight) / cabinetHeight * 100}%;opacity:${Number(asset.opacity ?? 1)};z-index:${Number(asset.zIndex ?? 59)};mix-blend-mode:${asset.blendMode || 'normal'}`;
+    ui.dreamfallCabinet.style.cssText = `left:${Number(asset.x || 0) / cabinetWidth * 100}%;top:${Number(asset.y || 0) / cabinetHeight * 100}%;width:${Number(asset.width || cabinetWidth) / cabinetWidth * 100}%;height:${Number(asset.height || cabinetHeight) / cabinetHeight * 100}%;opacity:${Number(asset.opacity ?? 1)};z-index:${Number(asset.zIndex ?? 38)};mix-blend-mode:${asset.blendMode || 'normal'}`;
     authoredWorldLayers.push(ui.dreamfallCabinet);
   }
+  const nexusCabinet = config.renderProfiles?.morpheusNexus?.cabinet;
+  if (nexusCabinet?.asset?.src) {
+    ui.nexusCabinet = node('img', 'authored-world-layer authored-world-nexus-cabinet');
+    ui.nexusCabinet.src = nexusCabinet.asset.src;
+    ui.nexusCabinet.alt = '';
+    ui.nexusCabinet.draggable = false;
+    ui.nexusCabinet.hidden = true;
+    ui.nexusCabinet.dataset.cabinetProfile = nexusCabinet.format;
+    const nexusAsset = nexusCabinet.asset || {};
+    ui.nexusCabinet.style.cssText = `left:${Number(nexusAsset.x || 0) / cabinetWidth * 100}%;top:${Number(nexusAsset.y || 0) / cabinetHeight * 100}%;width:${Number(nexusAsset.width || cabinetWidth) / cabinetWidth * 100}%;height:${Number(nexusAsset.height || cabinetHeight) / cabinetHeight * 100}%;opacity:${Number(nexusAsset.opacity ?? 1)};z-index:${Number(nexusAsset.zIndex ?? 38)};mix-blend-mode:${nexusAsset.blendMode || 'normal'}`;
+    authoredWorldLayers.push(ui.nexusCabinet);
+  }
+  const livingGlow = node('div', 'living-cabinet-glow');
+  livingGlow.setAttribute('aria-hidden', 'true');
+  livingGlow.append(node('i', 'living-colosseum-glow'), node('i', 'living-well-pulse'), node('i', 'living-nexus-glow'), node('i', 'living-nexus-grid-glow'));
+  authoredWorldLayers.push(livingGlow);
   const fallbackEffects = [];
   if (config.presentationEffects?.motionGraphics?.htmlVisibleEffects !== false) {
     const atmosphere = node('div', 'dream-atmosphere');

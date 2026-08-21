@@ -6,7 +6,7 @@
  * No HTML overlay grid. No wincap / setWin during rehearsal.
  */
 import gsap from 'gsap';
-import { PreviewPanel as BasePreviewPanel } from './PreviewPanel.js?orchestration=20260815-40';
+import { PreviewPanel as BasePreviewPanel } from './PreviewPanel.js?orchestration=20260820-living-cabinet';
 import { playMotionTemplate, loadMotionFixture } from '../../engines/presentation/playMotionTemplate.js';
 import { getScatterTeaseSchedule, scatterThresholds, waitingReelsFromBoard } from '../../engines/presentation/PresentationDirector.js';
 import {
@@ -64,6 +64,8 @@ const SCATTER_TEASE_INDEX = [
   { id: 'scatter-tease-3', styleId: 'scatter-tease', kind: 'reel', totalDurationMs: 7200, title: '3-scatter tease', seedScatterCount: 3, missingArt: 0, readyToCommission: false },
   { id: 'scatter-tease-4', styleId: 'scatter-tease', kind: 'reel', totalDurationMs: 6000, title: '4-scatter tease', seedScatterCount: 4, missingArt: 0, readyToCommission: false },
   { id: 'scatter-tease-5', styleId: 'scatter-tease', kind: 'reel', totalDurationMs: 4800, title: '5-scatter tease', seedScatterCount: 5, missingArt: 0, readyToCommission: false },
+  { id: 'dreamfall-grow', styleId: 'dreamfall-grow', kind: 'feature', totalDurationMs: 5200, title: 'Dreamfall grow', missingArt: 0, readyToCommission: false },
+  { id: 'nexus-grid', styleId: 'nexus-grid', kind: 'feature', totalDurationMs: 3600, title: 'Nexus grid', missingArt: 0, readyToCommission: false },
 ];
 
 function mergeMotionTemplateIndex(templates) {
@@ -101,6 +103,8 @@ export class PreviewPanel extends BasePreviewPanel {
         <option value="scatter-tease-3">3-scatter tease</option>
         <option value="scatter-tease-4">4-scatter tease</option>
         <option value="scatter-tease-5">5-scatter tease</option>
+        <option value="dreamfall-grow">Dreamfall grow</option>
+        <option value="nexus-grid">Nexus grid</option>
       </select>`;
 
     const button = document.createElement('button');
@@ -373,6 +377,8 @@ export class PreviewPanel extends BasePreviewPanel {
       const count = Number(template.seedScatterCount) || Number(String(template.id).split('-').pop()) || 2;
       return `${count}-scatter tease`;
     }
+    if (template?.id === 'dreamfall-grow') return 'Dreamfall grow';
+    if (template?.id === 'nexus-grid') return 'Nexus grid';
     if (template?.kind === 'tumble' && this.motionWinType() !== 'cluster') {
       return 'cascade · ways';
     }
@@ -877,6 +883,106 @@ export class PreviewPanel extends BasePreviewPanel {
     }
   }
 
+  async playDreamfallGrowRehearsal() {
+    const originalBoard = cloneBoard(this.board);
+    this.motionSourceBoard = originalBoard;
+    this.activateMorpheusDreamfallWorld?.('play-motion-grow');
+    this.featureReelRows?.clear?.();
+    for (let reel = 0; reel < 6; reel += 1) this.featureReelRows.set(reel, 4);
+    this.render();
+    const filler = this.motionFillerSymbol();
+    const boardAt = (rows) => rows.map((count) => Array.from({ length: count }, () => ({ name: filler })));
+    let heights = [4, 4, 4, 4, 4, 4];
+    this.board = boardAt(heights);
+    this.paintBoard?.(this.board);
+    this.setMotionStatus('Dreamfall · 6×4 start · chance growth, not 48');
+    this.setMotionDebug({ path: 'dreamfall', grid: '6x4', step: 'start', note: 'growth is chance; 48 is the cap, not a destination' });
+    await this.waitMs(380);
+    // One random non-maxed reel per win. This rehearsal is a typical jagged
+    // bonus, not a maxed 6×8 / 48-cell board.
+    const growths = [0, 2, 5, 2, 3, 0];
+    for (const reel of growths) {
+      if (heights[reel] >= 8) continue;
+      const before = [...heights];
+      heights[reel] += 1;
+      const afterBoard = boardAt(heights);
+      this.setMotionStatus(`Reel ${reel + 1} grows to ${heights[reel]}`);
+      this.setMotionDebug({
+        path: 'dreamfall',
+        grid: `6x${Math.max(...heights)}`,
+        step: `reel-${reel + 1}`,
+        note: heights.join('·'),
+      });
+      await this.animateMorpheusDreamfallExpansion({
+        presentation: { durationMs: 420 },
+      }, {
+        type: 'expandReelHeight',
+        payload: {
+          reel,
+          rows: heights[reel],
+          previousRows: before[reel],
+          maximumRows: 8,
+          reelHeightsBefore: before,
+          reelHeightsAfter: [...heights],
+          boardAfter: afterBoard,
+          newSymbol: { name: filler },
+        },
+        affectedPositions: [{ reel, row: 0 }],
+      }, false);
+      await this.waitMs(160);
+    }
+    this.setMotionStatus(`Jagged ${heights.join('·')} · ${heights.reduce((sum, rows) => sum + rows, 0)}/48 cells`);
+    await this.waitMs(1100);
+    this.deactivateMorpheusDreamfallWorld?.('play-motion-restore');
+    this.featureReelRows?.clear?.();
+    this.render();
+    this.restoreMotionBoard();
+    this.setMotionStatus('Done');
+  }
+
+  async playNexusGridRehearsal() {
+    const originalBoard = cloneBoard(this.board);
+    this.motionSourceBoard = originalBoard;
+    this.featurePositionGridMode = 'oneiric_nexus';
+    this.morpheusNexusWorldState = { active: true, reason: 'play-motion' };
+    this.render();
+    if (originalBoard) {
+      this.board = originalBoard;
+      this.paintBoard?.(originalBoard);
+    }
+    const cells = [];
+    for (let reel = 0; reel < 6; reel += 1) {
+      for (let row = 0; row < 4; row += 1) {
+        this.featurePositionMultipliers.set(`${reel}:${row}`, 1);
+        cells.push({ position: { reel, row }, value: 1 });
+      }
+    }
+    this.applyPersistentMechanicState?.({ type: 'modeGridStart', mode: 'oneiric_nexus', cells });
+    this.syncFeatureStateMarkers?.();
+    this.playSpecialLook?.({ type: 'modeGridStart' }, [], cells.map((cell) => [cell.position.reel, cell.position.row]));
+    this.setMotionStatus('Nexus sanctum · grid awakens');
+    this.setMotionDebug({ path: 'nexus', grid: '6x4', step: 'awaken' });
+    await this.waitMs(520);
+    const charged = [[1, 1, 2], [2, 0, 2], [4, 2, 4], [3, 1, 2]];
+    for (const [reel, row, multiplier] of charged) {
+      this.applyPersistentMechanicState?.({
+        type: 'positionMultiplierGridUpdate',
+        updates: [{ reel, row, multiplier }],
+      });
+      this.syncFeatureStateMarkers?.();
+      this.playSpecialLook?.({ type: 'positionMultiplierGridUpdate', updates: [{ reel, row, multiplier }] }, [], [[reel, row]]);
+      this.setMotionStatus(`Plate ${reel + 1},${row + 1} · ${multiplier}×`);
+      await this.waitMs(360);
+    }
+    await this.waitMs(800);
+    this.morpheusNexusWorldState = { active: false };
+    this.featurePositionGridMode = null;
+    this.featurePositionMultipliers.clear();
+    this.render();
+    this.restoreMotionBoard();
+    this.setMotionStatus('Done');
+  }
+
   async playMotionStylePreview() {
     if (this.spinning || this.motionPlaying) return;
     const templateId =
@@ -898,6 +1004,14 @@ export class PreviewPanel extends BasePreviewPanel {
     this.motionPlaying = true;
 
     try {
+      if (templateId === 'dreamfall-grow') {
+        await this.playDreamfallGrowRehearsal();
+        return;
+      }
+      if (templateId === 'nexus-grid') {
+        await this.playNexusGridRehearsal();
+        return;
+      }
       const sheet = await loadMotionFixture(templateId);
       if (await this.playMotionAsTumble(sheet)) return;
       if (await this.playMotionAsReelRehearsal(sheet)) return;

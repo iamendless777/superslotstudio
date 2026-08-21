@@ -31,7 +31,7 @@ test('legacy Morpheus composition resolves without migrating the project', () =>
 
   const dreamfall = resolvePlayerComposition(value, { projectId: 'morpheus_dreamfall', worldActive: true });
   assert.equal(dreamfall.featureOverlay.visible, true);
-  assert.match(dreamfall.featureOverlay.src, /morpheus-dreamfall-shaft-pillars/);
+  assert.match(dreamfall.featureOverlay.src, /morpheus-dreamfall-scene-matte/);
 });
 
 test('existing non-Morpheus projects retain working compatibility control art', () => {

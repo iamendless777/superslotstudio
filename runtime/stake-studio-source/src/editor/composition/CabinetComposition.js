@@ -1,3 +1,10 @@
+import {
+  MORPHEUS_DREAMFALL_CABINET_PROFILE,
+} from '../../engines/presentation/morpheus/MorpheusDreamfallCabinetProfile.js';
+import {
+  MORPHEUS_NEXUS_CABINET_PROFILE,
+} from '../../engines/presentation/morpheus/MorpheusNexusCabinetProfile.js';
+
 const MORPHEUS_PROJECT_ID = 'morpheus_dreamfall';
 
 export const FULL_CANVAS_CABINET_MODE = 'full-canvas-cabinet-v1';
@@ -17,22 +24,43 @@ const MORPHEUS_CONTROL_ART = Object.freeze({
 });
 
 const MORPHEUS_FEATURE_OVERLAY = Object.freeze({
-  format: 'morpheus-dreamfall-cabinet-profile-v1',
-  id: 'morpheus-dreamfall-shaft-pillars-v1',
-  name: 'Dreamfall Feature Overlay',
-  src: '/assets/morpheus-dreamfall-shaft-pillars-v1.png',
+  format: MORPHEUS_DREAMFALL_CABINET_PROFILE.format,
+  id: MORPHEUS_DREAMFALL_CABINET_PROFILE.id,
+  name: MORPHEUS_DREAMFALL_CABINET_PROFILE.name,
+  src: MORPHEUS_DREAMFALL_CABINET_PROFILE.asset.src,
   x: 0,
   y: 0,
   width: 1280,
   height: 800,
   opacity: 1,
-  zIndex: 59,
+  zIndex: 38,
   visible: true,
   activation: 'dreamfall-world',
   replacesBaseForeground: true,
-  safeOpening: { x: 405, y: 10, width: 485, height: 615 },
-  reelBay: { x: 413, y: 16, width: 470, height: 600 },
-  hudBoundaryY: 624,
+  blendMode: 'normal',
+  safeOpening: MORPHEUS_DREAMFALL_CABINET_PROFILE.safeOpening,
+  reelBay: MORPHEUS_DREAMFALL_CABINET_PROFILE.reelBay,
+  hudBoundaryY: MORPHEUS_DREAMFALL_CABINET_PROFILE.hudBoundaryY,
+});
+
+const MORPHEUS_NEXUS_OVERLAY = Object.freeze({
+  format: MORPHEUS_NEXUS_CABINET_PROFILE.format,
+  id: MORPHEUS_NEXUS_CABINET_PROFILE.id,
+  name: MORPHEUS_NEXUS_CABINET_PROFILE.name,
+  src: MORPHEUS_NEXUS_CABINET_PROFILE.asset.src,
+  x: 0,
+  y: 0,
+  width: 1280,
+  height: 800,
+  opacity: 1,
+  zIndex: 38,
+  visible: true,
+  activation: 'nexus-world',
+  replacesBaseForeground: true,
+  blendMode: 'normal',
+  safeOpening: MORPHEUS_NEXUS_CABINET_PROFILE.safeOpening,
+  reelBay: MORPHEUS_NEXUS_CABINET_PROFILE.reelBay,
+  hudBoundaryY: MORPHEUS_NEXUS_CABINET_PROFILE.hudBoundaryY,
 });
 
 const number = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -63,7 +91,7 @@ export function resolveCompositionMode(project, { isMorpheus = false } = {}) {
     : LEGACY_PAGE_COMPOSITION_MODE;
 }
 
-export function resolvePlayerComposition(project, { worldActive = false, projectId: explicitProjectId = '' } = {}) {
+export function resolvePlayerComposition(project, { worldActive = false, nexusActive = false, projectId: explicitProjectId = '' } = {}) {
   const cabinet = project.theme?.cabinet || {};
   const width = Math.max(1, number(cabinet.width, 1280));
   const height = Math.max(1, number(cabinet.height, 800));
@@ -74,12 +102,11 @@ export function resolvePlayerComposition(project, { worldActive = false, project
   const projectId = explicitProjectId || project.gameId || project.slug || '';
   const isMorpheus = projectId === MORPHEUS_PROJECT_ID || /^morpheus\s*:\s*dreamfall$/i.test(project.name || '');
   const mode = resolveCompositionMode(project, { isMorpheus });
-  // Preview historically used this bundled set for every project. Retain that
-  // fallback until a project authors its own controls so existing games do not
-  // lose working buttons when they adopt the shared composition contract.
   const defaultArt = MORPHEUS_CONTROL_ART;
   const authoredFeature = project.theme?.featureOverlays?.dreamfall;
-  const feature = authoredFeature || (isMorpheus ? MORPHEUS_FEATURE_OVERLAY : null);
+  const authoredNexus = project.theme?.featureOverlays?.nexus;
+  const dreamfall = authoredFeature || (isMorpheus ? MORPHEUS_FEATURE_OVERLAY : null);
+  const nexus = authoredNexus || (isMorpheus ? MORPHEUS_NEXUS_OVERLAY : null);
 
   return {
     format: 'stake-studio-player-composition-v1',
@@ -103,17 +130,24 @@ export function resolvePlayerComposition(project, { worldActive = false, project
       zIndex: number(playerInterface.hud?.zIndex, 67),
       art: { ...defaultArt, ...(playerInterface.controls || {}) },
     },
-    featureOverlay: feature ? {
-      ...feature,
-      ...geometry(feature, MORPHEUS_FEATURE_OVERLAY),
-      visible: feature.visible !== false && (feature.activation !== 'dreamfall-world' || worldActive),
+    featureOverlay: dreamfall ? {
+      ...dreamfall,
+      ...geometry(dreamfall, MORPHEUS_FEATURE_OVERLAY),
+      visible: dreamfall.visible !== false && worldActive && !nexusActive,
       authored: Boolean(authoredFeature),
+    } : null,
+    nexusOverlay: nexus ? {
+      ...nexus,
+      ...geometry(nexus, MORPHEUS_NEXUS_OVERLAY),
+      visible: nexus.visible !== false && nexusActive,
+      authored: Boolean(authoredNexus),
     } : null,
   };
 }
 
 export function listEditableCompositionLayers(project) {
-  const composition = resolvePlayerComposition(project, { worldActive: true });
+  const composition = resolvePlayerComposition(project, { worldActive: true, nexusActive: false });
+  const nexusComposition = resolvePlayerComposition(project, { worldActive: false, nexusActive: true });
   const layers = [...composition.cabinet.layers];
   if (composition.character.poses.idle) layers.push({
     id: 'composition:character', name: 'Character / Rig', type: 'character',
@@ -136,9 +170,16 @@ export function listEditableCompositionLayers(project) {
   if (composition.featureOverlay) layers.push({
     id: 'composition:feature:dreamfall', name: composition.featureOverlay.name || 'Dreamfall Feature Overlay',
     type: 'overlay', src: composition.featureOverlay.src || '', ...geometry(composition.featureOverlay),
-    opacity: number(composition.featureOverlay.opacity, 1), zIndex: number(composition.featureOverlay.zIndex, 59),
-    visible: composition.featureOverlay.visible, blendMode: composition.featureOverlay.blendMode || 'normal',
+    opacity: number(composition.featureOverlay.opacity, 1), zIndex: number(composition.featureOverlay.zIndex, 38),
+    visible: true, blendMode: composition.featureOverlay.blendMode || 'normal',
     locked: false, compositionBinding: 'feature:dreamfall', replacesBaseForeground: composition.featureOverlay.replacesBaseForeground !== false,
+  });
+  if (nexusComposition.nexusOverlay) layers.push({
+    id: 'composition:feature:nexus', name: nexusComposition.nexusOverlay.name || 'Oneiric Nexus Overlay',
+    type: 'overlay', src: nexusComposition.nexusOverlay.src || '', ...geometry(nexusComposition.nexusOverlay),
+    opacity: number(nexusComposition.nexusOverlay.opacity, 1), zIndex: number(nexusComposition.nexusOverlay.zIndex, 38),
+    visible: true, blendMode: nexusComposition.nexusOverlay.blendMode || 'normal',
+    locked: false, compositionBinding: 'feature:nexus', replacesBaseForeground: nexusComposition.nexusOverlay.replacesBaseForeground !== false,
   });
   return layers;
 }
@@ -173,7 +214,15 @@ export function updateCompositionLayer(project, layer) {
     project.theme.featureOverlays.dreamfall = {
       ...MORPHEUS_FEATURE_OVERLAY, ...(project.theme.featureOverlays.dreamfall || {}),
       ...geometry(layer), src: layer.src || '', opacity: number(layer.opacity, 1),
-      zIndex: number(layer.zIndex, 59), visible: layer.visible !== false,
+      zIndex: number(layer.zIndex, 38), visible: layer.visible !== false,
+      blendMode: layer.blendMode || 'normal', replacesBaseForeground: layer.replacesBaseForeground !== false,
+    };
+  } else if (binding === 'feature:nexus') {
+    project.theme.featureOverlays ||= {};
+    project.theme.featureOverlays.nexus = {
+      ...MORPHEUS_NEXUS_OVERLAY, ...(project.theme.featureOverlays.nexus || {}),
+      ...geometry(layer), src: layer.src || '', opacity: number(layer.opacity, 1),
+      zIndex: number(layer.zIndex, 38), visible: layer.visible !== false,
       blendMode: layer.blendMode || 'normal', replacesBaseForeground: layer.replacesBaseForeground !== false,
     };
   }

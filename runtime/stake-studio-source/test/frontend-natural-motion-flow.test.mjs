@@ -542,7 +542,8 @@ test('portrait mobile preserves the authored full-canvas cabinet coordinate plan
   const [css, source] = await Promise.all([readFile(compiledCssUrl, 'utf8'), readFile(gameAppUrl, 'utf8')]);
   assert.doesNotMatch(css, /@media \(max-aspect-ratio: 3 \/ 4\)/);
   assert.match(css, /\.game-shell\[data-composition-mode="full-canvas-cabinet-v1"\] \.stage \{[\s\S]*?width: min\(100vw,[\s\S]*?height: min\(100vh,/);
-  assert.match(css, /\.game-shell\[data-composition-mode="full-canvas-cabinet-v1"\]\.is-dreamfall-world \.authored-world-foreground \{ visibility: visible; \}/);
+  assert.match(css, /\.game-shell\.is-dreamfall-world \.authored-world-foreground,[\s\S]*?visibility: hidden/);
+  assert.match(css, /\.game-shell:not\(\.is-dreamfall-world\) \.authored-world-dreamfall-cabinet \{ display: none; \}/);
   assert.match(source, /button\.dataset\.control = key/);
   assert.match(css, /\[data-layout="mini"\] \.authored-control\[data-control="bonus"\] > span/);
   assert.match(css, /\[data-layout="mini"\] \.authored-control\.bet-step > span/);

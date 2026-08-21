@@ -85,8 +85,10 @@ test('authored composition uses one full-screen cabinet coordinate plane', async
   assert.match(styles, /\.game-shell\[data-composition-mode="full-canvas-cabinet-v1"\] \.authored-control\.bet-step > span \{\s*display: none;/);
   assert.match(app, /dreamfallWorldActive \? dreamfallProfile\?\.world : config\.reelArea/);
   assert.match(app, /symbols\.length\) \/ visualRowCapacity \* 100/);
-  assert.match(styles, /\.game-shell\[data-composition-mode="full-canvas-cabinet-v1"\]\.is-dreamfall-world \.authored-world-foreground \{ visibility: visible; \}/);
-  assert.match(styles, /\.game-shell\[data-composition-mode="full-canvas-cabinet-v1"\] \.authored-world-dreamfall-cabinet \{ display: none; \}/);
+  assert.match(styles, /\.game-shell\.is-dreamfall-world \.authored-world-foreground,[\s\S]*?visibility: hidden/);
+  assert.match(styles, /\.game-shell:not\(\.is-dreamfall-world\) \.authored-world-dreamfall-cabinet \{ display: none; \}/);
+  assert.match(styles, /\.living-cabinet-glow \{[\s\S]*?z-index: 45/);
+  assert.match(styles, /\.board\.is-dreamfall-world,[\s\S]*?z-index: 50/);
   assert.match(styles, /\.game-shell\[data-composition-mode="full-canvas-cabinet-v1"\] \.feature-progress \{[\s\S]*?top: 13%;[\s\S]*?left: 2\.4%;[\s\S]*?width: min\(24%, 330px\);/);
   assert.match(styles, /\.game-shell\[data-composition-mode="full-canvas-cabinet-v1"\] \.feature-progress > \.presentation-art \{ display: none; \}/);
   assert.match(styles, /\.game-shell\[data-composition-mode="full-canvas-cabinet-v1"\] \.stage-overlay \{ z-index: 70; \}/);

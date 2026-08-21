@@ -80,6 +80,9 @@ import {
   resolveMorpheusDreamfallCabinetProfile,
 } from '../../engines/presentation/morpheus/MorpheusDreamfallCabinetProfile.js';
 import {
+  resolveMorpheusNexusCabinetProfile,
+} from '../../engines/presentation/morpheus/MorpheusNexusCabinetProfile.js';
+import {
   createAspectPreservingOverlayRect,
   createChoreographyAcknowledgement,
   createTileConnectionPlan,
@@ -184,6 +187,7 @@ export class PreviewPanel {
     this.morpheusDreamfallPromise = null;
     this.morpheusDreamfallState = null;
     this.morpheusDreamfallWorldState = createMorpheusDreamfallWorldState();
+    this.morpheusNexusWorldState = { active: false };
     this.lastMorpheusDreamfallReport = null;
     this.morpheusEffectDriver = null;
     this.morpheusEffectPromise = null;
@@ -209,10 +213,21 @@ export class PreviewPanel {
     return this.isMorpheusDreamfallProject() && this.morpheusDreamfallWorldState?.active === true;
   }
 
+  isMorpheusNexusWorldActive() {
+    return this.isMorpheusDreamfallProject() && (
+      this.selectedMode === 'oneiric_nexus'
+      || this.featurePositionGridMode === 'oneiric_nexus'
+      || this.morpheusNexusWorldState?.active === true
+    );
+  }
+
   setMorpheusDreamfallWorldState(state = {}) {
     this.morpheusDreamfallWorldState = createMorpheusDreamfallWorldState(state);
     const stage = this.container.querySelector('#previewStage');
-    if (stage) stage.dataset.dreamfallWorld = this.morpheusDreamfallWorldState.active ? 'active' : 'inactive';
+    if (stage) {
+      stage.dataset.dreamfallWorld = this.morpheusDreamfallWorldState.active ? 'active' : 'inactive';
+      stage.dataset.nexusWorld = this.isMorpheusNexusWorldActive() ? 'active' : 'inactive';
+    }
     return this.morpheusDreamfallWorldState;
   }
 
@@ -406,9 +421,17 @@ export class PreviewPanel {
 
     if (sourceEvent.type === 'modeGridStart') {
       this.applyPersistentMechanicState({ type: 'modeGridStart', ...payload });
+      if (payload.mode === 'oneiric_nexus' && !this.container.querySelector('.cabinet-layer-nexus-feature')) {
+        const savedBoard = this.board;
+        this.render();
+        if (savedBoard) this.paintBoard(savedBoard);
+      }
       this.syncFeatureStateMarkers();
       this.updateFeatureMechanic(this.mechanicCopy({ type: 'modeGridStart', ...payload }));
-      if (!noMotion) this.pulseMechanicCells(payload.cells.map(cell => cell.position), 'is-mechanic-target');
+      if (!noMotion) {
+        this.pulseMechanicCells(payload.cells.map(cell => cell.position), 'is-mechanic-target');
+        this.playSpecialLook({ type: 'modeGridStart', ...payload }, [], payload.cells.map(cell => this.eventPositions([cell.position])[0]).filter(Boolean));
+      }
       if (!immediate && command.durationMs) await this.wait(command.durationMs);
     } else if (sourceEvent.type === 'positionMultiplierGridUpdate') {
       this.applyPersistentMechanicState({ type: 'positionMultiplierGridUpdate', updates: [{
@@ -838,30 +861,44 @@ export class PreviewPanel {
       reelRows: payload.reelHeightsAfter,
     }).reels[reel];
     this.featureReelRows.set(reel, Number(payload.rows));
-    this.board = deserializeBoard(payload.boardAfter);
-    this.paintBoard(this.board);
     const mask = this.container.querySelector(`.reel-mask[data-reel="${reel}"]`);
     const cap = this.container.querySelector(`.reel-cap[data-reel="${reel}"]`);
+    const shaft = this.container.querySelector(`.living-shaft[data-reel="${reel}"]`);
     if (!mask || immediate) {
+      this.board = deserializeBoard(payload.boardAfter);
+      this.paintBoard(this.board);
       this.updateFeatureMechanic(this.mechanicCopy({ type: 'expandReelHeight', ...payload }));
       return;
     }
     gsap.set(mask, { top: before.mask.top, height: before.mask.height });
-    if (cap) gsap.set(cap, { top: before.cap.top });
+    if (shaft) gsap.set(shaft, { top: before.mask.top, height: before.mask.height });
+    shaft?.classList.add('is-growing', 'look-shaft-grow');
+    cap?.classList.add('is-growing');
+    this.container.querySelector('#previewStage')?.classList.add('is-shaft-growing');
+    if (shaft) shaft.dataset.rows = String(payload.rows);
     await new Promise(resolve => {
       const timeline = gsap.timeline({ onComplete: resolve });
+      const duration = Math.max(0.18, (command.presentation.durationMs || 420) / 1000);
       timeline.to(mask, {
         top: after.mask.top,
         height: after.mask.height,
-        duration: Math.max(0.12, command.presentation.durationMs / 1000),
+        duration,
         ease: 'power3.out',
       });
-      if (cap) timeline.to(cap, {
-        top: after.cap.top,
-        duration: Math.max(0.12, command.presentation.durationMs / 1000),
+      if (shaft) timeline.to(shaft, {
+        top: after.mask.top,
+        height: after.mask.height,
+        duration,
         ease: 'power3.out',
       }, 0);
     });
+    this.board = deserializeBoard(payload.boardAfter);
+    this.paintBoard(this.board);
+    const newCell = this.cellAt(reel, 0);
+    if (newCell) this.animateLandedCells([newCell]);
+    shaft?.classList.remove('is-growing', 'look-shaft-grow');
+    cap?.classList.remove('is-growing');
+    this.container.querySelector('#previewStage')?.classList.remove('is-shaft-growing');
     await this.playSpecialMechanicEvent({
       type: 'expandReelHeight',
       ...payload,
@@ -1003,7 +1040,7 @@ export class PreviewPanel {
           </div>` : viewportLayout.stale ? '<div class="preview-layout-strip has-failures"><strong>Layout evidence is stale</strong><span>Visual layout inputs changed after the last audit.</span></div>' : ''}
         <div class="preview-workspace ${this.showDirector ? 'has-director' : ''}">
           <div class="preview-viewport ${this.viewport}" id="previewViewport" style="display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative">
-            <div class="preview-stage" id="previewStage" data-motion-graphics="${htmlVisibleEffects ? 'fallback' : 'authored'}" data-dreamfall-world="${this.isMorpheusDreamfallWorldActive() ? 'active' : 'inactive'}" style="width:${cab.width}px;height:${cab.height}px;position:relative;transform-origin:center center;${motionStyle}">
+            <div class="preview-stage" id="previewStage" data-motion-graphics="${htmlVisibleEffects ? 'fallback' : 'authored'}" data-dreamfall-world="${this.isMorpheusDreamfallWorldActive() ? 'active' : 'inactive'}" data-nexus-world="${this.isMorpheusNexusWorldActive() ? 'active' : 'inactive'}" style="width:${cab.width}px;height:${cab.height}px;position:relative;transform-origin:center center;${motionStyle}">
               ${this.renderCabinet(cab)}
               ${this.renderWorldResponse(cab)}
               ${this.renderAmbientFX()}
@@ -1258,7 +1295,14 @@ export class PreviewPanel {
       worldActive: this.isMorpheusDreamfallWorldActive(),
       renderProfile: MORPHEUS_DREAMFALL_RENDER_PROFILE_FORMAT,
     });
-    const featureCabinet = this.playerComposition().featureOverlay;
+    resolveMorpheusNexusCabinetProfile({
+      projectId: this.projectId,
+      nexusActive: this.isMorpheusNexusWorldActive(),
+      mode: this.featurePositionGridMode || this.selectedMode,
+    });
+    const composition = this.playerComposition();
+    const featureCabinet = composition.featureOverlay;
+    const nexusCabinet = composition.nexusOverlay;
     const layers = [...(cab.layers || [])].sort((a, b) => a.zIndex - b.zIndex);
     const base = layers.map(layer => {
       if (!layer.visible) return '';
@@ -1273,14 +1317,18 @@ export class PreviewPanel {
       }
       return '';
     }).join('');
-    if (!featureCabinet?.visible || !featureCabinet.src) return base;
-    return `${base}<div class="cabinet-layer cabinet-layer-dreamfall-feature" data-cabinet-profile="${this.esc(featureCabinet.format || featureCabinet.id || 'authored')}" style="position:absolute;left:${featureCabinet.x}px;top:${featureCabinet.y}px;width:${featureCabinet.width}px;height:${featureCabinet.height}px;opacity:${featureCabinet.opacity ?? 1};z-index:${featureCabinet.zIndex ?? 59};mix-blend-mode:${featureCabinet.blendMode || 'normal'};pointer-events:none"><img src="${this.esc(featureCabinet.src)}" decoding="async" draggable="false" style="width:100%;height:100%;object-fit:contain"></div>`;
+    if (!featureCabinet?.visible || !featureCabinet.src) {
+      if (!nexusCabinet?.visible || !nexusCabinet.src) return base;
+      return `${base}<div class="cabinet-layer cabinet-layer-nexus-feature" data-cabinet-profile="${this.esc(nexusCabinet.format || nexusCabinet.id || 'authored')}" style="position:absolute;left:${nexusCabinet.x}px;top:${nexusCabinet.y}px;width:${nexusCabinet.width}px;height:${nexusCabinet.height}px;opacity:${nexusCabinet.opacity ?? 1};z-index:${nexusCabinet.zIndex ?? 38};mix-blend-mode:${nexusCabinet.blendMode || 'normal'};pointer-events:none"><img src="${this.esc(nexusCabinet.src)}" decoding="async" draggable="false" style="width:100%;height:100%;object-fit:cover"></div>`;
+    }
+    return `${base}<div class="cabinet-layer cabinet-layer-dreamfall-feature" data-cabinet-profile="${this.esc(featureCabinet.format || featureCabinet.id || 'authored')}" style="position:absolute;left:${featureCabinet.x}px;top:${featureCabinet.y}px;width:${featureCabinet.width}px;height:${featureCabinet.height}px;opacity:${featureCabinet.opacity ?? 1};z-index:${featureCabinet.zIndex ?? 38};mix-blend-mode:${featureCabinet.blendMode || 'normal'};pointer-events:none"><img src="${this.esc(featureCabinet.src)}" decoding="async" draggable="false" style="width:100%;height:100%;object-fit:cover"></div>`;
   }
 
   playerComposition() {
     return resolvePlayerComposition(this.project, {
       projectId: this.projectId,
       worldActive: this.isMorpheusDreamfallWorldActive(),
+      nexusActive: this.isMorpheusNexusWorldActive(),
     });
   }
 
@@ -1298,7 +1346,10 @@ export class PreviewPanel {
         <i class="preview-dream-fog preview-dream-fog-back"></i>
         <i class="preview-dream-fog preview-dream-fog-front"></i>
       </span>`;
-    return `<div class="preview-world-response" aria-hidden="true"><i class="preview-world-glow"></i><i class="preview-world-sweep"></i><i class="preview-world-runes"></i><i class="preview-world-threshold"></i>${atmosphere}</div>`;
+    const cabinetWorld = this.isMorpheusDreamfallWorldActive()
+      ? 'dreamfall'
+      : this.isMorpheusNexusWorldActive() ? 'nexus' : 'base';
+    return `<div class="preview-world-response" data-cabinet-glow="${cabinetWorld}" aria-hidden="true"><i class="preview-world-glow"></i><i class="preview-world-sweep"></i><i class="preview-world-runes"></i><i class="preview-world-threshold"></i><i class="living-colosseum-glow"></i><i class="living-well-pulse"></i><i class="living-nexus-glow"></i><i class="living-nexus-grid-glow"></i>${atmosphere}</div>`;
   }
 
   renderAmbientFX() {
@@ -1526,7 +1577,7 @@ export class PreviewPanel {
     const cellH = h / maxRows;
     const buffer = 2;
 
-    let html = `<div class="reel-frame" data-dreamfall-world="${reservedWorld ? 'active' : 'inactive'}" style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;z-index:50;border-radius:8px;overflow:hidden;background:rgba(0,0,0,0.5)"><div class="preview-dormant-grid" id="previewDormantGrid" aria-hidden="true"></div>`;
+    let html = `<div class="reel-frame" data-dreamfall-world="${reservedWorld ? 'active' : 'inactive'}" data-nexus-world="${this.isMorpheusNexusWorldActive() ? 'active' : 'inactive'}" style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;z-index:50;border-radius:8px;overflow:${reservedWorld ? 'visible' : 'hidden'};background:rgba(0,0,0,0.5)"><div class="preview-dormant-grid" id="previewDormantGrid" aria-hidden="true"></div>`;
 
     for (let r = 0; r < reels; r++) {
       const rRows = rows[r] || rows[0];
@@ -1571,7 +1622,14 @@ export class PreviewPanel {
 
       html += `</div></div>`;
       if (reservedWorld) {
-        html += `<div class="reel-cap" data-reel="${r}" aria-hidden="true" style="position:absolute;left:${r * (cellW + gap)}px;top:${offsetY}px;width:${cellW}px;height:3px;z-index:4;transform:translateY(-1px);border-radius:3px;background:linear-gradient(90deg,rgba(214,168,75,.2),#d6a84b,rgba(214,168,75,.2));box-shadow:0 0 8px rgba(85,214,194,.48);pointer-events:none"></div>`;
+        html += `<div class="living-shaft" data-reel="${r}" data-rows="${rRows}" aria-hidden="true" style="left:${r * (cellW + gap)}px;top:${offsetY}px;width:${cellW}px;height:${maskH}px">
+          <i class="shaft-rail shaft-rail-left"></i>
+          <i class="shaft-rail shaft-rail-right"></i>
+          <div class="reel-cap" data-reel="${r}">
+            <i class="shaft-cap-stone"></i>
+            <i class="shaft-cap-glow"></i>
+          </div>
+        </div>`;
       }
     }
 
@@ -4006,6 +4064,53 @@ export class PreviewPanel {
     };
   }
 
+  playSpecialLook(event, sources = [], targets = []) {
+    const type = event?.type;
+    const lookByType = {
+      expandStickyReel: 'look-veil-expand',
+      veilWild: 'look-veil-expand',
+      expandingWild: 'look-veil-expand',
+      lucidWildMultiplier: 'look-lucid-badge',
+      lucidWild: 'look-lucid-badge',
+      wildBomb: Number(event.size) >= 3 ? 'look-golden-rift' : 'look-dream-rift',
+      echoSplit: 'look-echo-split',
+      symbolPurge: 'look-dawn-purge',
+      wildStar: 'look-star-morph',
+      mysteryTransform: 'look-mystery-flip',
+      maxDream: 'look-max-takeover',
+      expandReelHeight: 'look-shaft-grow',
+      positionMultiplierGridUpdate: 'look-plate-stamp',
+      modeGridStart: 'look-grid-awaken',
+    };
+    const look = lookByType[type];
+    if (!look) return;
+    const cells = [...sources, ...targets]
+      .map((position) => this.cellAt(position[0], position[1]))
+      .filter(Boolean);
+    for (const cell of cells) cell.classList.add(look);
+    if (type === 'expandReelHeight') {
+      this.container.querySelector(`.living-shaft[data-reel="${event.reel}"]`)?.classList.add('is-growing', look);
+    }
+    if (type === 'expandStickyReel' || type === 'veilWild' || type === 'expandingWild') {
+      const reel = Number(event.reel ?? sources[0]?.[0]);
+      this.container.querySelector(`.reel-mask[data-reel="${reel}"]`)?.classList.add('look-veil-expand');
+    }
+    if (type === 'maxDream') this.container.querySelector('#previewStage')?.classList.add('is-max-takeover');
+    if (type === 'modeGridStart') this.container.querySelector('#previewStage')?.classList.add('look-grid-awaken');
+    if (type === 'positionMultiplierGridUpdate') {
+      this.container.querySelectorAll('.preview-position-grid-plate.is-newly-charged').forEach((plate) => {
+        plate.classList.add('look-plate-stamp');
+      });
+    }
+    window.setTimeout(() => {
+      for (const cell of cells) cell.classList.remove(look);
+      this.container.querySelectorAll('.look-veil-expand, .look-shaft-grow, .look-plate-stamp').forEach((node) => {
+        node.classList.remove('look-veil-expand', 'look-shaft-grow', 'look-plate-stamp', 'is-growing');
+      });
+      this.container.querySelector('#previewStage')?.classList.remove('is-max-takeover', 'look-grid-awaken');
+    }, this.turboMode ? 280 : 760);
+  }
+
   pulseMechanicCells(positions = [], className = 'is-mechanic-source') {
     const cells = this.eventPositions(positions).map(([reel, row]) => this.cellAt(reel, row)).filter(Boolean);
     for (const cell of cells) cell.classList.add(className);
@@ -4102,6 +4207,7 @@ export class PreviewPanel {
   applyPersistentMechanicState(event) {
     if (event.type === 'modeGridStart') {
       this.featurePositionGridMode = event.mode || 'oneiric_nexus';
+      if (event.mode === 'oneiric_nexus') this.morpheusNexusWorldState = { active: true, reason: 'mode-grid' };
       for (const cell of event.cells || []) {
         const [reel, row] = this.eventPositions([cell.position])[0] || [];
         if (Number.isFinite(reel) && Number.isFinite(row)) this.featurePositionMultipliers.set(`${reel}:${row}`, Number(cell.value) || 1);
@@ -4235,6 +4341,7 @@ export class PreviewPanel {
     this.featureSymbolMultipliers.clear();
     this.featureReelRows.clear();
     this.featureVeilBar = { family: '', current: 0, threshold: 4 };
+    this.morpheusNexusWorldState = { active: false };
     this.updateFeatureMechanic('');
     this.syncReelLayout(this.project.math.grid.rows);
     this.syncFeatureStateMarkers();
@@ -4267,6 +4374,7 @@ export class PreviewPanel {
     this.updateFeatureMechanic(label);
     this.pulseMechanicCells(sources, 'is-mechanic-source');
     const uniqueTargets = [...new Map(targets.map(position => [position.join(':'), position])).values()];
+    this.playSpecialLook(event, sources, uniqueTargets);
     const targetPoints = uniqueTargets.map(position => this.pointForPosition(position));
     const origin = sources.length
       ? this.pointForPosition(sources[0])
@@ -5055,7 +5163,13 @@ export class PreviewPanel {
         cell.style.fontSize = `${Math.min(cellW, cellH) * 0.3}px`;
       });
       const cap = this.container.querySelector(`.reel-cap[data-reel="${reel}"]`);
-      if (cap) cap.style.top = `${maskTop}px`;
+      const shaft = this.container.querySelector(`.living-shaft[data-reel="${reel}"]`);
+      if (shaft) {
+        shaft.style.top = `${maskTop}px`;
+        shaft.style.height = `${reelRows * cellH}px`;
+        shaft.dataset.rows = String(reelRows);
+      }
+      if (cap && !shaft) cap.style.top = `${maskTop}px`;
     }
   }
 
