@@ -10,16 +10,12 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = resolve(root, '../..');
 const env = loadEnv('development', root, '');
 
-// Ports:
-//   3000 — ChatGPT / human lane (`npm run dev`)
-//   3001 — agent lane (`npm run dev:agent`) with live reload so git pull
-//          and planner edits do not require Ctrl+C + restart.
+// One Stake Studio app. Default port 3000. Models plug in through MCP.
+// They do not get their own port or a second copy of the factory.
 const port = Number(process.env.PORT || process.env.STAKE_STUDIO_PORT || 3000);
 const host = process.env.HOST || process.env.STAKE_STUDIO_HOST || '127.0.0.1';
-const liveReload =
-  process.env.STAKE_STUDIO_LIVE_RELOAD === '1' ||
-  process.env.STAKE_STUDIO_LIVE_RELOAD === 'true' ||
-  process.env.STAKE_STUDIO_AGENT === '1';
+const liveReload = process.env.STAKE_STUDIO_LIVE_RELOAD !== '0'
+  && process.env.STAKE_STUDIO_LIVE_RELOAD !== 'false';
 
 function compileDomain() {
   const tsc = resolve(repoRoot, 'node_modules/typescript/bin/tsc');
@@ -203,7 +199,17 @@ const server = await createServer({
   },
 });
 
-await server.listen();
+try {
+  await server.listen();
+} catch (error) {
+  const busy = error?.code === 'EADDRINUSE' || /already in use|EADDRINUSE/i.test(String(error?.message || error));
+  if (busy) {
+    console.error(`[stake-studio] already running at http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}/`);
+    console.error('[stake-studio] open that window. Do not start a second copy for another model.');
+    process.exit(1);
+  }
+  throw error;
+}
 server.printUrls();
 watchMotionPlanner();
 pollAgentInbox();

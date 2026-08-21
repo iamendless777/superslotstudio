@@ -13,15 +13,15 @@ Standing identity: `AGENTS.md`. This file is **dated motion notes**. Confirm the
 
 **TAG: STUDIO** — only when a game task hits a missing or broken factory capability. Fix that capability. Then go back to the open game.
 
-**One studio. One open project.** `127.0.0.1:3001` is the studio window. The header chip is the current game. Never seed a second copy of the open game. Never boot starter-pack art over the loaded project.
+**One studio. One open project.** Open the Stake Studio app once. Plug any model in through MCP. The header chip is the current game. Never seed a second copy of the open game. Never boot starter-pack art over the loaded project.
 
-Agent studio: `127.0.0.1:3001` (`npm run dev:agent`). Human studio: `3000`. GitHub syncs both. Do not hide chrome. Do not skin the studio as the slot. Do not invent a second cabinet.
+Do not hide chrome. Do not skin the studio as the slot. Do not invent a second cabinet. Do not start a second port for a second model.
 
 ```bash
 cd ~/Developer/superslotstudio
 git checkout integrate/studio-motion
 git pull origin integrate/studio-motion
-npm run dev:agent
+npm run dev
 ```
 
 **The loop:** Cabinet reel-area **is** the game window. Preview plays it. Math Publisher = Stake math-sdk. Frontend Compiler = static RGS shell. Build → Export is the Stake review upload.
@@ -34,7 +34,7 @@ This is the single handoff for a new chat. Read this before touching reel spin o
 
 ## Start here
 
-The human's studio is **127.0.0.1:3001**. Game work happens in that window, on whatever project is open. Studio source lives on this branch. Push, they pull, they refresh 3001.
+The human opens **one** Stake Studio window. Game work happens there, on whatever project is open. Studio source lives on this branch. Push, they pull, they refresh that window.
 
 Do not hide Cabinet / Config / nav. Do not skin the studio as a player. That already happened — do not do it again.
 ---
@@ -213,7 +213,7 @@ Planner templates are still: classic-nine, cluster-hex, sticky-five, anticipatio
 | `cueSheetToTumbleEvents.js` | Cue sheet → `tumbleBoard` payloads |
 | `public/motion-fixtures/*.json` | Rehearsal sheets, including `scatter-tease.json` + `-3/-4/-5` |
 | `CUE_BRIDGE` | `win.pulse` / `board.shake` must **not** fire wincap / setWin |
-| `npm run dev:agent` | `PORT=3001 STAKE_STUDIO_AGENT=1 STAKE_STUDIO_LIVE_RELOAD=1` |
+| `npm run dev` | one Stake Studio app on port 3000. MCP finds it. |
 
 ### Authoritative tumble API
 
@@ -399,7 +399,7 @@ runtime/stake-studio-source/server/frontend-template/game-app.js
 ```bash
 cd ~/Developer/superslotstudio
 git pull origin integrate/studio-motion
-npm run dev:agent          # build + fixtures + http://127.0.0.1:3001/
+npm run dev                # one app · default http://127.0.0.1:3000/
 ```
 
 ```bash

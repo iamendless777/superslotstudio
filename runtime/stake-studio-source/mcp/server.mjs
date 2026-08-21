@@ -13,16 +13,13 @@
 import { writeFileSync, mkdirSync, existsSync, readdirSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { resolveStudioHome } from '../server/studio-paths.mjs';
+import { resolveStudioHome, resolveStudioUrl } from '../server/studio-paths.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const STUDIO = join(HERE, '..');
 const HOME = resolveStudioHome();
 const GAMES = join(HOME, 'games');
-const BRIDGE_URL = (process.env.STAKE_STUDIO_URL
-  || (process.env.STAKE_STUDIO_AGENT === '1' || process.env.PORT === '3001'
-    ? 'http://127.0.0.1:3001'
-    : 'http://127.0.0.1:3000')).replace(/\/$/, '');
+const BRIDGE_URL = await resolveStudioUrl();
 
 const { createGameProject, generateDefaultReelStrips } = await import(join(STUDIO, 'src/engines/schema.js'));
 const { persistProjectDocument, readProjectDocument } = await import(join(STUDIO, 'server/project-storage.mjs'));
@@ -176,7 +173,7 @@ function compactStudioAgentState(payload, detail = 'compact') {
     openProject: compactState.projectId ? {
       id: compactState.projectId,
       name: compactState.project?.name || null,
-      role: 'loaded example project, not the product',
+      role: 'open project, not the product',
     } : null,
     state: compactState,
     frame: payload.frame,

@@ -10,9 +10,9 @@
     "evidence:recovery": "tsc -p tsconfig.json && node dist/tools/evidence/recovery-cli.js",
     "studio": "npm run build && node dist/tools/studio/cli.js",
     "studio:fixtures": "npm run build",
-    "dev:agent": "npm run build && npm run --prefix runtime/stake-studio-source dev:agent",
+    "dev:agent": "npm run build && npm run --prefix runtime/stake-studio-source dev",
     "dev": "npm run build && npm run --prefix runtime/stake-studio-source dev",
-    "mcp": "STAKE_STUDIO_AGENT=1 STAKE_STUDIO_URL=http://127.0.0.1:3001 node runtime/stake-studio-source/mcp/server.mjs",
+    "mcp": "node runtime/stake-studio-source/mcp/server.mjs",
     "test": "rm -rf dist && npm run build && node --test dist/test/*.test.js && node --test runtime/stake-studio-source/src/engines/presentation/*.test.js"
   },
   "devDependencies": {

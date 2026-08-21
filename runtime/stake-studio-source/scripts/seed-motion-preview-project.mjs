@@ -1,3 +1,3 @@
 #!/usr/bin/env node
-console.error('Refused. Do not seed a second Morpheus. The only game is the project open on 127.0.0.1:3001.');
+console.error('Refused. Do not seed a second copy. The only game is the project open in the live studio window.');
 process.exit(1);
