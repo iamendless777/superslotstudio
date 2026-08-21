@@ -95,6 +95,8 @@ Live Preview can plant two early scatters with **Live 2-scatter** (`MathEngine.a
 | **4-scatter tease** | seed 4; leftover wait for 5+ | **video-confirmed 2026-08-20** |
 | **5-scatter tease** | seed 5; last reel waits for 6 | **video-confirmed 2026-08-20** |
 | **Live 2-scatter** | paid SPIN; `forceScatterCount: 2` through `resolveRound` | **same schedule confirmed 2026-08-20** |
+| **Live Dreamfall** | paid SPIN; plants 5 gates, enters the 6×4 well, chance-grows one reel per win | studio trigger for live grow |
+| **Live Nexus** | paid SPIN; plants 6 gates, unique 6×4 sanctum, no growth | studio trigger for live sanctum |
 | **Dreamfall grow** | starts 6×4, grows reels `[0,2,5,2,3,0]` — jagged, never fills 48 | studio-only rehearsal |
 | **Nexus grid** | unique 6×4 sanctum + plate stamps, no growth | studio-only rehearsal |
 
@@ -335,9 +337,9 @@ Studio Preview remains **pixel** authority — one tumble, one spin-track.
 - [x] Dreamfall living cabinet: matte colosseum plate behind reels, CSS glow as a motion layer, per-reel stone shafts that lift. Growth is chance (one random non-maxed reel per win). 48 cells is the cap, not a guaranteed fill.
 - [x] Oneiric Nexus unique 6×4 sanctum (no growth) + Play Motion `nexus-grid`.
 - [x] Type-specific special looks. Play Motion `dreamfall-grow` / `nexus-grid`.
-- [x] Live SPIN enters the 6×4 well on feature entry (`enterMorpheusFeatureWorld` / `beginFeature` + `renderBoard`). Slim `expandReelHeight` lifts one random shaft (GSAP in Preview, CSS in portable) **before** tumble so the extra cell is empty cave, then tiles drop. Dormant wells sit above the grown cap, not over the cave cell.
+- [x] Live SPIN enters the 6×4 well, then lifts **shaft only** so tiles stay put and the new cell is empty cave. Dormant wells sit above the grown cap. **Live Dreamfall** plants 5 gates; **Live Nexus** plants 6.
 - [ ] Swap in final commissioned art over the starter pack; keep motion. Glow stays a motion-graphic layer — do not bake it into the scene plate.
-- [ ] Video-confirm Dreamfall grow (jagged skyline, empty cells show cave) and Nexus sanctum. Live SPIN must start 6×4 and grow by chance — not jump to 48.
+- [ ] Video-confirm Dreamfall grow (jagged skyline, empty cells show cave) and Nexus sanctum. Use **Live Dreamfall** / **Live Nexus**, not only Play Motion. Live SPIN must start 6×4 and grow by chance — not jump to 48.
 
 ### P3 — Cleanup
 
@@ -466,7 +468,7 @@ Continue Stake Studio from `integrate/studio-motion` (pull first). Read `MOTION_
 2. **2/3/4/5-scatter Play Motion and live 2-scatter are video-confirmed.** Portable frontend uses the same waiting-reel hold. Do not reopen unless pixels regress.
 3. Hold length stays **1200ms**. Do not change unless asked.
 4. Do not revive GSAP travel, fake scatters, last-reel-only, or an HTML overlay grid. Do not bake glow into the scene plates.
-5. **Video-confirm Dreamfall grow + Nexus sanctum.** Live SPIN of the 5-scatter bonus must start as a 6×4 well, then one random reel +1 per win (jagged skyline, empty new cell shows cave). 48 is the cap. Nexus is a unique 6×4 grid, no growth. Merge to `main` only after that video pass.
+5. **Video-confirm Dreamfall grow + Nexus sanctum.** Use **Live Dreamfall** (5 gates → 6×4 well → chance shaft lift, empty cave, then the new tile lands) and **Live Nexus** (6 gates → unique 6×4 sanctum, no growth). 48 is the cap. Merge to `main` only after that video pass.
 6. Art: Atlas → **Copy board brief**. **Apply board pack** fills empty Morpheus slots (not cluster-hex). Glow stays a motion-graphic layer.
 
 ---

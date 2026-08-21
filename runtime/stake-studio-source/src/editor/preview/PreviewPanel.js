@@ -909,8 +909,7 @@ export class PreviewPanel {
       this.updateFeatureMechanic(this.mechanicCopy({ type: 'expandReelHeight', ...payload }));
       return;
     }
-    gsap.set(mask, { top: before.mask.top, height: before.mask.height });
-    if (shaft) gsap.set(shaft, { top: before.mask.top, height: before.mask.height });
+    gsap.set(shaft, { top: before.mask.top, height: before.mask.height });
     shaft?.classList.add('is-growing', 'look-shaft-grow');
     cap?.classList.add('is-growing');
     this.container.querySelector('#previewStage')?.classList.add('is-shaft-growing');
@@ -918,19 +917,18 @@ export class PreviewPanel {
     await new Promise(resolve => {
       const timeline = gsap.timeline({ onComplete: resolve });
       const duration = Math.max(0.18, (command.presentation.durationMs || 420) / 1000);
-      timeline.to(mask, {
-        top: after.mask.top,
-        height: after.mask.height,
-        duration,
-        ease: 'power3.out',
-      });
-      if (shaft) timeline.to(shaft, {
-        top: after.mask.top,
-        height: after.mask.height,
-        duration,
-        ease: 'power3.out',
-      }, 0);
+      if (shaft) {
+        timeline.to(shaft, {
+          top: after.mask.top,
+          height: after.mask.height,
+          duration,
+          ease: 'power3.out',
+        });
+      } else if (cap) {
+        timeline.to(cap, { top: after.mask.top, duration, ease: 'power3.out' });
+      }
     });
+    if (!immediate) await this.wait(120);
     this.board = deserializeBoard(payload.boardAfter);
     this.paintBoard(this.board);
     const newCell = this.cellAt(reel, 0);
@@ -4474,11 +4472,10 @@ export class PreviewPanel {
     afterHeights[reel] = Math.min(8, rows);
     this.featureReelRows.set(reel, afterHeights[reel]);
     this.updateFeatureMechanic(this.mechanicCopy({ type: 'expandReelHeight', reel, rows: afterHeights[reel] }));
-    const mask = this.container.querySelector(`.reel-mask[data-reel="${reel}"]`);
     const cap = this.container.querySelector(`.reel-cap[data-reel="${reel}"]`);
     const shaft = this.container.querySelector(`.living-shaft[data-reel="${reel}"]`);
-    if (!mask || !this.reelGeometry?.h || this.turboMode) {
-      this.syncReelLayout(afterHeights);
+    if (!shaft || !this.reelGeometry?.h || this.turboMode) {
+      this.syncReelLayout();
       this.playSpecialLook({ type: 'expandReelHeight', reel, rows: afterHeights[reel] }, [], [[reel, 0]]);
       return;
     }
@@ -4490,20 +4487,18 @@ export class PreviewPanel {
       worldHeight: this.reelGeometry.h,
       reelRows: afterHeights,
     }).reels[reel];
-    gsap.set(mask, { top: before.mask.top, height: before.mask.height });
-    if (shaft) gsap.set(shaft, { top: before.mask.top, height: before.mask.height });
-    shaft?.classList.add('is-growing', 'look-shaft-grow');
+    gsap.set(shaft, { top: before.mask.top, height: before.mask.height });
+    shaft.classList.add('is-growing', 'look-shaft-grow');
     cap?.classList.add('is-growing');
     this.container.querySelector('#previewStage')?.classList.add('is-shaft-growing');
     this.playSpecialLook({ type: 'expandReelHeight', reel, rows: afterHeights[reel] }, [], [[reel, 0]]);
     await new Promise((resolve) => {
       const timeline = gsap.timeline({ onComplete: resolve });
       const duration = this.turboMode ? 0.18 : 0.42;
-      timeline.to(mask, { top: after.mask.top, height: after.mask.height, duration, ease: 'power3.out' });
-      if (shaft) timeline.to(shaft, { top: after.mask.top, height: after.mask.height, duration, ease: 'power3.out' }, 0);
+      timeline.to(shaft, { top: after.mask.top, height: after.mask.height, duration, ease: 'power3.out' });
     });
-    this.syncReelLayout(afterHeights);
-    shaft?.classList.remove('is-growing', 'look-shaft-grow');
+    this.syncReelLayout();
+    shaft.classList.remove('is-growing', 'look-shaft-grow');
     cap?.classList.remove('is-growing');
     this.container.querySelector('#previewStage')?.classList.remove('is-shaft-growing');
     this.syncFeatureStateMarkers();
@@ -4932,7 +4927,23 @@ export class PreviewPanel {
   /** Animate only mechanic-authored symbol changes instead of repainting a board. */
   async playStakeBoardTransform(board, event) {
     const frame = this.container.querySelector('.reel-frame');
+    const sourceBoard = deserializeBoard(board);
     const targetBoard = deserializeBoard(event.board);
+    const expansionReels = [];
+    let lengthMismatch = false;
+    for (let reel = 0; reel < Math.max(sourceBoard.length, targetBoard.length); reel++) {
+      const delta = (targetBoard[reel]?.length || 0) - (sourceBoard[reel]?.length || 0);
+      if (delta === 1) expansionReels.push(reel);
+      else if (delta !== 0) lengthMismatch = true;
+    }
+    if (expansionReels.length && !lengthMismatch) {
+      this.board = targetBoard;
+      this.paintBoard(targetBoard);
+      const cells = expansionReels.map((reel) => this.cellAt(reel, 0)).filter(Boolean);
+      if (cells.length) this.animateLandedCells(cells);
+      await this.wait(this.turboMode ? 60 : 180);
+      return targetBoard;
+    }
     if (!frame || !(event.changes || []).length) {
       this.board = targetBoard;
       this.paintBoard(targetBoard);
@@ -5200,14 +5211,22 @@ export class PreviewPanel {
     }
   }
 
-  /** Resize the real reel masks/cells when Dreamfall grows beyond four rows. */
+  /** Resize reel masks to the tiles, and living shafts to chance-grown height. */
   syncReelLayout(rowCounts = this.project.math.grid.rows) {
     if (!this.reelGeometry) return;
-    const counts = Array.from({ length: this.project.math.grid.reels }, (_, reel) => (
-      Math.max(1, Number(this.featureReelRows.get(reel) || rowCounts?.[reel] || this.project.math.grid.rows[reel] || this.project.math.grid.rows[0]) || 1)
+    const tileCounts = Array.from({ length: this.project.math.grid.reels }, (_, reel) => (
+      Math.max(
+        1,
+        Number(this.board?.[reel]?.length) || 0,
+        Number(rowCounts?.[reel]) || 0,
+        Number(this.project.math.grid.rows[reel] || this.project.math.grid.rows[0]) || 1,
+      )
+    ));
+    const grownCounts = Array.from({ length: this.project.math.grid.reels }, (_, reel) => (
+      Math.max(tileCounts[reel], Number(this.featureReelRows.get(reel) || tileCounts[reel]) || tileCounts[reel])
     ));
     const reservedWorld = this.isMorpheusDreamfallWorldActive();
-    const maxRows = reservedWorld ? MORPHEUS_RESERVED_WORLD_ROWS : Math.max(...counts);
+    const maxRows = reservedWorld ? MORPHEUS_RESERVED_WORLD_ROWS : Math.max(...grownCounts);
     const cellH = this.reelGeometry.h / maxRows;
     const { buffer, cellW } = this.reelGeometry;
     this.reelGeometry.maxRows = maxRows;
@@ -5215,13 +5234,13 @@ export class PreviewPanel {
 
     const dormantGrid = this.container.querySelector('#previewDormantGrid');
     if (dormantGrid) {
-      dormantGrid.style.gridTemplateColumns = `repeat(${counts.length}, ${cellW}px)`;
+      dormantGrid.style.gridTemplateColumns = `repeat(${grownCounts.length}, ${cellW}px)`;
       dormantGrid.style.gridTemplateRows = `repeat(${maxRows}, ${cellH}px)`;
       dormantGrid.style.columnGap = `${this.reelGeometry.gap}px`;
       dormantGrid.replaceChildren();
       if (reservedWorld) {
-        for (let reel = 0; reel < counts.length; reel++) {
-          const dormantRows = Math.max(0, maxRows - counts[reel]);
+        for (let reel = 0; reel < grownCounts.length; reel++) {
+          const dormantRows = Math.max(0, maxRows - grownCounts[reel]);
           for (let row = 0; row < dormantRows; row++) {
             const well = document.createElement('i');
             well.className = 'preview-dormant-well';
@@ -5230,11 +5249,11 @@ export class PreviewPanel {
             well.dataset.dormantDepth = String(depth);
             well.style.gridColumn = String(reel + 1);
             well.style.gridRow = String(row + 1);
-            const mask = this.symbolDefinition('DREAM_MASK');
-            if (mask?.src) {
+            const maskArt = this.symbolDefinition('DREAM_MASK');
+            if (maskArt?.src) {
               const glyph = document.createElement('img');
               glyph.className = 'preview-dormant-glyph';
-              glyph.src = mask.src;
+              glyph.src = maskArt.src;
               glyph.alt = '';
               glyph.draggable = false;
               well.appendChild(glyph);
@@ -5245,13 +5264,15 @@ export class PreviewPanel {
       }
     }
 
-    for (let reel = 0; reel < counts.length; reel++) {
-      const reelRows = counts[reel];
+    for (let reel = 0; reel < tileCounts.length; reel++) {
+      const reelRows = tileCounts[reel];
+      const grownRows = grownCounts[reel];
       const stripCells = (reservedWorld ? maxRows : reelRows) + buffer * 2;
       const mask = this.container.querySelector(`.reel-mask[data-reel="${reel}"]`);
       const strip = this.container.querySelector(`.reel-strip[data-reel="${reel}"]`);
       if (!mask || !strip) continue;
       const maskTop = (maxRows - reelRows) * cellH / (reservedWorld ? 1 : 2);
+      const shaftTop = (maxRows - grownRows) * cellH / (reservedWorld ? 1 : 2);
       mask.style.top = `${maskTop}px`;
       mask.style.height = `${reelRows * cellH}px`;
       strip.style.top = `${-buffer * cellH}px`;
@@ -5270,16 +5291,8 @@ export class PreviewPanel {
       [...strip.children].forEach((cell, index) => {
         cell.style.display = index < stripCells ? 'flex' : 'none';
         cell.dataset.visible = String(index >= buffer && index < buffer + reelRows);
-        const tileCount = this.board?.[reel]?.length || 0;
-        const isCaveGap = reservedWorld && index >= buffer + tileCount && index < buffer + reelRows;
-        cell.classList.toggle('is-cave-gap', isCaveGap);
-        if (isCaveGap) {
-          cell.replaceChildren();
-          cell.style.background = 'transparent';
-          cell.style.borderBottom = 'none';
-        } else if (cell.classList.contains('reel-sym')) {
-          cell.style.borderBottom = '2px solid rgba(0,0,0,0.2)';
-        }
+        cell.classList.toggle('is-cave-gap', false);
+        cell.style.borderBottom = '2px solid rgba(0,0,0,0.2)';
         cell.style.top = `${index * cellH}px`;
         cell.style.width = `${cellW}px`;
         cell.style.height = `${cellH}px`;
@@ -5288,9 +5301,9 @@ export class PreviewPanel {
       const cap = this.container.querySelector(`.reel-cap[data-reel="${reel}"]`);
       const shaft = this.container.querySelector(`.living-shaft[data-reel="${reel}"]`);
       if (shaft) {
-        shaft.style.top = `${maskTop}px`;
-        shaft.style.height = `${reelRows * cellH}px`;
-        shaft.dataset.rows = String(reelRows);
+        shaft.style.top = `${shaftTop}px`;
+        shaft.style.height = `${grownRows * cellH}px`;
+        shaft.dataset.rows = String(grownRows);
       }
       if (cap && !shaft) cap.style.top = `${maskTop}px`;
     }

@@ -120,6 +120,20 @@ export class PreviewPanel extends BasePreviewPanel {
     liveTease.textContent = 'Live 2-scatter';
     liveTease.title = 'Paid live SPIN that plants two scatters on reels 1–2, then uses the same waiting-reel schedule as Play Motion.';
 
+    const liveDreamfall = document.createElement('button');
+    liveDreamfall.className = 'tool-btn';
+    liveDreamfall.id = 'previewLiveDreamfall';
+    liveDreamfall.type = 'button';
+    liveDreamfall.textContent = 'Live Dreamfall';
+    liveDreamfall.title = 'Paid live SPIN that plants five gates, enters the 6×4 well, then grows a random reel on each win.';
+
+    const liveNexus = document.createElement('button');
+    liveNexus.className = 'tool-btn';
+    liveNexus.id = 'previewLiveNexus';
+    liveNexus.type = 'button';
+    liveNexus.textContent = 'Live Nexus';
+    liveNexus.title = 'Paid live SPIN that plants six gates and opens the unique 6×4 sanctum. No growth.';
+
     const status = document.createElement('span');
     status.id = 'previewMotionStatus';
     status.className = 'preview-mode';
@@ -147,7 +161,9 @@ export class PreviewPanel extends BasePreviewPanel {
     trigger.insertAdjacentElement('afterend', label);
     label.insertAdjacentElement('afterend', button);
     button.insertAdjacentElement('afterend', liveTease);
-    liveTease.insertAdjacentElement('afterend', copyArt);
+    liveTease.insertAdjacentElement('afterend', liveDreamfall);
+    liveDreamfall.insertAdjacentElement('afterend', liveNexus);
+    liveNexus.insertAdjacentElement('afterend', copyArt);
     copyArt.insertAdjacentElement('afterend', status);
     status.insertAdjacentElement('afterend', debug);
     debug.insertAdjacentElement('afterend', art);
@@ -158,6 +174,12 @@ export class PreviewPanel extends BasePreviewPanel {
     liveTease.addEventListener('click', () => {
       this.playLiveTwoScatter();
     });
+    liveDreamfall.addEventListener('click', () => {
+      this.playLiveDreamfallRound();
+    });
+    liveNexus.addEventListener('click', () => {
+      this.playLiveNexusRound();
+    });
     copyArt.addEventListener('click', () => {
       this.copyLiveArtBrief();
     });
@@ -165,18 +187,35 @@ export class PreviewPanel extends BasePreviewPanel {
   }
 
   playLiveTwoScatter() {
+    this.playLiveForcedScatter(2, 'Live 2-scatter', { switchToBase: false });
+  }
+
+  playLiveDreamfallRound() {
+    this.playLiveForcedScatter(5, 'Live Dreamfall', { switchToBase: true });
+  }
+
+  playLiveNexusRound() {
+    this.playLiveForcedScatter(6, 'Live Nexus', { switchToBase: true });
+  }
+
+  playLiveForcedScatter(count, label, { switchToBase = false } = {}) {
     this.motionPlayback?.stop?.();
     this.motionPlaying = false;
     if (this.spinning) return;
-    this.setMotionStatus('Live 2-scatter');
+    if (switchToBase) {
+      const mode = this.mathEngine?.getBetMode?.(this.selectedMode);
+      const canTrigger = mode?.profile?.entry !== 'freeSpins' && mode?.profile?.triggerFreeSpins !== false;
+      if (!canTrigger) this.selectPlayerMode?.('base');
+    }
+    this.setMotionStatus(label);
     this.setMotionDebug({
       path: 'live',
       grid: this.motionGridLabel(),
-      step: 'force-2',
+      step: `force-${count}`,
       tumbling: false,
       note: 'resolveRound',
     });
-    this.spin({ forceScatterCount: 2 });
+    this.spin({ forceScatterCount: count });
   }
 
   copyLiveArtBrief() {

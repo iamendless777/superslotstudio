@@ -165,12 +165,22 @@ test('live SPIN enters the 6×4 well and lifts a random reel instead of jumping 
   assert.match(source, /async playLiveDreamfallGrowth\(event, board = this\.board\)/);
   assert.match(source, /if \(event\.type === 'expandReelHeight'\) \{\s*await this\.playLiveDreamfallGrowth/);
   assert.match(source, /createMorpheusReservedWorldLayout\(\{[\s\S]*reelRows: beforeHeights/);
-  assert.match(source, /timeline\.to\(mask, \{ top: after\.mask\.top, height: after\.mask\.height/);
-  assert.match(source, /cell\.classList\.toggle\('is-cave-gap'/);
+  const liveGrow = source.slice(source.indexOf('async playLiveDreamfallGrowth'), source.indexOf('async playDerivedWinMechanics'));
+  assert.match(liveGrow, /timeline\.to\(shaft, \{ top: after\.mask\.top, height: after\.mask\.height/);
+  assert.doesNotMatch(liveGrow, /timeline\.to\(mask/);
+  assert.match(source, /grownCounts/);
+  assert.match(source, /tileCounts/);
   assert.match(source, /const customLook = \{[\s\S]*expandStickyReel: true[\s\S]*modeGridStart: true/);
   const mechanic = source.slice(source.indexOf('async playSpecialMechanicEvent'), source.indexOf('async playLiveDreamfallGrowth'));
   assert.match(mechanic, /if \(!customLook && uniqueTargets\.length\)/);
   assert.doesNotMatch(mechanic, /event\.type === 'expandReelHeight'[\s\S]{0,200}playEnergyTaps/);
+  assert.match(source, /expansionReels\.map\(\(reel\) => this\.cellAt\(reel, 0\)\)/);
+
+  const motionSource = motion();
+  assert.match(motionSource, /id = 'previewLiveDreamfall'/);
+  assert.match(motionSource, /id = 'previewLiveNexus'/);
+  assert.match(motionSource, /playLiveForcedScatter\(5, 'Live Dreamfall'/);
+  assert.match(motionSource, /playLiveForcedScatter\(6, 'Live Nexus'/);
 
   const portable = app();
   assert.match(portable, /if \(\(dreamfallWorldActive \|\| nexusWorldActive\) && Array\.isArray\(currentBoard\)/);

@@ -512,7 +512,7 @@ test('Dreamfall reel growth reveals a recessed tile well instead of a floating s
   assert.match(compiledStyles, /\.dreamfall-dormant-well/);
   assert.match(compiledStyles, /\.dreamfall-dormant-glyph/);
   assert.match(preview, /id="previewDormantGrid"/);
-  assert.match(preview, /maxRows - counts\[reel\]/);
+  assert.match(preview, /maxRows - grownCounts\[reel\]/);
   assert.match(preview, /well\.dataset\.dormantState = depth === 1 \? 'next' : 'locked'/);
   assert.match(preview, /this\.symbolDefinition\('DREAM_MASK'\)/);
   assert.match(previewStyles, /\.preview-dormant-well/);
