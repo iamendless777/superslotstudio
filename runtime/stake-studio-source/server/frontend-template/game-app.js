@@ -313,7 +313,16 @@ function beginFeature(event) {
     (activation.modeIds || []).includes(directMode?.name)
     || (activation.modeIds || []).includes(tierId)
     || (activation.mechanicIds || []).includes(mechanicId)
+    || /dreamfall/i.test(tierId)
+    || mechanicId === 'winningCascadeReelExpansion'
   ));
+  const nexusProfile = config.renderProfiles?.morpheusNexus;
+  nexusWorldActive = Boolean(nexusProfile && (
+    tierId === 'oneiric_nexus'
+    || /oneiric_nexus/i.test(String(tier?.id || tier?.name || ''))
+    || directMode?.name === 'oneiric_nexus'
+  ));
+  if (nexusWorldActive) dreamfallWorldActive = false;
   featureState = {
     active: true,
     mode: tier?.name || modeLabel(directMode) || 'Dream Feature',
@@ -330,6 +339,9 @@ function beginFeature(event) {
   };
   syncFeatureProgress();
   setMusic('bonusMusic');
+  if ((dreamfallWorldActive || nexusWorldActive) && Array.isArray(currentBoard) && currentBoard.length) {
+    renderBoard(currentBoard);
+  }
 }
 
 function updateFeatureProgress(event) {
@@ -493,8 +505,9 @@ function renderBoard(board) {
     const dormantGrid = node('div', 'dreamfall-dormant-grid');
     dormantGrid.style.setProperty('--dormant-rows', String(visualRowCapacity));
     for (let reel = 0; reel < board.length; reel++) {
-      const activeRows = Array.isArray(board[reel]) ? board[reel].length : 0;
-      const dormantRows = Math.max(0, visualRowCapacity - activeRows);
+      const tileRows = Array.isArray(board[reel]) ? board[reel].length : 0;
+      const grownRows = Math.max(tileRows, Number(featureState.reelRows?.[reel]) || 4);
+      const dormantRows = Math.max(0, visualRowCapacity - grownRows);
       for (let row = 0; row < dormantRows; row++) {
         const well = node('i', 'dreamfall-dormant-well');
         const depth = dormantRows - row;
@@ -516,13 +529,14 @@ function renderBoard(board) {
     ui.board.append(dormantGrid);
     const shafts = node('div', 'dreamfall-living-shafts');
     for (let reel = 0; reel < board.length; reel++) {
-      const activeRows = Array.isArray(board[reel]) ? board[reel].length : 4;
+      const tileRows = Array.isArray(board[reel]) ? board[reel].length : 4;
+      const grownRows = Math.max(tileRows, Number(featureState.reelRows?.[reel]) || 4);
       const shaft = node('div', 'living-shaft');
       shaft.dataset.reel = String(reel);
-      shaft.dataset.rows = String(activeRows);
+      shaft.dataset.rows = String(grownRows);
       shaft.style.left = `${reel / board.length * 100}%`;
       shaft.style.width = `${100 / board.length}%`;
-      shaft.style.height = `${Math.max(1, activeRows) / visualRowCapacity * 100}%`;
+      shaft.style.height = `${Math.max(1, grownRows) / visualRowCapacity * 100}%`;
       shaft.append(node('i', 'shaft-rail shaft-rail-left'), node('i', 'shaft-rail shaft-rail-right'));
       const cap = node('div', 'reel-cap');
       cap.dataset.reel = String(reel);
@@ -1317,7 +1331,10 @@ async function applyEvent(event, { instant = false } = {}) {
       syncFeatureProgress();
       break;
     case 'wincap': currentWin = Number(event.amount || 0) / 100; ui.winValue.textContent = `${currentWin.toFixed(2)}×`; flash('Maximum Win'); break;
-    case 'enterBonus': showStatus(`${event.tierName || featureState.mode || 'Gates of Sleep'} · ${event.totalFs || featureState.total || 0} Free Spins`, 2600); break;
+    case 'enterBonus':
+      if (!featureState.active) beginFeature(event);
+      showStatus(`${event.tierName || featureState.mode || 'Gates of Sleep'} · ${event.totalFs || featureState.total || 0} Free Spins`, 2600);
+      break;
     case 'dreamTierStart':
       if (event.tierName) featureState.mode = event.tierName;
       syncFeatureProgress();
@@ -1376,6 +1393,7 @@ async function applyEvent(event, { instant = false } = {}) {
       positionGridMode = event.mode || 'oneiric_nexus';
       if (positionGridMode === 'oneiric_nexus') {
         nexusWorldActive = true;
+        dreamfallWorldActive = false;
         renderBoard(currentBoard);
       }
       for (const cell of event.cells || []) {
@@ -1442,24 +1460,35 @@ async function applyEvent(event, { instant = false } = {}) {
         if (activatingDreamfallWorld) suspendSettledSymbolMotion();
         if (activatingDreamfallWorld) {
           dreamfallWorldActive = true;
+          if (!featureState.reelRows?.length) featureState.reelRows = [4, 4, 4, 4, 4, 4];
           renderBoard(currentBoard);
+        }
+        const reel = Number(event.reel);
+        const maxRows = Number(config.renderProfiles?.morpheusDreamfall?.maximumRows) || 8;
+        const previousRows = Math.max(4, Number(event.previousRows) || Number(featureState.reelRows?.[reel]) || 4);
+        const rows = Math.min(maxRows, Math.max(previousRows, Number(event.rows) || previousRows + 1));
+        if (!Array.isArray(featureState.reelRows)) featureState.reelRows = [4, 4, 4, 4, 4, 4];
+        featureState.reelRows[reel] = rows;
+        const shaft = ui.board?.querySelector(`.living-shaft[data-reel="${reel}"]`);
+        if (shaft && !instant) {
+          shaft.classList.add('is-growing', 'look-shaft-grow');
+          shaft.dataset.rows = String(rows);
+          shaft.style.transition = 'height .42s cubic-bezier(.16,.84,.22,1)';
+          shaft.style.height = `${rows / maxRows * 100}%`;
+          await new Promise((resolve) => window.setTimeout(resolve, 420));
+          shaft.classList.remove('is-growing', 'look-shaft-grow');
         }
         if (event.morpheusAuthoritative && event.board) {
           await settleReelMotion(event.board, instant, event.anticipation);
         }
-        featureState.reelRows = currentBoard.map(reel => Math.max(4, Number(reel?.length) || 4));
-        featureState.lastExpandedReel = Number(event.reel);
+        featureState.lastExpandedReel = reel;
         syncFeatureProgress();
         if (activatingDreamfallWorld) {
           await waitForVisualLayout();
           resumeSettledSymbolMotion();
         }
-        setFeatureAchievement(`REEL ${Number(event.reel) + 1} · ${event.rows || 4} ROWS`);
+        setFeatureAchievement(`REEL ${reel + 1} · ${rows} ROWS`);
         showStatus(`Dreamfall · ${featureState.achievement}`);
-        ui.board?.querySelector(`.living-shaft[data-reel="${Number(event.reel)}"]`)?.classList.add('is-growing');
-        window.setTimeout(() => {
-          ui.board?.querySelector(`.living-shaft[data-reel="${Number(event.reel)}"]`)?.classList.remove('is-growing');
-        }, 700);
       }
       break;
     case 'tumbleChainProgress':

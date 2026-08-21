@@ -2997,6 +2997,17 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   border: 1px solid rgba(214, 186, 132, .16);
   opacity: 1;
 }
+.reel-frame[data-dreamfall-world="active"] .reel-sym.is-cave-gap {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  pointer-events: none;
+}
+.reel-frame[data-dreamfall-world="active"] .reel-sym.is-cave-gap::after,
+.reel-frame[data-dreamfall-world="active"] .reel-sym.is-cave-gap img,
+.reel-frame[data-dreamfall-world="active"] .reel-sym.is-cave-gap canvas {
+  display: none !important;
+}
 .reel-frame[data-dreamfall-world="active"] .preview-dormant-well::before,
 .reel-frame[data-dreamfall-world="active"] .preview-dormant-well::after,
 .reel-frame[data-dreamfall-world="active"] .preview-dormant-glyph {

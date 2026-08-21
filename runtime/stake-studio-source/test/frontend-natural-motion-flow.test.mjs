@@ -506,7 +506,7 @@ test('Dreamfall reel growth reveals a recessed tile well instead of a floating s
   const preview = await readFile(new URL('../src/editor/preview/PreviewPanel.js', import.meta.url), 'utf8');
   const previewStyles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
   assert.match(source, /const dormantGrid = node\('div', 'dreamfall-dormant-grid'\)/);
-  assert.match(source, /visualRowCapacity - activeRows/);
+  assert.match(source, /visualRowCapacity - grownRows/);
   assert.match(source, /well\.dataset\.dormantState = depth === 1 \? 'next' : 'locked'/);
   assert.match(source, /symbolDefinition\('DREAM_MASK'\)/);
   assert.match(compiledStyles, /\.dreamfall-dormant-well/);

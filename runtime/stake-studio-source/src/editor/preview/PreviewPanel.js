@@ -221,6 +221,45 @@ export class PreviewPanel {
     );
   }
 
+  isMorpheusDreamfallFeature(mode = this.selectedMode) {
+    if (/dreamfall/i.test(String(mode || ''))) return true;
+    const tiers = this.project?.math?.featureArchitecture?.tiers || {};
+    const match = Object.values(tiers).find((tier) => tier?.id === mode || tier?.name === mode);
+    return match?.mechanic === 'winningCascadeReelExpansion';
+  }
+
+  isMorpheusNexusFeature(mode = this.selectedMode) {
+    if (/oneiric[_-]?nexus/i.test(String(mode || ''))) return true;
+    const tiers = this.project?.math?.featureArchitecture?.tiers || {};
+    const match = Object.values(tiers).find((tier) => tier?.id === mode || tier?.name === mode);
+    return Boolean(match?.mechanic === 'persistentPositionMultiplierGrid' && !/trickster/i.test(String(mode || '')));
+  }
+
+  enterMorpheusFeatureWorld(mode, reason = 'feature-entry') {
+    if (!this.isMorpheusDreamfallProject()) return false;
+    if (this.isMorpheusNexusFeature(mode) || this.featurePositionGridMode === 'oneiric_nexus') {
+      if (this.isMorpheusNexusWorldActive() && this.container.querySelector('.cabinet-layer-nexus-feature')) return 'nexus';
+      this.morpheusNexusWorldState = { active: true, reason };
+      if (this.isMorpheusDreamfallWorldActive()) this.deactivateMorpheusDreamfallWorld('nexus-takes-cabinet');
+      const saved = this.board;
+      this.render();
+      if (saved) this.paintBoard(saved);
+      return 'nexus';
+    }
+    if (!this.isMorpheusDreamfallFeature(mode)) return false;
+    const leavingNexus = this.isMorpheusNexusWorldActive();
+    if (leavingNexus) this.morpheusNexusWorldState = { active: false, reason: 'dreamfall-takes-cabinet' };
+    if (!this.featureReelRows.size) {
+      for (let reel = 0; reel < 6; reel += 1) this.featureReelRows.set(reel, 4);
+    }
+    if (!leavingNexus && this.isMorpheusDreamfallWorldActive() && this.container.querySelector('.living-shaft')) return 'dreamfall';
+    this.activateMorpheusDreamfallWorld(reason);
+    const saved = this.board;
+    this.render();
+    if (saved) this.paintBoard(saved);
+    return 'dreamfall';
+  }
+
   setMorpheusDreamfallWorldState(state = {}) {
     this.morpheusDreamfallWorldState = createMorpheusDreamfallWorldState(state);
     const stage = this.container.querySelector('#previewStage');
@@ -899,11 +938,8 @@ export class PreviewPanel {
     shaft?.classList.remove('is-growing', 'look-shaft-grow');
     cap?.classList.remove('is-growing');
     this.container.querySelector('#previewStage')?.classList.remove('is-shaft-growing');
-    await this.playSpecialMechanicEvent({
-      type: 'expandReelHeight',
-      ...payload,
-      positions: sourceEvent.affectedPositions,
-    }, this.board);
+    this.updateFeatureMechanic(this.mechanicCopy({ type: 'expandReelHeight', ...payload }));
+    this.playSpecialLook({ type: 'expandReelHeight', ...payload }, [], this.eventPositions(sourceEvent.affectedPositions || [{ reel, row: 0 }]));
   }
 
   async commitMorpheusDreamfallFinal({ report }) {
@@ -3971,6 +4007,7 @@ export class PreviewPanel {
 
       if (event.type === 'freeSpinTrigger' || event.type === 'enterBonus') {
         const spins = Math.max(0, Number(event.totalFs ?? event.spins) || 0);
+        this.enterMorpheusFeatureWorld(mode, event.type);
         await this.dispatchPresentation(event.type, {
           amount: (featureRunning + running) * this.baseBet,
           mode,
@@ -4104,10 +4141,20 @@ export class PreviewPanel {
     }
     window.setTimeout(() => {
       for (const cell of cells) cell.classList.remove(look);
-      this.container.querySelectorAll('.look-veil-expand, .look-shaft-grow, .look-plate-stamp').forEach((node) => {
-        node.classList.remove('look-veil-expand', 'look-shaft-grow', 'look-plate-stamp', 'is-growing');
-      });
-      this.container.querySelector('#previewStage')?.classList.remove('is-max-takeover', 'look-grid-awaken');
+      if (type === 'expandReelHeight') {
+        this.container.querySelector(`.living-shaft[data-reel="${event.reel}"]`)?.classList.remove('is-growing', look);
+      }
+      if (type === 'expandStickyReel' || type === 'veilWild' || type === 'expandingWild') {
+        const reel = Number(event.reel ?? sources[0]?.[0]);
+        this.container.querySelector(`.reel-mask[data-reel="${reel}"]`)?.classList.remove('look-veil-expand');
+      }
+      if (type === 'positionMultiplierGridUpdate') {
+        this.container.querySelectorAll('.preview-position-grid-plate.look-plate-stamp').forEach((plate) => {
+          plate.classList.remove('look-plate-stamp');
+        });
+      }
+      if (type === 'maxDream') this.container.querySelector('#previewStage')?.classList.remove('is-max-takeover');
+      if (type === 'modeGridStart') this.container.querySelector('#previewStage')?.classList.remove('look-grid-awaken');
     }, this.turboMode ? 280 : 760);
   }
 
@@ -4349,6 +4396,13 @@ export class PreviewPanel {
   }
 
   async playSpecialMechanicEvent(event, board = this.board) {
+    if (event.type === 'expandReelHeight') {
+      await this.playLiveDreamfallGrowth(event, board);
+      return;
+    }
+    if (event.type === 'modeGridStart' && (event.mode === 'oneiric_nexus' || this.isMorpheusNexusFeature(event.mode))) {
+      this.enterMorpheusFeatureWorld(event.mode || 'oneiric_nexus', 'mode-grid');
+    }
     this.applyPersistentMechanicState(event);
     this.syncReelLayout((board || []).map(column => column?.length || 0));
     let sources = this.eventPositions(event.sources || []);
@@ -4358,7 +4412,7 @@ export class PreviewPanel {
     }
     if (event.type === 'modeGridStart') targets = (event.cells || []).map(cell => this.eventPositions([cell.position])[0]).filter(Boolean);
     if (event.type === 'symbolMultiplierUpdate' || event.type === 'symbolMultiplierUpgrade') targets = this.positionsForSymbol(board, event.symbolFamily || event.symbol);
-    if (event.type === 'expandReelHeight' || event.type === 'expandStickyReel' || event.type === 'upgradeStickyReel') {
+    if (event.type === 'expandStickyReel' || event.type === 'upgradeStickyReel') {
       const reel = Number(event.reel);
       targets = (board?.[reel] || []).map((_, row) => [reel, row]);
     }
@@ -4375,26 +4429,84 @@ export class PreviewPanel {
     this.pulseMechanicCells(sources, 'is-mechanic-source');
     const uniqueTargets = [...new Map(targets.map(position => [position.join(':'), position])).values()];
     this.playSpecialLook(event, sources, uniqueTargets);
-    const targetPoints = uniqueTargets.map(position => this.pointForPosition(position));
-    const origin = sources.length
-      ? this.pointForPosition(sources[0])
-      : event.fromMoon ? this.project.theme?.presentationEffects?.winConnections?.origin || null : null;
-    const result = targetPoints.length ? this.visualEffectRuntime?.playEnergyTaps(targetPoints, {
-      origin,
-      groups: [targetPoints],
-      color: event.type === 'symbolPurge' ? '#f1c66c' : '#62e7ff',
-      coreColor: '#ffffff',
-      rimColor: event.type === 'wildBomb' && Number(event.size) >= 3 ? '#f1c66c' : '#d6a84b',
-      launchDuration: this.turboMode ? 0.18 : 0.42,
-      launchHold: this.turboMode ? 0.02 : 0.08,
-      reducedMotion: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
-      messengerAssetId: 'dreamfall.motion.moon-messenger',
-      impactAssetId: 'dreamfall.motion.oneiric-impact',
-    }) : null;
+    const customLook = {
+      expandStickyReel: true, veilWild: true, expandingWild: true, lucidWildMultiplier: true, lucidWild: true,
+      wildBomb: true, echoSplit: true, symbolPurge: true, wildStar: true, mysteryTransform: true,
+      maxDream: true, positionMultiplierGridUpdate: true, modeGridStart: true,
+    }[event.type];
+    let result = null;
+    if (!customLook && uniqueTargets.length) {
+      const targetPoints = uniqueTargets.map(position => this.pointForPosition(position));
+      const origin = sources.length
+        ? this.pointForPosition(sources[0])
+        : event.fromMoon ? this.project.theme?.presentationEffects?.winConnections?.origin || null : null;
+      result = this.visualEffectRuntime?.playEnergyTaps(targetPoints, {
+        origin,
+        groups: [targetPoints],
+        color: event.type === 'symbolPurge' ? '#f1c66c' : '#62e7ff',
+        coreColor: '#ffffff',
+        rimColor: event.type === 'wildBomb' && Number(event.size) >= 3 ? '#f1c66c' : '#d6a84b',
+        launchDuration: this.turboMode ? 0.18 : 0.42,
+        launchHold: this.turboMode ? 0.02 : 0.08,
+        reducedMotion: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
+        messengerAssetId: 'dreamfall.motion.moon-messenger',
+        impactAssetId: 'dreamfall.motion.oneiric-impact',
+      });
+    }
     this.pulseMechanicCells(uniqueTargets, 'is-mechanic-target');
     await this.waitForPresentationMotion(result);
     this.syncFeatureStateMarkers();
     await this.wait(this.turboMode ? 80 : 260);
+  }
+
+  async playLiveDreamfallGrowth(event, board = this.board) {
+    this.enterMorpheusFeatureWorld('dreamfall', 'expand-reel');
+    const reel = Number(event.reel);
+    const current = Math.max(4, Number(this.featureReelRows.get(reel) || board?.[reel]?.length || 4));
+    const rows = Math.min(8, Math.max(current, Number(event.rows) || current + 1));
+    const previousRows = Math.min(rows - 1, Math.max(4, Number(event.previousRows) || current));
+    const beforeHeights = Array.from({ length: 6 }, (_, index) => (
+      Number(this.featureReelRows.get(index) || board?.[index]?.length || 4)
+    ));
+    if (!Number.isFinite(beforeHeights[reel]) || beforeHeights[reel] < 4) beforeHeights[reel] = previousRows;
+    beforeHeights[reel] = Math.min(8, previousRows);
+    const afterHeights = [...beforeHeights];
+    afterHeights[reel] = Math.min(8, rows);
+    this.featureReelRows.set(reel, afterHeights[reel]);
+    this.updateFeatureMechanic(this.mechanicCopy({ type: 'expandReelHeight', reel, rows: afterHeights[reel] }));
+    const mask = this.container.querySelector(`.reel-mask[data-reel="${reel}"]`);
+    const cap = this.container.querySelector(`.reel-cap[data-reel="${reel}"]`);
+    const shaft = this.container.querySelector(`.living-shaft[data-reel="${reel}"]`);
+    if (!mask || !this.reelGeometry?.h || this.turboMode) {
+      this.syncReelLayout(afterHeights);
+      this.playSpecialLook({ type: 'expandReelHeight', reel, rows: afterHeights[reel] }, [], [[reel, 0]]);
+      return;
+    }
+    const before = createMorpheusReservedWorldLayout({
+      worldHeight: this.reelGeometry.h,
+      reelRows: beforeHeights,
+    }).reels[reel];
+    const after = createMorpheusReservedWorldLayout({
+      worldHeight: this.reelGeometry.h,
+      reelRows: afterHeights,
+    }).reels[reel];
+    gsap.set(mask, { top: before.mask.top, height: before.mask.height });
+    if (shaft) gsap.set(shaft, { top: before.mask.top, height: before.mask.height });
+    shaft?.classList.add('is-growing', 'look-shaft-grow');
+    cap?.classList.add('is-growing');
+    this.container.querySelector('#previewStage')?.classList.add('is-shaft-growing');
+    this.playSpecialLook({ type: 'expandReelHeight', reel, rows: afterHeights[reel] }, [], [[reel, 0]]);
+    await new Promise((resolve) => {
+      const timeline = gsap.timeline({ onComplete: resolve });
+      const duration = this.turboMode ? 0.18 : 0.42;
+      timeline.to(mask, { top: after.mask.top, height: after.mask.height, duration, ease: 'power3.out' });
+      if (shaft) timeline.to(shaft, { top: after.mask.top, height: after.mask.height, duration, ease: 'power3.out' }, 0);
+    });
+    this.syncReelLayout(afterHeights);
+    shaft?.classList.remove('is-growing', 'look-shaft-grow');
+    cap?.classList.remove('is-growing');
+    this.container.querySelector('#previewStage')?.classList.remove('is-shaft-growing');
+    this.syncFeatureStateMarkers();
   }
 
   async playDerivedWinMechanics(wins, board) {
@@ -4915,6 +5027,7 @@ export class PreviewPanel {
       mode: presentationMode,
       spins: totalSpins,
     });
+    this.enterMorpheusFeatureWorld(presentationMode, 'feature-entry');
 
     for (let index = 0; index < featureSpins.length; index++) {
       const spin = featureSpins[index];
@@ -5157,6 +5270,16 @@ export class PreviewPanel {
       [...strip.children].forEach((cell, index) => {
         cell.style.display = index < stripCells ? 'flex' : 'none';
         cell.dataset.visible = String(index >= buffer && index < buffer + reelRows);
+        const tileCount = this.board?.[reel]?.length || 0;
+        const isCaveGap = reservedWorld && index >= buffer + tileCount && index < buffer + reelRows;
+        cell.classList.toggle('is-cave-gap', isCaveGap);
+        if (isCaveGap) {
+          cell.replaceChildren();
+          cell.style.background = 'transparent';
+          cell.style.borderBottom = 'none';
+        } else if (cell.classList.contains('reel-sym')) {
+          cell.style.borderBottom = '2px solid rgba(0,0,0,0.2)';
+        }
         cell.style.top = `${index * cellH}px`;
         cell.style.width = `${cellW}px`;
         cell.style.height = `${cellH}px`;

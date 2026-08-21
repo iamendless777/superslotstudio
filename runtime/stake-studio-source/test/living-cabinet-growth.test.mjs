@@ -157,3 +157,30 @@ test('Cabinet editor lists both Dreamfall and Nexus scene plates', () => {
   assert.match(dreamfall.src, /morpheus-dreamfall-scene-matte/);
   assert.match(nexus.src, /morpheus-nexus-scene-matte/);
 });
+
+test('live SPIN enters the 6×4 well and lifts a random reel instead of jumping to 48', () => {
+  const source = preview();
+  assert.match(source, /enterMorpheusFeatureWorld\(mode, event\.type\)/);
+  assert.match(source, /enterMorpheusFeatureWorld\(presentationMode, 'feature-entry'\)/);
+  assert.match(source, /async playLiveDreamfallGrowth\(event, board = this\.board\)/);
+  assert.match(source, /if \(event\.type === 'expandReelHeight'\) \{\s*await this\.playLiveDreamfallGrowth/);
+  assert.match(source, /createMorpheusReservedWorldLayout\(\{[\s\S]*reelRows: beforeHeights/);
+  assert.match(source, /timeline\.to\(mask, \{ top: after\.mask\.top, height: after\.mask\.height/);
+  assert.match(source, /cell\.classList\.toggle\('is-cave-gap'/);
+  assert.match(source, /const customLook = \{[\s\S]*expandStickyReel: true[\s\S]*modeGridStart: true/);
+  const mechanic = source.slice(source.indexOf('async playSpecialMechanicEvent'), source.indexOf('async playLiveDreamfallGrowth'));
+  assert.match(mechanic, /if \(!customLook && uniqueTargets\.length\)/);
+  assert.doesNotMatch(mechanic, /event\.type === 'expandReelHeight'[\s\S]{0,200}playEnergyTaps/);
+
+  const portable = app();
+  assert.match(portable, /if \(\(dreamfallWorldActive \|\| nexusWorldActive\) && Array\.isArray\(currentBoard\)/);
+  assert.match(portable, /visualRowCapacity - grownRows/);
+  assert.match(portable, /shaft\.style\.height = `\$\{rows \/ maxRows \* 100\}%`/);
+  assert.match(portable, /classList\.add\('is-growing', 'look-shaft-grow'\)/);
+  const expansion = portable.match(/case 'expandReelHeight':[\s\S]*?case 'tumbleChainProgress':/)?.[0] || '';
+  assert.match(expansion, /await new Promise\(\(resolve\) => window\.setTimeout\(resolve, 420\)\)/);
+  assert.ok(
+    expansion.indexOf('shaft.style.height') < expansion.indexOf('settleReelMotion'),
+    'shaft must lift before any authoritative settle so the empty cave cell is visible',
+  );
+});

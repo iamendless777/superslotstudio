@@ -246,6 +246,23 @@ button:disabled { opacity: .42; cursor: not-allowed; }
   animation: compiled-cap-breathe 2.8s ease-in-out infinite;
 }
 .living-shaft.is-growing .shaft-cap-glow { animation: compiled-cap-grow .55s ease-out; opacity: 1; }
+.living-shaft.is-growing::after,
+.living-shaft.look-shaft-grow::after {
+  content: '';
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: -8px;
+  height: 28px;
+  background: radial-gradient(ellipse at 50% 0, rgba(255,236,190,.55), transparent 70%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: compiled-shaft-dust .6s ease-out both;
+}
+@keyframes compiled-shaft-dust {
+  0% { opacity: .8; transform: translateY(8px) scale(.8); }
+  100% { opacity: 0; transform: translateY(-18px) scale(1.2); }
+}
 @keyframes compiled-cap-breathe {
   0%,100% { opacity: .28; }
   50% { opacity: .62; }

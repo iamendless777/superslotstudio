@@ -143,7 +143,7 @@ test('compiled template routes typed envelopes through the portable session and 
   assert.match(source, /runtime\.launch\.studioPreview/);
   assert.match(source, /case 'mysteryTransform':[\s\S]{0,240}playBoardTransform/);
   assert.match(source, /case 'specialPositionsResolved':[\s\S]{0,600}playBoardTransform/);
-  assert.match(source, /case 'expandReelHeight':[\s\S]{0,400}settleReelMotion/);
+  assert.match(source, /case 'expandReelHeight':[\s\S]{0,1600}settleReelMotion/);
   assert.match(source, /case 'maxWinReached':[\s\S]{0,500}showFeatureFinale/);
   assert.match(source, /case 'roundTerminated'/);
 });
