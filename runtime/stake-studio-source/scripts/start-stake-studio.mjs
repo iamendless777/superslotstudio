@@ -1,6 +1,6 @@
-import { existsSync, watch } from 'node:fs';
+import { existsSync, watch, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer, loadEnv } from 'vite';
 
@@ -74,6 +74,54 @@ function watchMotionPlanner() {
   }
 }
 
+function pollAgentInbox() {
+  if (process.env.STAKE_STUDIO_AGENT !== '1' && process.env.STAKE_STUDIO_AGENT !== 'true') return;
+  const inboxRef = 'agent/inbox.json';
+  const outboxPath = join(repoRoot, 'agent/outbox.json');
+  let lastId = '';
+  const git = (args, extra = {}) => spawnSync('git', args, {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    timeout: extra.timeout || 15000,
+  });
+  const tick = async () => {
+    try {
+      const branch = (git(['rev-parse', '--abbrev-ref', 'HEAD']).stdout || '').trim() || 'integrate/studio-motion';
+      git(['fetch', 'origin', branch], { timeout: 20000 });
+      const shown = git(['show', `origin/${branch}:${inboxRef}`]);
+      if (shown.status !== 0) return;
+      const inbox = JSON.parse(shown.stdout);
+      if (!inbox?.id || inbox.id === lastId) return;
+      lastId = inbox.id;
+      const items = Array.isArray(inbox.commands) && inbox.commands.length
+        ? inbox.commands
+        : [{ command: inbox.command, arguments: inbox.arguments || {} }];
+      const results = [];
+      for (const item of items) {
+        if (!item?.command) continue;
+        const queued = await fetch(`http://127.0.0.1:${port}/__stake_studio/commands`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: item.command, arguments: item.arguments || {} }),
+        });
+        const body = await queued.json().catch(() => ({}));
+        results.push({ command: item.command, queued: queued.ok, id: body.id || null });
+        console.log(`[stake-studio] agent inbox ${inbox.id}: ${item.command}`);
+      }
+      const outbox = { id: inbox.id, at: new Date().toISOString(), results };
+      writeFileSync(outboxPath, `${JSON.stringify(outbox, null, 2)}\n`);
+      git(['add', '--', 'agent/outbox.json']);
+      const commit = git(['commit', '-m', `agent-outbox ${inbox.id}`, '--', 'agent/outbox.json']);
+      if (commit.status === 0) git(['push', 'origin', `HEAD:${branch}`], { timeout: 20000 });
+    } catch (error) {
+      console.warn('[stake-studio] agent inbox', error.message || error);
+    }
+  };
+  setTimeout(tick, 2500);
+  setInterval(tick, 5000);
+  console.log('[stake-studio] agent inbox polling origin agent/inbox.json every 5s');
+}
+
 if (liveReload) compileDomain();
 syncMotionFixtures();
 
@@ -81,25 +129,40 @@ const server = await createServer({
   configFile: false,
   root,
   publicDir: 'public',
-  plugins: [stakeStudioBridge({ openaiApiKey: env.OPENAI_API_KEY })],
+  plugins: [
+    stakeStudioBridge({ openaiApiKey: env.OPENAI_API_KEY }),
+    {
+      name: 'preview-no-vite-client',
+      transformIndexHtml(html) {
+        return html.replace(/<script type="module" src="\/@vite\/client"><\/script>\s*/g, '');
+      },
+    },
+  ],
+  optimizeDeps: {
+    include: ['gsap', 'html2canvas', 'howler', 'pixi.js'],
+    exclude: ['@esotericsoftware/spine-pixi-v8'],
+  },
   server: {
     host,
     port,
     strictPort: true,
     open: false,
+    allowedHosts: true,
+    cors: true,
     watch:
       process.env.STAKE_STUDIO_LIVE_RELOAD === '0'
         ? null
         : liveReload
           ? undefined
           : null,
-    hmr: process.env.STAKE_STUDIO_LIVE_RELOAD === '0' ? false : liveReload,
+    hmr: false,
   },
 });
 
 await server.listen();
 server.printUrls();
 watchMotionPlanner();
+pollAgentInbox();
 console.log(
   `[stake-studio] port=${port} host=${host} liveReload=${liveReload ? 'on' : 'off'}  open http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}/`,
 );

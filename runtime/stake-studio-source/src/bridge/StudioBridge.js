@@ -1108,6 +1108,32 @@ export class StudioBridge {
           dataUrl: canvas.toDataURL('image/png'),
         };
       }
+      case 'inspect_studio': {
+        const project = this.studio.project || {};
+        const cabinet = project.theme?.cabinet || {};
+        return {
+          activePanel: this.studio.activePanel || null,
+          projectId: this.studio.projectId || null,
+          name: project.name || null,
+          cabinet: {
+            width: cabinet.width || null,
+            height: cabinet.height || null,
+            layers: (cabinet.layers || []).map(layer => ({
+              id: layer.id || null,
+              type: layer.type || null,
+              name: layer.name || null,
+              x: layer.x,
+              y: layer.y,
+              width: layer.width,
+              height: layer.height,
+              hasSrc: Boolean(layer.src),
+              visible: layer.visible !== false,
+            })),
+          },
+          symbols: (project.theme?.symbols || []).length,
+          symbolsWithArt: (project.theme?.symbols || []).filter(symbol => symbol?.src).length,
+        };
+      }
       case 'select_panel':
         if (!VALID_PANELS.has(args.panel)) throw new Error(`Unknown panel "${args.panel}".`);
         if (!this.studio.project) throw new Error('Open or create a project first.');

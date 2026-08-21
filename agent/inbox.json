@@ -1,0 +1,7 @@
+{
+  "id": "inside-3001-1",
+  "commands": [
+    { "command": "select_panel", "arguments": { "panel": "cabinet" } },
+    { "command": "inspect_studio" }
+  ]
+}

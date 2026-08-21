@@ -18,7 +18,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const STUDIO = join(HERE, '..');
 const HOME = resolve(process.env.STAKE_STUDIO_HOME || join(STUDIO, '..'));
 const GAMES = join(HOME, 'games');
-const BRIDGE_URL = (process.env.STAKE_STUDIO_URL || 'http://127.0.0.1:3000').replace(/\/$/, '');
+const BRIDGE_URL = (process.env.STAKE_STUDIO_URL
+  || (process.env.STAKE_STUDIO_AGENT === '1' || process.env.PORT === '3001'
+    ? 'http://127.0.0.1:3001'
+    : 'http://127.0.0.1:3000')).replace(/\/$/, '');
 
 const { createGameProject, generateDefaultReelStrips } = await import(join(STUDIO, 'src/engines/schema.js'));
 const { persistProjectDocument, readProjectDocument } = await import(join(STUDIO, 'server/project-storage.mjs'));
