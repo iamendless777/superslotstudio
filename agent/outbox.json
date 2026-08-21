@@ -1,16 +1,5 @@
 {
-  "id": "inside-3001-1",
-  "at": "2026-08-21T03:01:44.359Z",
-  "results": [
-    {
-      "command": "select_panel",
-      "queued": true,
-      "id": "mt2d542b-84v2ye"
-    },
-    {
-      "command": "inspect_studio",
-      "queued": true,
-      "id": "mt2d54hv-q8tj8s"
-    }
-  ]
+  "id": "mcp-boot-1",
+  "at": "2026-08-21T03:04:27.783Z",
+  "results": []
 }
