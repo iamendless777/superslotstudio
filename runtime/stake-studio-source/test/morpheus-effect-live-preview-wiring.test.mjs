@@ -103,9 +103,12 @@ test('pre-reveal capture producer is cache-bound and never requests symbol recog
   const [index, app, bridge] = await Promise.all([
     readFile(indexUrl, 'utf8'), readFile(appUrl, 'utf8'), readFile(bridgeUrl, 'utf8'),
   ]);
-  assert.match(index, /app\.js\?v=visual-excellence-20260815-22/);
-  assert.match(app, /PreviewPanel\.js\?orchestration=20260815-40/);
-  assert.match(app, /StudioBridge\.js\?orchestration=20260815-32/);
+  assert.match(index, /app\.js\?v=[a-z0-9-]+/);
+  assert.match(app, /import \{ PreviewPanel \} from \'\.\/editor\/preview\/PreviewPanelMotion\.js\'/);
+  assert.match(app, /StudioBridge\.js\?orchestration=[a-z0-9-]+/);
+  const wrapper = await readFile(new URL('../src/editor/preview/PreviewPanelMotion.js', import.meta.url), 'utf8');
+  assert.match(wrapper, /import \{ PreviewPanel as BasePreviewPanel \} from '\.\/PreviewPanel\.js\?orchestration=[a-z0-9-]+'/);
+  assert.match(wrapper, /class PreviewPanel extends BasePreviewPanel/);
   assert.match(bridge, /let authoritativeRevealCommitted = false/);
   assert.match(bridge, /if \(observation\.sourceEvent\.type === 'reveal'\) authoritativeRevealCommitted = true/);
   assert.match(bridge, /const boardCommitted = authoritativeRevealCommitted/);

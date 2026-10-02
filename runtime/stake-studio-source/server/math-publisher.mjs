@@ -377,10 +377,8 @@ export function createMathPublisher({ studioHome }) {
   const officialVerifier = join(serverDir, 'refresh_official_math_verification.py');
   const workspaceRoot = join(home, 'build', 'math-sdk-workspaces');
   const jobs = new Map();
-  const pythonReady = existsSync(python);
-
   function requireMathSdk() {
-    if (!pythonReady) throw new Error('The official math-sdk Python environment is not installed.');
+    if (!existsSync(python)) throw new Error('The official math-sdk Python environment is not installed.');
   }
 
   function prepareWorkspace(projectId, files) {

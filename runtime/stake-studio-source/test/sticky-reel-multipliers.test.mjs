@@ -6,7 +6,8 @@ import { MathEngine } from '../src/engines/math/MathEngine.js';
 import { createGameProject } from '../src/engines/schema.js';
 
 function project() {
-  const value = createGameProject({ name: 'Sticky Reel Fixture' });
+  // Blueprint reel shuffles use project.id as well as the round's RNG seed.
+  const value = createGameProject({ id: 'sticky-reel-fixture', name: 'Sticky Reel Fixture' });
   applyGameBlueprint(value, 'sticky_reel_forge');
   return value;
 }
@@ -71,6 +72,8 @@ test('complete sticky-reel rounds replay deterministically and do not leak state
 
   assert.deepEqual(first, second);
   assert.ok([1, 2, 3].includes(first.featureTier));
+  assert.equal(first.wincapHit, false);
   assert.equal(first.freeSpinsPlayed >= 8, true);
+  assert.equal(first.freeSpinsPlayed, first.freeSpinsAwarded);
   assert.deepEqual(new MathEngine(value).createStickyReelState(() => 0.5, 1).stickyReels, {});
 });

@@ -70,6 +70,37 @@ CI runs the locked root install, shared type-check/tests, fixture freshness chec
 and root production-dependency audit on pull requests and canonical-branch pushes.
 The broader Studio suite and frontend build are separate checks listed above.
 
+### Official math SDK for Studio tests
+
+The full `test:studio` suite executes generated Python against the official SDK;
+`npm run setup` installs only JavaScript dependencies. Use Python 3.12 or later
+and an isolated virtual environment. The following fresh-checkout setup uses the
+[documented upstream commit](https://github.com/StakeEngine/math-sdk/tree/600a37657c75d67c0412bf3952a01d7e7ee99987):
+
+```sh
+# Choose a Studio home outside this checkout; use the live app's home if one exists.
+export STAKE_STUDIO_HOME="$HOME/Developer/Game Studio Home"
+mkdir -p "$STAKE_STUDIO_HOME/games" "$STAKE_STUDIO_HOME/reference"
+SDK="$STAKE_STUDIO_HOME/reference/math-sdk"
+git clone https://github.com/StakeEngine/math-sdk.git "$SDK"
+git -C "$SDK" checkout 600a37657c75d67c0412bf3952a01d7e7ee99987
+python3 -m venv "$SDK/env"
+sed '/^-e /d' "$SDK/requirements.txt" > "$SDK/requirements-local.txt"
+"$SDK/env/bin/pip" install -r "$SDK/requirements-local.txt"
+"$SDK/env/bin/pip" install --no-deps -e "$SDK"
+npm run test:studio
+```
+
+Check `python3 --version` before creating the environment. These commands target
+POSIX shells and a new SDK directory; do not replace an existing SDK checkout
+without reviewing its state. The filtered requirements omit upstream's stale
+editable self-reference, which otherwise installs a different SDK commit.
+`STAKE_STUDIO_HOME` selects the shared project and SDK directory; keep it set in
+the shell used for Studio and its tests so they resolve the same home.
+Python SDK tests and local verification do not require Cargo. Production math
+optimization additionally requires Rust/Cargo and its own verification; passing
+these tests does not establish production-publish readiness.
+
 Local previews, draft math, and passing tests do not establish production approval.
 The shared code does not implement an RGS, wallet, or remote RNG service. See the
 [architecture decisions](docs/adr/) and [upstream contract ledger](docs/upstream/README.md).

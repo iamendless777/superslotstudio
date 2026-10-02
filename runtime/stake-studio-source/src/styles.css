@@ -1939,7 +1939,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 }
 @media (prefers-reduced-motion: reduce) { .preview-position-grid-plate.is-newly-charged { animation: none !important; } }
 .reel-frame.is-tumbling > .reel-mask { visibility: visible; }
-.reel-frame.is-tumbling > .reel-mask .reel-sym,
+/* Keep canonical tile wells fixed; only their artwork moves in the overlay. */
 .reel-frame.is-tumbling > .reel-mask .reel-sym > * { visibility: hidden !important; }
 .preview-stage:has(.reel-frame.is-tumbling) #previewVisualEffectLayer {
   visibility: hidden !important;

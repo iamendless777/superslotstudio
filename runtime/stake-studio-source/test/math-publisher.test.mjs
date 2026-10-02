@@ -11,6 +11,7 @@ import { createGameProject } from '../src/engines/schema.js';
 import { MathSDKExporter } from '../src/engines/build/MathSDKExporter.js';
 import {
   attachMathTailAnalysis,
+  createMathPublisher,
   estimateMathPublisherWorkspace,
   getMathPublisherProfile,
   getProjectMathPublisherExecution,
@@ -27,6 +28,21 @@ const sdkRoot = resolveMathSdkRoot();
 const python = join(sdkRoot, 'env', 'bin', 'python');
 const verifier = join(studioRoot, 'server', 'verify_math_publish.py');
 const aligner = join(studioRoot, 'server', 'align_math_publish.py');
+
+test('publisher detects SDK installation and removal without restarting the studio', () => {
+  const home = mkdtempSync(join(tmpdir(), 'stakestudio-sdk-install-'));
+  const interpreter = join(home, 'reference', 'math-sdk', 'env', 'bin', 'python');
+  try {
+    const publisher = createMathPublisher({ studioHome: home });
+    const start = () => publisher.start({ projectId: 'missing-project', files: {} });
+    assert.throws(start, /official math-sdk Python environment is not installed/);
+    mkdirSync(dirname(interpreter), { recursive: true });
+    writeFileSync(interpreter, 'fixture: no process will be launched');
+    assert.throws(start, /No StakeStudio project document.*missing-project/);
+    rmSync(interpreter);
+    assert.throws(start, /official math-sdk Python environment is not installed/);
+  } finally { rmSync(home, { recursive: true, force: true }); }
+});
 
 function makePublishFixture(root, mismatch = false, booksOverride = null) {
   const publish = join(root, 'publish_files');

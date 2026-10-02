@@ -29,7 +29,7 @@ test('factory reel cadence and authored win tiers pass polish QA', () => {
   assert.deepEqual(evaluation.reels.stopGapsMs, [190, 190, 190, 190]);
   assert.equal(regular.totalMs, 1280);
   assert.equal(anticipation.anticipationCueMs, 1140);
-  assert.equal(anticipation.totalMs, 2000);
+  assert.equal(anticipation.totalMs, 2480);
 });
 
 test('tier-aware Director runtime does not truncate a mega-win animation', async () => {

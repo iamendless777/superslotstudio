@@ -105,9 +105,9 @@ test('Preview establishes spin clipping before transient reel art can mount', as
   assert.match(spin, /this\.visualEffectRuntime\?\.cancel\?\.\(\)/);
   assert.doesNotMatch(spin, /this\.landedReels\.add\(r\);\s*this\.syncSymbolMotionFlipbooks\(\)/);
   assert.match(css, /\.preview-reel-spin-track \{[^}]*visibility: hidden;[^}]*opacity: 0;/s);
-  assert.match(css, /\[data-animation-state="spinning"\] \.preview-reel-spin-track \{ visibility: visible; opacity: 1; \}/);
+  assert.match(css, /\.preview-stage:is\(\[data-animation-state="spinning"\], \[data-animation-state="anticipation"\], \.is-reel-tease\) \.preview-reel-spin-track \{\s*visibility: visible !important;\s*opacity: 1 !important;/);
   assert.match(css, /\.reel-mask:not\(\.has-stopped\) > \.reel-strip \.reel-sym img \{ visibility: hidden; opacity: 0 !important; \}/);
-  assert.match(css, /filter: blur\(1\.8px\) saturate\(\.78\) brightness\(\.78\)/);
+  assert.match(css, /filter: blur\(\.65px\) saturate\(\.9\) brightness\(\.84\)/);
   assert.match(css, /scaleY\(1\.065\)/);
   assert.doesNotMatch(css, /scaleY\(1\.34\)/);
 });
@@ -270,7 +270,8 @@ test('Preview and exported tumbles keep professional tile wells fixed while artw
   assert.match(previewCss, /rgba\(164,196,221,\.3\)/);
   assert.match(compiledCss, /rgba\(164,196,221,\.3\)/);
   assert.match(previewCss, /\.reel-frame\.is-tumbling > \.reel-mask \{ visibility: visible; \}/);
-  assert.match(previewCss, /\.reel-frame\.is-tumbling > \.reel-mask \.reel-sym img \{ visibility: hidden; \}/);
+  assert.match(previewCss, /\.reel-frame\.is-tumbling > \.reel-mask \.reel-sym > \* \{ visibility: hidden !important; \}/);
+  assert.doesNotMatch(previewCss, /\.reel-frame\.is-tumbling > \.reel-mask \.reel-sym\s*[,\{]/);
   assert.match(previewCss, /\.preview-tumble-symbol::before \{ content: none; \}/);
   assert.match(previewCss, /\.preview-tumble-symbol \{[^}]*border: 0;[^}]*background: transparent !important;[^}]*box-shadow: none;/);
   assert.match(compiledCss, /\.board\.is-tumbling \.reel > \.symbol \{ overflow: visible; \}/);
@@ -388,9 +389,9 @@ test('Preview tumble makes recognition, reaction, clear, gravity, and landing vi
   assert.match(tumble, /classList\.add\('is-tumble-recognized'\)/);
   assert.match(tumble, /classList\.add\('is-tumble-reacting'\)/);
   assert.match(tumble, /classList\.add\('is-tumble-clearing'\)/);
-  assert.match(tumble, /filter: 'blur\(5px\) brightness\(1\.25\)'/);
+  assert.match(tumble, /phase\('reaction'\).*phase\('clear'\)/);
   assert.match(tumble, /ease: 'power2\.in'/);
-  assert.match(tumble, /scaleY: \.94, scaleX: 1\.035/);
+  assert.match(tumble, /timeline\.to\(landingCells,[\s\S]*phase\('settle'\)/);
   assert.match(css, /@keyframes preview-tumble-recognition/);
   assert.match(css, /@keyframes preview-tumble-reaction/);
   assert.match(css, /@keyframes preview-tumble-clear-burst/);

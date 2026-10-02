@@ -40,10 +40,27 @@ describe('MotionCueHost', () => {
     assert.ok(tumble.includes('clear:clear-tile'));
     assert.ok(tumble.includes('fall:travel-to-destination'));
     assert.ok(tumble.includes('settle:settle-at-destination'));
-    assert.ok(anim.includes('spinStart'));
+    assert.deepEqual(tumble, ['enter:stage-entry', 'clear:clear-tile', 'fall:travel-to-destination', 'settle:settle-at-destination', 'win:win-highlight']);
+    assert.equal(anim.includes('spinStart'), false);
     assert.ok(anim.includes('winSmall'));
-    assert.ok(presentation.includes('tumbleBoard'));
-    assert.ok(presentation.includes('winInfo'));
+    assert.deepEqual(presentation, []);
+  });
+
+  it('only dispatches opted-in safe reel presentation events', async () => {
+    const presentation = [];
+    await playCueSheet({
+      totalDurationMs: 10,
+      cues: [
+        { cue: 'reel.stop', startMs: 0, durationMs: 10 },
+        { cue: 'win.pulse', startMs: 0, durationMs: 10 },
+        { cue: 'board.shake', startMs: 0, durationMs: 10 },
+      ],
+    }, {
+      allowPresentationEvents: true,
+      onPresentationEvent: event => presentation.push(event),
+      wait: async () => {},
+    });
+    assert.deepEqual(presentation, ['reveal']);
   });
 
   it('does not double-fire on extra ticks', () => {

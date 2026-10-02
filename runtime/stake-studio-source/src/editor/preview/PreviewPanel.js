@@ -3708,7 +3708,7 @@ export class PreviewPanel {
           this.updateHUD();
           this.scheduleSymbolMotionSync({ authoritativeLanded: true });
           this.highlightSettledBookWins();
-          void this.dispatchPresentation('reveal', {
+          await this.dispatchPresentation('reveal', {
             board: newBoard,
             anticipation: this.hasScatterAnticipation(newBoard),
             mode: this.selectedMode,
@@ -3844,7 +3844,7 @@ export class PreviewPanel {
       return;
     }
     const playback = await this.playSpinEventBook(res, { alreadyLanded: true, mode: this.selectedMode });
-    await this.recoverWinPresentation({ immediate: true });
+    await this.recoverWinPresentation();
     this.board = playback.currentBoard;
     this.paintBoard(playback.currentBoard);
     this.clearWinHighlights();
@@ -3977,14 +3977,15 @@ export class PreviewPanel {
         if (feature) this.updateFeatureProgress(mode, featureIndex, featureTotal, (featureRunning + running) * this.baseBet);
         this.animateWinDisplay(stepWin * this.baseBet, { overlay: false });
         const winMotion = this.highlightWins(wins);
-        void this.dispatchPresentation('winInfo', {
+        const presentationMotion = Promise.resolve(this.dispatchPresentation('winInfo', {
           wins,
           winsAlreadyHighlighted: true,
           amount: stepWin * this.baseBet,
           runningAmount: (featureRunning + running) * this.baseBet,
           mode,
-        });
-        await this.waitForPresentationMotion(winMotion);
+        }));
+        await Promise.all([presentationMotion, this.waitForPresentationMotion(winMotion)]);
+        await this.waitForActiveVisualChoreography('tile-connection');
         continue;
       }
 

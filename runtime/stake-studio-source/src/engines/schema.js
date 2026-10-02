@@ -38,7 +38,7 @@ export function createGameProject(overrides = {}) {
       lore: '',
       colorPalette: [],
       cabinet: { layers: [], width: 1280, height: 800 },
-      symbols: DEFAULT_SYMBOLS.map(s => ({ ...s })),
+      symbols: DEFAULT_SYMBOLS.map(s => ({ ...s, payouts: { ...s.payouts }, special: [...s.special] })),
       character: null,
     },
 

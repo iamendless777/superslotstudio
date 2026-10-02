@@ -83,7 +83,7 @@ test('authored composition uses one full-screen cabinet coordinate plane', async
   assert.match(styles, /\.game-shell\[data-composition-mode="full-canvas-cabinet-v1"\] \.stage \{[\s\S]*?position: absolute;[\s\S]*?left: 50%;[\s\S]*?top: 50%;[\s\S]*?width: min\(100vw,[\s\S]*?height: min\(100vh,[\s\S]*?transform: translate\(-50%, -50%\);[\s\S]*?overflow: clip;[\s\S]*?border-radius: 0;[\s\S]*?background: transparent;/);
   assert.match(styles, /\.player-dashboard\[data-authored-composition="true"\] \{[\s\S]*?min-height: 0;/);
   assert.match(styles, /\.game-shell\[data-composition-mode="full-canvas-cabinet-v1"\] \.authored-control\.bet-step > span \{\s*display: none;/);
-  assert.match(app, /dreamfallWorldActive \? dreamfallProfile\?\.world : config\.reelArea/);
+  assert.match(app, /config\.reelArea \|\| \(dreamfallWorldActive \? dreamfallProfile\?\.world : null\)/);
   assert.match(app, /symbols\.length\) \/ visualRowCapacity \* 100/);
   assert.match(styles, /\.game-shell\.is-dreamfall-world \.authored-world-foreground,[\s\S]*?visibility: hidden/);
   assert.match(styles, /\.game-shell:not\(\.is-dreamfall-world\) \.authored-world-dreamfall-cabinet \{ display: none; \}/);
@@ -101,4 +101,25 @@ test('enhanced wager modes present their board-selection cause with authored mot
   assert.match(app, /Chosen from \$\{event\.candidateCount/);
   assert.match(effects, /'modeBoardSelection'/);
   assert.match(app, /case 'symbolUpgrade':[\s\S]*?event\.morpheusAuthoritative && event\.boardAfter[\s\S]*?await playBoardTransform/);
+});
+
+test('exported board honors authored cabinet geometry and uses feature geometry only as fallback', async () => {
+  const app = await readFile(new URL('../server/frontend-template/game-app.js', import.meta.url), 'utf8');
+  const start = app.indexOf('  const geometry =', app.indexOf('function renderBoard('));
+  const end = app.indexOf("  ui.board.style.setProperty('--rows'", start);
+  assert.ok(start > 0 && end > start);
+  const positionBoard = new Function('config', 'dreamfallWorldActive', 'dreamfallProfile', 'ui', app.slice(start, end));
+  const profile = { world: { x: 50, y: 100, width: 400, height: 600 } };
+  const config = {
+    cabinetSize: { width: 1000, height: 1000 },
+    reelArea: { x: 100, y: 200, width: 600, height: 500 },
+  };
+  for (const active of [false, true]) {
+    const ui = { board: { style: {} } };
+    positionBoard(config, active, profile, ui);
+    assert.deepEqual(ui.board.style, { left: '10%', top: '20%', width: '60%', height: '50%' });
+  }
+  const ui = { board: { style: {} } };
+  positionBoard({ cabinetSize: config.cabinetSize }, true, profile, ui);
+  assert.deepEqual(ui.board.style, { left: '5%', top: '10%', width: '40%', height: '60%' });
 });

@@ -57,7 +57,7 @@ test('cascade playback consumes Stake events without whole-board repaint drops',
   assert.doesNotMatch(player, /dropBoardIn\(\)/);
   assert.match(source, /frame\.classList\.add\('is-tumbling'\)/);
   assert.match(css, /\.reel-frame\.is-tumbling > \.reel-mask \{ visibility: visible; \}/);
-  assert.match(css, /\.reel-frame\.is-tumbling > \.reel-mask \.reel-sym img \{ visibility: hidden; \}/);
+  assert.match(css, /\.reel-frame\.is-tumbling > \.reel-mask \.reel-sym > \* \{ visibility: hidden !important; \}/);
   assert.match(css, /\.preview-tumble-symbol::before \{ content: none; \}/);
   assert.match(css, /\.preview-tumble-symbol \{[^}]*background: transparent !important;[^}]*box-shadow: none;/);
   assert.match(css, /\.preview-tumble-layer/);
