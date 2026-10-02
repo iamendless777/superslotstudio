@@ -1,71 +1,75 @@
-# Super Slot Studio
+# Stake Studio
 
-Standing identity: [`AGENTS.md`](AGENTS.md).
+[![CI](https://github.com/iamendless777/superslotstudio/actions/workflows/ci.yml/badge.svg?branch=integrate%2Fstudio-motion)](https://github.com/iamendless777/superslotstudio/actions/workflows/ci.yml)
 
-- **TAG: STUDIO** — this repo is Stake Studio, the factory that ships Stake.com slots.
-- **TAG: GAME** — the open project in the running studio is the game being made right now. Games change. Do not hard-code a game name here.
+Stake Studio is the factory for creating Stake.com slot games. The canonical branch is
+`integrate/studio-motion`. The only app is in `runtime/stake-studio-source`.
+Games are projects opened inside Studio; they are not separate copies of the app.
+Read the standing identity and operating contract in [AGENTS.md](AGENTS.md).
 
+## Open Studio
 
-[![CI](https://github.com/realitybeast/superslotstudio/actions/workflows/ci.yml/badge.svg)](https://github.com/realitybeast/superslotstudio/actions/workflows/ci.yml)
-
-Dependency-free Stake Engine domain foundation. The current implementation owns
-only local contracts, validation, recovery decisions, adapters, and test doubles;
-it does not implement an RGS, wallet, RNG service, remote gaming server, or game UI.
-
-## Current boundaries
-
-- Authoritative money is a non-negative safe integer in six-decimal RGS units.
-- Upstream data enters through explicit runtime validation.
-- `RgsPort` is the only integration-facing domain boundary.
-- The pure recovery machine emits commands but performs no I/O.
-- Monetary mutations are sent once; ambiguous outcomes reconcile through
-  Authenticate rather than blind retry.
-- The fake adapter supports deterministic contract and orchestration tests without
-  importing a Stake Engine package.
-- The serialized orchestrator executes emitted commands exactly once and
-  reconciles unknown monetary outcomes through Authenticate.
-- Versioned local game-event envelopes reject unknown types, malformed payloads,
-  duplicate/gapped indexes, and invalid resume checkpoints.
-- The dependency-free HTTP adapter constrains launch-derived RGS hosts, defaults to
-  HTTPS, validates every endpoint response, trusts only documented RGS error codes
-  as definite rejections, and never retries. Deployments can require an exact RGS
-  host allowlist before any session credential is sent.
-- The UI-free `GameSession` exposes player intent without exposing internal
-  transport-result events to presentation code.
-- `createHttpGameSession` provides a lazy, validated composition path from a launch
-  URL to the application facade.
-- Public replay uses a separate read-only transport and session, requires no player
-  session, validates game state, and exposes no wagering operations.
-- Classic Nine defines an original 3×3, presentation-only event contract; it never
-  selects outcomes or calculates payouts.
-- Draft offline Classic Nine evaluation and exact weighted-book analysis live under
-  `tools/math`; they are not exported runtime or approved production math. Review
-  reports use decimal strings and reduced integer ratios to remain JSON-safe and
-  avoid floating-point loss. Offline review criteria can check exact return, hit
-  rate, definition identity, and maximum win, but cannot grant production approval.
-- A deterministic local failure-injection runner records recovery behavior for lost
-  Play, checkpoint, and EndRound responses. Its report is local evidence only, not
-  a substitute for authorized Stake Engine staging verification.
-
-See the accepted [architecture decisions](docs/adr/) and the
-[upstream contract ledger](docs/upstream/README.md).
-
-## Commands
+Use Node.js 20 or later. From this repository's root:
 
 ```sh
-npm install
-npm run check
-npm test
-npm run --silent evidence:recovery
-npm run demo
+npm run setup
+npm start
 ```
 
-Pull requests and pushes to `main` run the locked install, strict type-check, full
-test suite, and production-dependency audit in GitHub Actions.
+Setup installs both locked dependency sets. Run it on a fresh checkout or after
+lockfile changes. `npm start` launches the Studio window, or reuses the existing
+window. `npm run dev`, `npm run dev:agent`, and `npm run studio` are aliases for
+the same app, not separate products.
 
-The test command builds the strict TypeScript project and runs the compiled tests
-with Node's built-in test runner.
-The recovery evidence command prints a versioned JSON report to standard output;
-use `npm run --silent evidence:recovery > recovery-evidence.json` to save it.
-The demo command serves the deterministic Classic Nine presentation preview at
-`http://127.0.0.1:4173` after building the library.
+Use Cabinet, Game Config, Reel Strips, Simulate, Preview, Audio, Atlas, FX Lab,
+Spine, Quality, and Build inside that window. Use **New Game** or **Load** to
+change projects. The header identifies the current game.
+
+Models connect to that same app through the root `.mcp.json` configuration or
+`npm run mcp`; MCP does not launch a separate Studio. Start with `inspect_studio`
+and `get_studio_state`. See [the production loop](docs/THE_LOOP.md).
+
+## Repository map
+
+- `runtime/stake-studio-source/`: the Studio UI, server, MCP bridge, build engines,
+  runtime assets, and Studio regression tests.
+- `src/` and `tools/studio/`: shared domain contracts, motion planner, templates,
+  and fixture generation used by the Studio launcher. These are supporting code,
+  not another app.
+- `tools/math/` and `tools/evidence/`: offline math review and recovery verification.
+- `test/`: shared domain and motion-planner tests.
+- `agent/`: the live Studio's command inbox.
+- `docs/`: production workflow, architecture decisions, and upstream contracts.
+
+The old standalone Classic Nine, replay, and timeline demo pages and demo server
+have been removed. Preview games in Studio's **Preview** panel. Their previous
+source remains available in Git history.
+
+## Development and verification
+
+```sh
+npm run check
+npm test
+npm run test:studio
+npm run build:studio
+```
+
+- `check`: strict TypeScript validation for shared code.
+- `test`: regenerate motion fixtures, test shared contracts/planning, and test
+  the integrated presentation components.
+- `test:studio`: the Studio's broader regression suite.
+- `build:studio`: regenerate motion fixtures and build the Studio frontend.
+- `build` / `studio:fixtures`: compile shared tooling and regenerate the committed
+  `runtime/stake-studio-source/public/motion-fixtures` consumed by Studio.
+- `studio:cli`: supporting planner CLI, for example
+  `npm run studio:cli -- templates` or `npm run studio:cli -- plan cluster-hex`.
+- `evidence:recovery`: print a versioned local failure-injection report, for example
+  `npm run --silent evidence:recovery > recovery-evidence.json`.
+
+CI runs the locked root install, shared type-check/tests, fixture freshness check,
+and root production-dependency audit on pull requests and canonical-branch pushes.
+The broader Studio suite and frontend build are separate checks listed above.
+
+Local previews, draft math, and passing tests do not establish production approval.
+The shared code does not implement an RGS, wallet, or remote RNG service. See the
+[architecture decisions](docs/adr/) and [upstream contract ledger](docs/upstream/README.md).

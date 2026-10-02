@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -69,11 +69,40 @@ describe("motion fixtures", () => {
     const index = JSON.parse(
       readFileSync(join(fixtureDir, "index.json"), "utf8"),
     );
-    assert.deepEqual(index, buildMotionFixtureIndex());
+    const generated = buildMotionFixtureIndex();
+    assert.equal(index.catalogVersion, generated.catalogVersion);
+    for (const entry of generated.templates) {
+      assert.deepEqual(index.templates.find((item: { id: string }) => item.id === entry.id), entry);
+    }
     for (const id of listMotionFixtureIds()) {
       const onDisk = JSON.parse(readFileSync(join(fixtureDir, `${id}.json`), "utf8"));
       assert.deepEqual(onDisk, buildMotionFixture(id), id);
     }
+  });
+
+  it("preserves runtime-only fixtures and UI order across repeated generation", () => {
+    const root = mkdtempSync(join(tmpdir(), "motion-preserve-"));
+    const { indexPath } = writeMotionFixtures(root);
+    const generated = buildMotionFixtureIndex();
+    const runtimeEntry = {
+      id: "scatter-tease", styleId: "scatter-tease", kind: "reel",
+      totalDurationMs: 4200, title: "2-scatter tease", missingArt: 0,
+      readyToCommission: true,
+    };
+    const first = generated.templates[0]!;
+    const expected = {
+      catalogVersion: 2,
+      templates: [runtimeEntry, ...generated.templates],
+    };
+    writeFileSync(indexPath, JSON.stringify({
+      ...expected,
+      templates: [runtimeEntry, { ...first, totalDurationMs: -1 }, ...generated.templates.slice(1)],
+    }));
+    writeMotionFixtures(root);
+    assert.deepEqual(JSON.parse(readFileSync(indexPath, "utf8")), expected);
+    const once = readFileSync(indexPath, "utf8");
+    writeMotionFixtures(root);
+    assert.equal(readFileSync(indexPath, "utf8"), once);
   });
 
   it("writeMotionFixtures materializes every sheet plus index", () => {

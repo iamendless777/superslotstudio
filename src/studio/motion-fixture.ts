@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { RuntimeCueName } from "../motion/runtime-cues.js";
 import { buildArtBrief } from "./art-brief.js";
@@ -88,7 +88,7 @@ export function fixtureKind(sheet: MotionFixtureSheet): "tumble" | "reel" {
 }
 
 export interface MotionFixtureIndexEntry {
-  readonly id: TemplateId;
+  readonly id: string;
   readonly styleId: string;
   readonly kind: "tumble" | "reel";
   readonly totalDurationMs: number;
@@ -141,9 +141,24 @@ export function writeMotionFixtures(
     return path;
   });
   const indexPath = join(dir, "index.json");
-  writeFileSync(
-    indexPath,
-    `${JSON.stringify(buildMotionFixtureIndex(), null, 2)}\n`,
-  );
+  const generated = buildMotionFixtureIndex();
+  // The runtime also owns hand-authored fixtures (for example scatter-tease).
+  // Refresh planner entries without dropping those fixtures or changing UI order.
+  let index = generated;
+  if (existsSync(indexPath)) {
+    const existing: MotionFixtureIndex = JSON.parse(readFileSync(indexPath, "utf8"));
+    if (existing.catalogVersion !== 2 || !Array.isArray(existing.templates)
+      || existing.templates.some((entry) => !entry || typeof entry.id !== "string")) {
+      throw new Error(`Invalid motion fixture index: ${indexPath}`);
+    }
+    const remaining = new Map(generated.templates.map((entry) => [entry.id, entry]));
+    const templates = existing.templates.map((entry) => {
+      const next = remaining.get(entry.id) ?? entry;
+      remaining.delete(entry.id);
+      return next;
+    });
+    index = { catalogVersion: 2, templates: [...templates, ...remaining.values()] };
+  }
+  writeFileSync(indexPath, `${JSON.stringify(index, null, 2)}\n`);
   return { dir, written, indexPath };
 }

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [integrate/studio-motion]
   pull_request:
 
 permissions:

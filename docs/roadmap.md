@@ -222,7 +222,7 @@ review; it is not regulatory certification or permission to deploy.
 
 Status: **complete**.
 
-- [x] Run locked dependency installation for every pull request and `main` push.
+- [x] Run locked dependency installation for every pull request and `integrate/studio-motion` push.
 - [x] Run strict TypeScript checks and the full Node test suite.
 - [x] Audit production dependencies at high severity.
 - [x] Grant the workflow read-only repository permissions.

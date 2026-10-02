@@ -28,9 +28,9 @@ Games change. The studio does not. Do not carry a game name from memory into the
 
 Stake Studio is an app. Open it. Plug a model in. Same door for Grok, ChatGPT, Claude, Gemini.
 
-1. Studio source: `~/Developer/superslotstudio`, branch `integrate/studio-motion`.
+1. Studio checkout: `~/Developer/superslotstudio`, branch `integrate/studio-motion`. The one app lives in `runtime/stake-studio-source`; run the commands below from the repository root.
 2. `git pull origin integrate/studio-motion`
-3. Open the app once: `npm start`
+3. First checkout: `npm run setup` installs the root tooling and Studio dependencies. Open the app once: `npm start`
 4. A window opens. That is the factory. Do not start a second copy.
 5. MCP finds that window from the app lockfile. It does not get its own studio.
 6. Ask the studio who it is, in this order:

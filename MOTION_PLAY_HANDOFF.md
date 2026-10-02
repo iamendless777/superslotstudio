@@ -194,7 +194,7 @@ Do not invent a 2000x “F U Spins” buy. Do not revive GSAP travel / fake scat
 |--------|------|
 | `src/motion/*` | Style profiles, assess, timeline planner |
 | `src/studio/*` | Blueprints, art-brief, templates CLI, stake-runtime-bridge |
-| `npm run studio — …` | `assess`, `plan`, `cues`, `templates`, art-gap style flows |
+| `npm run studio:cli — …` | `assess`, `plan`, `cues`, `templates`, art-gap style flows |
 | Tests | `npm test` at repo root — domain suite should stay green |
 
 Planner templates are still: classic-nine, cluster-hex, sticky-five, anticipation-five. Scatter-tease fixtures live only in studio `public/motion-fixtures/` (not in `src/studio/templates.ts`).
@@ -344,7 +344,7 @@ Studio Preview remains **pixel** authority — one tumble, one spin-track.
 
 ### P3 — Cleanup
 
-- [ ] Optional: merge `integrate/studio-motion` → `main` after remaining P2 video pass. **Do not merge until Dreamfall grow / Nexus sanctum are video-confirmed.**
+- Historical branch-merge step retired: `integrate/studio-motion` is the canonical Studio branch. The Dreamfall grow / Nexus sanctum video-confirmation gate still applies to release readiness.
 - [x] Large binary assets: keep out of motion-only PRs. Scene-matte plates for Dreamfall/Nexus are cabinet art, not motion-only.
 
 ---
@@ -409,8 +409,8 @@ node --test runtime/stake-studio-source/test/board-art-brief.test.mjs
 node --test runtime/stake-studio-source/test/forced-scatter-tease.test.mjs
 node --test runtime/stake-studio-source/test/stake-round-book.test.mjs
 npm test
-npm run studio -- templates
-npm run studio -- art-brief cluster-hex
+npm run studio:cli -- templates
+npm run studio:cli -- art-brief cluster-hex
 ```
 
 ---

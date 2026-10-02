@@ -6,15 +6,18 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && node dist/tools/studio/cli.js cues --all --quiet",
     "check": "tsc -p tsconfig.json --noEmit",
-    "demo": "npm run build && node scripts/serve-demo.mjs",
     "evidence:recovery": "tsc -p tsconfig.json && node dist/tools/evidence/recovery-cli.js",
-    "studio": "npm run build && node dist/tools/studio/cli.js",
+    "studio": "npm start",
     "studio:fixtures": "npm run build",
     "start": "npm run --prefix runtime/stake-studio-source dev",
     "dev:agent": "npm run --prefix runtime/stake-studio-source dev",
     "dev": "npm run --prefix runtime/stake-studio-source dev",
     "mcp": "node runtime/stake-studio-source/mcp/server.mjs",
-    "test": "rm -rf dist && npm run build && node --test dist/test/*.test.js && node --test runtime/stake-studio-source/src/engines/presentation/*.test.js"
+    "test": "rm -rf dist && npm run build && node --test dist/test/*.test.js && node --test runtime/stake-studio-source/src/engines/presentation/*.test.js",
+    "studio:cli": "npm run build && node dist/tools/studio/cli.js",
+    "setup": "npm ci && npm ci --prefix runtime/stake-studio-source",
+    "build:studio": "npm run build && npm run --prefix runtime/stake-studio-source build -- --configLoader runner",
+    "test:studio": "npm run --prefix runtime/stake-studio-source test"
   },
   "devDependencies": {
     "@types/node": "20.19.9",

@@ -1,15 +1,21 @@
-# Merging `runtime/stake-studio-source` into the motion layer
+# Studio integration
 
-## Sources of truth
+The integration is complete on the canonical `integrate/studio-motion` branch.
+Use `npm start` from the repository root to open the one Studio app. Historical
+source branches are not development entry points; their work is preserved in Git
+history. Do not create another app or repeat the original merge procedure.
 
-| Branch | Owns |
-|--------|------|
-| `motion/multi-style-foundation` | Blueprint, style assessor, effect catalog, timeline, **runtime cue sheet**, domain RGS |
-| `agent/recover-game-source` | Full studio UI, VisualEffectRuntime, TumbleChoreography, Morpheus, math publisher, QA panels |
+## Current ownership
+
+- `src/motion` and `src/studio`: blueprint, style assessor, effect catalog,
+  timeline, and generated runtime cue sheets.
+- `runtime/stake-studio-source`: Studio UI, VisualEffectRuntime,
+  TumbleChoreography, project workflows, math publisher, and QA panels.
+- Other root `src` modules: shared domain contracts, recovery, and RGS boundaries.
 
 ## Coupling rule
 
-The studio runtime **plays cues**; it does not invent the sequence.
+The Studio runtime plays cues; it does not invent the planned sequence.
 
 ```text
 Blueprint → planFromBlueprint() → cueSheet.cues[]
@@ -19,22 +25,10 @@ Blueprint → planFromBlueprint() → cueSheet.cues[]
                                     pixels
 ```
 
-Cue names live in `src/motion/runtime-cues.ts` (`cluster.remove`, `reel.stop`, …).
-Map each name once inside the runtime. Do not re-plan timing per game in the UI.
+Cue names live in `src/motion/runtime-cues.ts`. `npm run studio:fixtures`
+regenerates the committed JSON consumed by the Studio Preview panel. The app
+launcher also rebuilds the planner and syncs fixtures when tooling is installed.
 
-## Suggested merge steps
-
-1. Keep `agent/recover-game-source` committed (done: `7c4effa`).
-2. On a new branch from `motion/multi-style-foundation`, merge or cherry-pick
-   `runtime/stake-studio-source/` only (not competing `src/` domain files).
-3. Add a thin adapter:
-   `playCueSheet(cueSheet)` → for each cue, `VisualEffectRuntime.play(cue.cue, cue)`.
-4. Wire FlagshipWorkflow / StudioProfile to call `planFromBlueprint` when a game
-   recipe is selected, then feed `cueSheet` to the studio Preview panel.
-5. Replace ad-hoc per-game animation graphs with style profile selection.
-6. Push `agent/recover-game-source` when HTTP/SSH size limits are fixed (optional backup).
-
-## Do not
-
-- Duplicate effect timing in both TypeScript motion and JS choreography.
-- Let GPT invent new tumble pipelines per title — extend the catalog/styles instead.
+Do not duplicate effect timing in TypeScript motion and JavaScript choreography.
+Extend the catalog and style profiles instead of inventing a new pipeline per game.
+See [motion cue host](motion-cue-host.md) and [the production loop](THE_LOOP.md).
